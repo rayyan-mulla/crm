@@ -9,24 +9,35 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      # Checkout repo
       - uses: actions/checkout@v3
 
+      # Authenticate to Google Cloud (use access_token format)
+      - id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          token_format: 'access_token'
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Set up gcloud CLI
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker for Artifact Registry
+      # Configure Docker for Artifact Registry
+      - name: Configure Docker
         run: gcloud auth configure-docker us-docker.pkg.dev
 
+      # Build & Push Docker image to Artifact Registry
       - name: Build & Push Docker image
         run: |
           IMAGE_NAME=us-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/olive-crm/olive-crm:$GITHUB_SHA
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
-          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
+      # Deploy to Cloud Run
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy olive-crm \
