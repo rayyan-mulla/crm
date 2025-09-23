@@ -22,7 +22,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          IMAGE_NAME=gcr.io/${{ secrets.GCP_PROJECT }}/olive-crm:$GITHUB_SHA
+          IMAGE_NAME=us-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/olive-crm/olive-crm:$GITHUB_SHA
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
 
