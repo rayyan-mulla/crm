@@ -34,4 +34,4 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-secrets=MONGO_URI=MONGO_URI:latest,SESSION_SECRET=SESSION_SECRET:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest
+            --set-secrets=MONGO_URI=MONGO_URI:latest,SESSION_SECRET=SESSION_SECRET:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest,GOOGLE_CREDENTIALS=GOOGLE_CREDENTIALS:latest

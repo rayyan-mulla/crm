@@ -1,10 +1,11 @@
 const { google } = require('googleapis');
-const path = require('path');
-const fs = require('fs');
 
-// load service account credentials
-const credentialsPath = path.join(__dirname, '../google-credentials.json');
-const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+// Load credentials from environment variable
+if (!process.env.GOOGLE_CREDENTIALS) {
+  throw new Error('Missing GOOGLE_CREDENTIALS environment variable');
+}
+
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 
