@@ -1,0 +1,377 @@
+// controllers/leadController.js
+const Lead = require('../models/Lead');
+const User = require('../models/User');
+const { getSheetRows } = require('../utils/googleSheets'); // optional, used by import
+const mongoose = require('mongoose');
+const multer = require("multer");
+const XLSX = require("xlsx");
+const fs = require("fs");
+const path = require("path");
+
+const upload = multer({ dest: "uploads/" });
+
+exports.listLeads = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || '1'));
+    const limit = Math.max(5, parseInt(req.query.limit || '20'));
+    const search = (req.query.search || '').trim();
+    const status = req.query.status || '';
+    const source = req.query.source || '';
+    const sortField = req.query.sortField || 'createdAt';
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+
+    // Build filter
+    const filter = {};
+    if (search) {
+      const re = new RegExp(search, 'i');
+      filter.$or = [
+        { customer_name: re },
+        { email_id: re },
+        { contact_number: re },
+        { city: re },
+        { requirement: re }
+      ];
+    }
+    if (status) filter.status = status;
+    if (source) filter.source = source;
+
+    // Restrict agent view (robustly handle string/ObjectId stored values)
+    if (req.session && req.session.user && req.session.user.role === 'agent') {
+      // session can store id as `id` or `_id`
+      const sessionId = req.session.user.id || req.session.user._id || req.session.user.uid;
+      if (!sessionId) {
+        console.warn('listLeads: agent session id missing', req.session.user);
+        // no id — make filter impossible
+        filter.assignedTo = null;
+      } else {
+        let objId = null;
+        try {
+          objId = mongoose.Types.ObjectId(sessionId);
+        } catch (e) {
+          objId = null;
+        }
+        // match either ObjectId or string form (covers both DB shapes)
+        filter.assignedTo = objId ? { $in: [objId, sessionId] } : sessionId;
+      }
+    }
+
+    console.log('listLeads filter:', JSON.stringify(filter));
+
+    // Count + query
+    const total = await Lead.countDocuments(filter);
+    const leads = await Lead.find(filter)
+      .populate('assignedTo', 'fullName username role')
+      .sort({ [sortField]: sortOrder })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    // Only admins need users for assignment
+    let users = [];
+    if (req.session && req.session.user && req.session.user.role === 'admin') {
+      users = await User.find({ role: { $in: ['agent', 'admin'] } }, 'fullName role').lean();
+    }
+
+    res.render('leads/list', {
+      leads,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      query: req.query,
+      users,
+      user: req.session.user,
+      activePage: 'leads'
+    });
+  } catch (err) {
+    console.error('listLeads error', err);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.getCreate = (req, res) => {
+  res.render('leads/create', { error: null });
+};
+
+exports.postCreate = async (req, res) => {
+  try {
+    const {
+      date,
+      customer_name,
+      contact_number,
+      email_id,
+      city,
+      requirement
+    } = req.body;
+
+    const lead = new Lead({
+      date: date ? new Date(date) : new Date(),
+      customer_name,
+      contact_number,
+      email_id,
+      city,
+      requirement,
+      source: 'manual',
+      status: 'New',
+      sourceMeta: {
+        createdBy: new mongoose.mongo.ObjectId(req.session.user.id),
+        createdAt: new Date(),
+        method: 'manual_form'
+      },
+      statusHistory: [
+        {
+          status: 'New',
+          changedBy: new mongoose.mongo.ObjectId(req.session.user.id),
+          changedAt: new Date()
+        }
+      ]
+    });
+
+    await lead.save();
+    res.redirect('/leads');
+  } catch (err) {
+    console.error('postCreate lead error', err);
+    res.render('leads/create', {
+      error: 'Could not create lead',
+      user: req.session.user
+    });
+  }
+};
+
+exports.getLead = async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.redirect('/leads');
+
+    const lead = await Lead.findById(id)
+      .populate('assignedTo', 'fullName username role')
+      .populate('notes.user', 'fullName username')
+      .populate('statusHistory.changedBy', 'fullName username')
+      .lean(); // stop populating sourceMeta.* because it won’t work
+
+    if (!lead) return res.redirect('/leads');
+
+    // 🔹 Handle sourceMeta user manually
+    if (lead.sourceMeta) {
+      const userId =
+        lead.sourceMeta.importedBy ||
+        lead.sourceMeta.uploadedBy ||
+        lead.sourceMeta.createdBy ||
+        null;
+
+      if (userId) {
+        const u = await User.findById(userId, 'fullName username').lean();
+        lead.sourceMeta.byUser = u ? u.fullName : null;
+      } else {
+        lead.sourceMeta.byUser = null;
+      }
+    }
+
+    let users = [];
+    if (req.session.user && req.session.user.role === 'admin') {
+      users = await User.find(
+        { role: { $in: ['agent', 'admin'] } },
+        'fullName username role'
+      ).lean();
+    }
+
+    res.render('leads/detail', {
+      lead,
+      users,
+      user: req.session.user,
+    });
+  } catch (err) {
+    console.error('getLead error', err);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.assignLead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body; // agent id (string)
+    const lead = await Lead.findById(id);
+    if (!lead) return res.status(404).send('Not found');
+
+    const oldAssign = lead.assignedTo ? lead.assignedTo.toString() : null;
+    lead.assignedTo = userId; // mongoose will cast
+    lead.status = 'Assigned';
+
+    lead.statusHistory.push({
+      status: 'Assigned',
+      changedBy: req.session.user.id || req.session.user._id,
+      createdAt: new Date()
+    });
+
+    await lead.save();
+    res.redirect(`/leads/${id}`);
+  } catch (err) {
+    console.error('assignLead', err);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.updateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { status, customStatus } = req.body;
+
+    if (status === "__other__" && customStatus) {
+      status = customStatus.trim();
+    }
+
+    const lead = await Lead.findById(id);
+    if (!lead) return res.status(404).send('Not found');
+
+    lead.status = status;
+    lead.statusHistory.push({ status, changedBy: req.session.user.id });
+    await lead.save();
+    res.redirect(`/leads/${id}`);
+  } catch (err) {
+    console.error('updateStatus', err);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.addNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { note } = req.body;
+    const lead = await Lead.findById(id);
+    if (!lead) return res.status(404).send('Not found');
+
+    lead.notes.push({ text: note, user: req.session.user.id });
+    await lead.save();
+    res.redirect(`/leads/${id}`);
+  } catch (err) {
+    console.error('addNote', err);
+    res.status(500).send('Server error');
+  }
+};
+
+// Import from Google Sheet and save into DB
+exports.importFromGoogle = async (req, res) => {
+  try {
+    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const rows = await getSheetRows(sheetId, 'Sheet1!A2:Z');
+
+    const leads = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const externalId = `row_${i + 2}`; // keep track of row index as externalId
+
+      const leadData = {
+        date: r[0] ? new Date(r[0]) : new Date(),
+        customer_name: r[1] || '',
+        contact_number: r[2] || '',
+        email_id: r[3] || '',
+        city: r[4] || '',
+        requirement: r[5] || '',
+        status: 'New',
+        source: 'google_sheet',
+        sourceMeta: {
+            sheetId: sheetId,
+            row: r,
+            rowNumber: i + 2,
+            importedBy: new mongoose.mongo.ObjectId(req.session.user.id),
+            importedAt: new Date()
+        },
+        externalId
+      };
+
+      // prevent duplicate imports (upsert by externalId)
+      const lead = await Lead.findOneAndUpdate(
+        { externalId, source: 'google_sheet' },
+        { $set: leadData },
+        { upsert: true, new: true }
+      );
+
+      leads.push(lead);
+    }
+
+    res.redirect('/leads');
+  } catch (err) {
+    console.error('importFromGoogle error', err);
+    res.status(500).send('Error importing leads from Google Sheets');
+  }
+};
+
+// Upload from Excel file and save into DB
+exports.uploadFromExcel = [
+  upload.single("excelFile"),
+  async (req, res) => {
+    try {
+      const filePath = req.file.path;
+      const workbook = XLSX.readFile(filePath);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet);
+
+      const leads = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const externalId = `row_${i + 2}`; // Excel row index
+
+        const leadData = {
+          date: r["Date"] ? new Date(r["Date"]) : new Date(),
+          customer_name: r["Customer Name"] || "",
+          contact_number: r["Contact Number"] || "",
+          email_id: r["Email ID"] || "",
+          city: r["City"] || "",
+          requirement: r["Requirement"] || "",
+          status: "New",
+          source: "excel_upload",
+          sourceMeta: {
+            fileName: req.file.originalname,
+            row: r,
+            rowNumber: i + 2,
+            uploadedBy: new mongoose.mongo.ObjectId(req.session.user.id),
+            uploadedAt: new Date()
+          },
+          externalId
+        };
+
+        // upsert by externalId & source
+        const lead = await Lead.findOneAndUpdate(
+          { externalId, source: "excel_upload" },
+          { $set: leadData },
+          { upsert: true, new: true }
+        );
+
+        leads.push(lead);
+      }
+
+      // cleanup uploaded file
+      fs.unlinkSync(filePath);
+
+      res.redirect("/leads");
+    } catch (err) {
+      console.error("uploadFromExcel error", err);
+      res.status(500).send("Error importing leads from Excel");
+    }
+  }
+];
+
+// Provide sample Excel template
+exports.sampleExcel = (req, res) => {
+  try {
+    const headers = [
+      ["Date", "Customer Name", "Contact Number", "Email", "City", "Requirement"]
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(headers);
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+
+    // Write to buffer (no temp file)
+    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
+
+    res.setHeader("Content-Disposition", "attachment; filename=sample-leads-template.xlsx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(buffer);
+  } catch (err) {
+    console.error("Error generating sample Excel:", err);
+    res.status(500).send("Could not generate sample Excel");
+  }
+};

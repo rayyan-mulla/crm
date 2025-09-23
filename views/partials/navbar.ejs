@@ -1,0 +1,75 @@
+<style>
+  /* Navbar logo styling */
+  .navbar-brand img {
+    height: 50px; /* adjust as needed */
+    width: auto;
+  }
+
+  /* Centered brand text */
+  .navbar-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Adjust for mobile */
+  @media (max-width: 992px) {
+    .navbar-center {
+      font-size: 14px;
+    }
+  }
+</style>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm position-relative">
+  <div class="container-fluid">
+    <!-- Logo on the left -->
+    <a class="navbar-brand" href="/">
+      <img src="/images/logo.png" alt="Olive Chairs Logo">
+    </a>
+
+    <!-- Centered CRM text -->
+    <div class="navbar-center fw-bold">
+      <span class="d-lg-none">CRM</span>
+      <span class="d-none d-lg-inline">Customer Relationship Management</span>
+    </div>
+
+    <!-- Mobile toggle -->
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <!-- Links on the right -->
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link <%= (activePage === 'dashboard') ? 'active' : '' %>" href="/">Dashboard</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= (activePage === 'leads') ? 'active' : '' %>" href="/leads">Leads</a>
+        </li>
+        <% if (user && user.role === 'admin') { %>
+        <li class="nav-item">
+          <a class="nav-link <%= (activePage === 'register') ? 'active' : '' %>" href="/auth/register">Register User</a>
+        </li>
+        <% } %>
+
+        <!-- Profile dropdown -->
+        <% if (user) { %>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle me-1"></i>
+            <span><%= user.fullName %> (<%= user.role %>)</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><span class="dropdown-item-text">Signed in as <strong><%= user.username %></strong></span></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="/auth/logout">Logout</a></li>
+          </ul>
+        </li>
+        <% } %>
+      </ul>
+    </div>
+  </div>
+</nav>

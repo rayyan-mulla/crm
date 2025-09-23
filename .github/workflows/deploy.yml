@@ -1,0 +1,37 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker
+
+      - name: Build Docker image
+        run: |
+          IMAGE_NAME=gcr.io/${{ secrets.GCP_PROJECT }}/olive-crm:$GITHUB_SHA
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy olive-crm \
+            --image gcr.io/${{ secrets.GCP_PROJECT }}/olive-crm:$GITHUB_SHA \
+            --region ${{ secrets.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --set-secrets=MONGO_URI=MONGO_URI:latest,SESSION_SECRET=SESSION_SECRET:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest

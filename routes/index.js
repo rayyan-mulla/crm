@@ -1,11 +1,8 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
+const dashboardCtrl = require('../controllers/dashboardController'); // check this path
+
 const { isLoggedIn } = require('../middlewares/auth');
 
-/* GET home page. */
-router.get('/', isLoggedIn, function(req, res, next) {
-  if (!req.session.user) return res.redirect('/auth/login');
-  res.render('index', { title: 'Express' });
-});
-
+router.get('/', isLoggedIn, dashboardCtrl.getDashboard); // getDashboard must exist
 module.exports = router;

@@ -1,0 +1,276 @@
+<% function displaySource(source) { 
+    const map = {
+      google_sheet: 'Google Sheets',
+      meta: 'Meta',
+      indiamart: 'IndiaMART',
+      manual: 'Manual Entry',
+      excel_upload: 'Excel Upload'
+    };
+    return map[source] || source;
+} %>
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Lead Detail - Olive Chairs</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <style>
+    .scroll-box, .status-box {
+      min-height: 100px;
+      max-height: 160px;  /* reduced from 280px */
+      overflow-y: auto;
+    }
+
+    .chat-box {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 10px;
+      min-height: 260px;
+      max-height: 400px;
+      overflow-y: auto;
+      flex-grow: 1;
+      margin-bottom: 0.5rem;
+    }
+    .chat-msg {
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      border-radius: 15px;
+      max-width: 75%;
+      word-wrap: break-word;
+    }
+    .chat-msg.sent {
+      background: #d1e7dd;
+      margin-left: auto;
+    }
+    .chat-msg.received {
+      background: #e2e3e5;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+<div class="container py-4">
+  
+  <!-- Lead Info -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <!-- Header -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0 fw-bold text-dark">
+          <i class="bi bi-person-circle me-2 text-secondary"></i>
+          <%= lead.customer_name %>
+        </h4>
+        <span class="badge bg-light text-dark border"><%= lead.status %></span>
+      </div>
+
+      <div class="row g-4">
+        <!-- Contact Info -->
+        <div class="col-md-6">
+          <div class="mb-3">
+            <small class="text-muted d-block">Phone</small>
+            <div class="d-flex align-items-center">
+              <span class="me-3"><%= lead.contact_number %></span>
+              <% if (lead.contact_number) { %>
+                <a href="tel:<%= lead.contact_number %>" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-telephone"></i> Call
+                </a>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <small class="text-muted d-block">Email</small>
+            <div class="d-flex align-items-center">
+              <span class="me-3"><%= lead.email_id || '-' %></span>
+              <% if (lead.email_id) { %>
+                <a href="mailto:<%= lead.email_id %>" class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-envelope"></i> Draft
+                </a>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <small class="text-muted d-block">City</small>
+            <span><%= lead.city || '—' %></span>
+          </div>
+        </div>
+
+        <!-- Meta Info -->
+        <div class="col-md-6">
+          <div class="mb-3">
+            <small class="text-muted d-block">Date</small>
+            <span><%= lead.date ? new Date(lead.date).toLocaleDateString() : '-' %></span>
+          </div>
+          <div class="mb-3">
+            <small class="text-muted d-block">Source</small>
+            <span class="fw-semibold text-dark">
+                <%= displaySource(lead.source) %>
+                <% if (lead.sourceMeta && (lead.sourceMeta.byUser || lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt)) { %>
+                <small class="text-muted">
+                    (
+                    <% if (lead.sourceMeta.byUser) { %>
+                    by <%= lead.sourceMeta.byUser %>
+                    <% } %>
+                    <% 
+                    const sourceDate = lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt;
+                    if (sourceDate) { 
+                    %>
+                    on <%= new Date(sourceDate).toLocaleString() %>
+                    <% } %>
+                    )
+                </small>
+                <% } %>
+            </span>
+          </div>
+          <div class="mb-3">
+            <small class="text-muted d-block">Assigned To</small>
+            <span><%= lead.assignedTo ? lead.assignedTo.fullName : '—' %></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign & Status -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-bold mb-3">Assign Lead</h6>
+          <form action="/leads/<%= lead._id %>/assign" method="post" class="d-flex">
+            <select name="userId" class="form-select me-2">
+              <option value="">-- Assign User --</option>
+              <% users.forEach(u => { %>
+                <option value="<%= u._id %>" <%= lead.assignedTo && lead.assignedTo._id.toString() === u._id.toString() ? 'selected' : '' %>>
+                  <%= u.fullName %> (<%= u.role %>)
+                </option>
+              <% }) %>
+            </select>
+            <button class="btn btn-outline-primary">Assign</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-bold mb-3">Update Status</h6>
+          <form action="/leads/<%= lead._id %>/status" method="post" class="d-flex align-items-center">
+            <select name="status" id="statusSelect" class="form-select me-2" onchange="toggleCustomStatus()">
+              <option value="">-- Update Status --</option>
+              <% ["New","In Progress","Closed","Assigned"].forEach(s => { %>
+                <option value="<%= s %>" <%= lead.status===s ? 'selected' : '' %>><%= s %></option>
+              <% }) %>
+              <option value="__other__">Other...</option>
+            </select>
+            <input type="text" name="customStatus" id="customStatusInput" class="form-control me-2 d-none" placeholder="Enter custom status">
+            <button class="btn btn-outline-success">Update</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes + Status History (Left) | WhatsApp (Right) -->
+  <div class="row">
+    <div class="col-md-6">
+      <!-- Notes -->
+      <div class="card shadow-sm mb-2">
+        <div class="card-body d-flex flex-column">
+          <h5>Notes</h5>
+          <form action="/leads/<%= lead._id %>/note" method="post" class="d-flex mb-3">
+            <input type="text" name="note" class="form-control me-2" placeholder="Add a note..." required>
+            <button class="btn btn-primary">Add</button>
+          </form>
+          <div class="scroll-box flex-grow-1">
+            <% if (lead.notes.length) { %>
+              <% lead.notes.slice().reverse().forEach(n => { %>
+                <div class="border rounded p-2 mb-2 bg-light">
+                  <%= n.text %>
+                  <small class="text-muted d-block">
+                    — <%= n.user ? n.user.fullName : 'Unknown' %>, 
+                    <%= new Date(n.createdAt).toLocaleString() %>
+                  </small>
+                </div>
+              <% }) %>
+            <% } else { %>
+              <p class="text-muted">No notes yet</p>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status History -->
+      <div class="card shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <h5>Status History</h5>
+          <div class="status-box flex-grow-1">
+            <% if (lead.statusHistory.length) { %>
+              <% lead.statusHistory.slice().reverse().forEach(h => { %>
+                <div class="border rounded p-2 mb-2 bg-light">
+                  <%= h.status %>
+                  <small class="text-muted d-block">
+                    — <%= h.changedBy ? h.changedBy.fullName : 'Unknown' %>, 
+                    <%= new Date(h.createdAt).toLocaleString() %>
+                  </small>
+                </div>
+              <% }) %>
+            <% } else { %>
+              <p class="text-muted">No status updates yet</p>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WhatsApp -->
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100 d-flex flex-column">
+            <div class="card-body d-flex flex-column">
+            <h5>WhatsApp</h5>
+            <div class="chat-box">
+                <div class="chat-msg received">Hello, I am interested in your chairs.</div>
+                <div class="chat-msg sent">Great! Can you tell me more about your requirements?</div>
+                <div class="chat-msg received">I need 20 office chairs.</div>
+            </div>
+            <form class="d-flex mt-2">
+                <input type="text" class="form-control me-2" placeholder="Type a message...">
+                <button class="btn btn-success"><i class="bi bi-send"></i></button>
+            </form>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleCustomStatus() {
+    const select = document.getElementById('statusSelect');
+    const input = document.getElementById('customStatusInput');
+    if (select.value === '__other__') {
+      input.classList.remove('d-none');
+      input.required = true;
+    } else {
+      input.classList.add('d-none');
+      input.required = false;
+    }
+  }
+</script>
+
+<script>
+  function scrollChatToBottom() {
+    const chatBox = document.querySelector('.chat-box');
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+  // Auto-scroll on load
+  window.addEventListener('DOMContentLoaded', scrollChatToBottom);
+  // Optional: re-scroll on new message add (you’ll hook this after adding msgs via JS/Server)
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
