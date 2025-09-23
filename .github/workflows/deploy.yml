@@ -17,19 +17,20 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-docker.pkg.dev
 
-      - name: Build Docker image
+      - name: Build & Push Docker image
         run: |
           IMAGE_NAME=us-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/olive-crm/olive-crm:$GITHUB_SHA
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy olive-crm \
-            --image gcr.io/${{ secrets.GCP_PROJECT }}/olive-crm:$GITHUB_SHA \
+            --image $IMAGE_NAME \
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated \
