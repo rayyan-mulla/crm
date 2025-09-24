@@ -59,24 +59,13 @@ jobs:
       - name: Install gcloud beta components
         run: gcloud components install beta --quiet
 
-      # Map custom domain
-      - name: Map custom domain
-        run: |
-          if [ -n "${{ secrets.CUSTOM_DOMAIN }}" ]; then
-            gcloud beta run domain-mappings create \
-              --service=olive-crm \
-              --region=${{ secrets.GCP_REGION }} \
-              --domain=crm.${{ secrets.CUSTOM_DOMAIN }}
-          else
-            echo "CUSTOM_DOMAIN not set, skipping domain mapping"
-          fi
-
       # Show DNS records for the mapped domain
       - name: Describe domain mapping (print DNS records)
         run: |
           if [ -n "${{ secrets.CUSTOM_DOMAIN }}" ]; then
             echo "Fetching DNS records for crm.${{ secrets.CUSTOM_DOMAIN }}..."
-            gcloud beta run domain-mappings describe crm.${{ secrets.CUSTOM_DOMAIN }} \
+            gcloud beta run domain-mappings describe \
+              --domain=crm.${{ secrets.CUSTOM_DOMAIN }} \
               --region=${{ secrets.GCP_REGION }} \
               --format="yaml"
           else

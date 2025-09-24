@@ -8,7 +8,7 @@ router.post('/login', authController.postLogin);
 
 router.get('/logout', authController.logout);
 
-router.get('/register', isAdmin, (req, res) => res.render('register', { activePage: 'register', error: null }));
+router.get('/register', isAdmin, (req, res) => res.render('register', { user: req.session.user, activePage: 'register', error: null }));
 router.post('/register', isAdmin, authController.createUser);
 
 module.exports = router;
