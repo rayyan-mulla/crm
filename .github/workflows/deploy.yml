@@ -65,6 +65,7 @@ jobs:
           if [ -n "${{ secrets.CUSTOM_DOMAIN }}" ]; then
             gcloud beta run domain-mappings create \
               --service=olive-crm \
+              --region=${{ secrets.GCP_REGION }} \
               --domain=crm.${{ secrets.CUSTOM_DOMAIN }}
           else
             echo "CUSTOM_DOMAIN not set, skipping domain mapping"
