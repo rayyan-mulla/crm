@@ -56,7 +56,6 @@ jobs:
             --role="roles/run.invoker"
 
       - name: Map custom domain
-        if: ${{ secrets.CUSTOM_DOMAIN != '' }}
         run: |
           gcloud beta run domain-mappings create \
             --service=olive-crm \
