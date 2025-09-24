@@ -60,5 +60,4 @@ jobs:
         run: |
           gcloud run domain-mappings create \
             --service=olive-crm \
-            --region=${{ secrets.GCP_REGION }} \
             --domain=crm.${{ secrets.CUSTOM_DOMAIN }} || echo "Domain mapping may already exist"
