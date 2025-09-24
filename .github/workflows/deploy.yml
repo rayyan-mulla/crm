@@ -12,13 +12,14 @@ jobs:
       # Checkout repo
       - uses: actions/checkout@v3
 
-      # Authenticate to Google Cloud (use access_token format)
+      # Authenticate with GCP
       - id: auth
         uses: google-github-actions/auth@v1
         with:
+          token_format: 'access_token'
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # Set up gcloud CLI
+      # Install gcloud CLI
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
@@ -28,7 +29,7 @@ jobs:
       - name: Configure Docker
         run: gcloud auth configure-docker us-docker.pkg.dev
 
-      # Build & Push Docker image to Artifact Registry
+      # Build & push Docker image
       - name: Build & Push Docker image
         run: |
           IMAGE_NAME=us-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/olive-crm/olive-crm:$GITHUB_SHA
@@ -46,3 +47,19 @@ jobs:
             --allow-unauthenticated \
             --port 8080 \
             --set-secrets=MONGO_URI=MONGO_URI:latest,SESSION_SECRET=SESSION_SECRET:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest,GOOGLE_CREDENTIALS=GOOGLE_CREDENTIALS:latest
+
+      # Ensure unauthenticated access (fix 401/403)
+      - name: Allow unauthenticated access
+        run: |
+          gcloud run services add-iam-policy-binding olive-crm \
+            --region=${{ secrets.GCP_REGION }} \
+            --member="allUsers" \
+            --role="roles/run.invoker"
+
+      # Map custom domain (subdomain)
+      - name: Map custom domain
+        run: |
+          gcloud run domain-mappings create \
+            --service=olive-crm \
+            --region=${{ secrets.GCP_REGION }} \
+            --domain=crm.${{ secrets.CUSTOM_DOMAIN }} || echo "Domain mapping may already exist"
