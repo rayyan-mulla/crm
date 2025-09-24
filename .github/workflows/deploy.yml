@@ -36,7 +36,7 @@ jobs:
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
 
-      # Deploy to Cloud Run
+      # Deploy to Cloud Run with secrets (always latest)
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy olive-crm \
@@ -47,7 +47,7 @@ jobs:
             --port 8080 \
             --set-secrets=MONGO_URI=MONGO_URI:latest,SESSION_SECRET=SESSION_SECRET:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest,GOOGLE_CREDENTIALS=GOOGLE_CREDENTIALS:latest
 
-      # Ensure unauthenticated access (fix 401/403)
+      # Ensure unauthenticated access
       - name: Allow unauthenticated access
         run: |
           gcloud run services add-iam-policy-binding olive-crm \
@@ -55,8 +55,9 @@ jobs:
             --member="allUsers" \
             --role="roles/run.invoker"
 
-      # Map custom domain (subdomain)
+      # Map custom domain
       - name: Map custom domain
+        if: ${{ secrets.CUSTOM_DOMAIN != '' }}
         run: |
           gcloud run domain-mappings create \
             --service=olive-crm \
