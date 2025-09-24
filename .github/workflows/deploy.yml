@@ -55,6 +55,11 @@ jobs:
             --member="allUsers" \
             --role="roles/run.invoker"
 
+      # Ensure gcloud beta is installed (for domain mappings)
+      - name: Install gcloud beta components
+        run: gcloud components install beta --quiet
+
+      # Map custom domain
       - name: Map custom domain
         run: |
           if [ -n "${{ secrets.CUSTOM_DOMAIN }}" ]; then
