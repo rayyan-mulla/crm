@@ -24,7 +24,7 @@ router.get('/:id', isLoggedIn, leadCtrl.getLead);
 // assign (admin)
 router.post('/:id/assign', isAdmin, leadCtrl.assignLead);
 
-// update status (assigned agent or admin)
+// update status (assigned user or admin)
 router.post('/:id/status', isLoggedIn, leadCtrl.updateStatus);
 
 // add note

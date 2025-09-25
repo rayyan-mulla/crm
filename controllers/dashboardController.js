@@ -42,7 +42,7 @@ exports.getDashboard = async (req, res) => {
       charts.source.data = Object.values(sourceCount);
 
       // User performance table
-      const allUsers = await User.find({ role: { $in: ['agent', 'admin'] } }).lean();
+      const allUsers = await User.find({ role: { $in: ['user', 'admin'] } }).lean();
 
       usersData = allUsers.map(u => {
         const userLeads = allLeads.filter(l => {
@@ -78,7 +78,7 @@ exports.getDashboard = async (req, res) => {
         }));
 
     } else {
-      // Agent sees only leads they created or assigned to them
+      // User sees only leads they created or assigned to them
       const userObjectId = new mongoose.Types.ObjectId(user.id);
       const myLeads = await Lead.find({
         $or: [

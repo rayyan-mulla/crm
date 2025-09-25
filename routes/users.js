@@ -6,7 +6,7 @@ const { isAdmin } = require('../middlewares/auth');
 router.get('/', isAdmin, async (req, res) => {
   try {
     const users = await User.find().sort({ createdAt: -1 });
-    res.render('users', { users });
+    res.render('users', { user: req.session.user, activePage: 'users', users });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -14,11 +14,10 @@ router.get('/', isAdmin, async (req, res) => {
 });
 
 router.get('/:id/edit', isAdmin, async (req, res) => {
-  console.log("HIT EDIT ROUTE:", req.params.id);
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.redirect('/users');
-    res.render('editUser', { user, error: null });
+    const editUser = await User.findById(req.params.id);
+    if (!editUser) return res.redirect('/users');
+    res.render('editUser', { editUser, user: req.session.user, activePage: 'editUser', error: null });
   } catch (err) {
     console.error(err);
     res.redirect('/users');

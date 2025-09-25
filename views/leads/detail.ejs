@@ -51,6 +51,7 @@
   </style>
 </head>
 <body>
+<%- include('../partials/navbar', { user, activePage }) %>
 <div class="container py-4">
   
   <!-- Lead Info -->
@@ -143,7 +144,7 @@
           <form action="/leads/<%= lead._id %>/assign" method="post" class="d-flex">
             <select name="userId" class="form-select me-2">
               <option value="">-- Assign User --</option>
-              <% users.forEach(u => { %>
+              <% assignableUsers.forEach(u => { %>
                 <option value="<%= u._id %>" <%= lead.assignedTo && lead.assignedTo._id.toString() === u._id.toString() ? 'selected' : '' %>>
                   <%= u.fullName %> (<%= u.role %>)
                 </option>

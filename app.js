@@ -41,14 +41,16 @@ app.set('view engine', 'ejs');
 const indexRouter = require('./routes/index');
 const leadsRouter = require('./routes/leads');
 const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users')
 
 app.use('/', indexRouter);
 app.use('/leads', leadsRouter);
 app.use('/auth', authRouter);
+app.use('/users', usersRouter)
 
 // --- 404 handler ---
 app.use((req, res, next) => {
-  res.status(404).render('404', { url: req.originalUrl });
+  res.status(404).send('404 - Page Not Found');
 });
 
 // --- Error handler ---

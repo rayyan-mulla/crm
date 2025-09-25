@@ -25,6 +25,7 @@
     </style>
   </head>
   <body>
+    <%- include('partials/navbar', { user, activePage }) %>
     <div class="container d-flex align-items-center justify-content-center" style="min-height:100vh;">
       <div class="col-md-6">
         <div class="text-center mb-4">
@@ -38,15 +39,15 @@
               <div class="alert alert-danger py-2"><%= error %></div>
             <% } %>
 
-            <form action="/users/<%= user._id %>/edit" method="post">
+            <form action="/users/<%= editUser._id %>/edit" method="post">
               <div class="mb-3">
                 <label class="form-label">Full Name</label>
-                <input name="fullName" class="form-control" required value="<%= user.fullName %>" />
+                <input name="fullName" class="form-control" required value="<%= editUser.fullName %>" />
               </div>
 
               <div class="mb-3">
                 <label class="form-label">Email</label>
-                <input name="email" type="email" class="form-control" required value="<%= user.email %>" />
+                <input name="email" type="email" class="form-control" required value="<%= editUser.email %>" />
               </div>
 
               <div class="mb-3 position-relative">
@@ -62,8 +63,8 @@
               <div class="mb-3">
                 <label class="form-label">Role</label>
                 <select name="role" class="form-select" required>
-                  <option value="agent" <%= user.role === 'agent' ? 'selected' : '' %>>Agent</option>
-                  <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                  <option value="user" <%= editUser.role === 'user' ? 'selected' : '' %>>User</option>
+                  <option value="admin" <%= editUser.role === 'admin' ? 'selected' : '' %>>Admin</option>
                 </select>
               </div>
 

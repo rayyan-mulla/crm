@@ -55,7 +55,7 @@ exports.createUser = async (req, res) => {
       username: username.toLowerCase(),
       email,
       password,
-      role: role || 'agent'
+      role: role || 'user'
     });
 
     await newUser.save();

@@ -35,12 +35,12 @@ exports.listLeads = async (req, res) => {
     if (status) filter.status = status;
     if (source) filter.source = source;
 
-    // Restrict agent view (robustly handle string/ObjectId stored values)
-    if (req.session && req.session.user && req.session.user.role === 'agent') {
+    // Restrict user view (robustly handle string/ObjectId stored values)
+    if (req.session && req.session.user && req.session.user.role === 'user') {
       // session can store id as `id` or `_id`
       const sessionId = req.session.user.id || req.session.user._id || req.session.user.uid;
       if (!sessionId) {
-        console.warn('listLeads: agent session id missing', req.session.user);
+        console.warn('listLeads: user session id missing', req.session.user);
         // no id — make filter impossible
         filter.assignedTo = null;
       } else {
@@ -55,8 +55,6 @@ exports.listLeads = async (req, res) => {
       }
     }
 
-    console.log('listLeads filter:', JSON.stringify(filter));
-
     // Count + query
     const total = await Lead.countDocuments(filter);
     const leads = await Lead.find(filter)
@@ -69,7 +67,7 @@ exports.listLeads = async (req, res) => {
     // Only admins need users for assignment
     let users = [];
     if (req.session && req.session.user && req.session.user.role === 'admin') {
-      users = await User.find({ role: { $in: ['agent', 'admin'] } }, 'fullName role').lean();
+      users = await User.find({ role: { $in: ['user', 'admin'] } }, 'fullName role').lean();
     }
 
     res.render('leads/list', {
@@ -170,15 +168,16 @@ exports.getLead = async (req, res) => {
     let users = [];
     if (req.session.user && req.session.user.role === 'admin') {
       users = await User.find(
-        { role: { $in: ['agent', 'admin'] } },
+        { role: { $in: ['user', 'admin'] } },
         'fullName username role'
       ).lean();
     }
 
     res.render('leads/detail', {
       lead,
-      users,
+      assignableUsers: users,
       user: req.session.user,
+      activePage: 'leadsDetail'
     });
   } catch (err) {
     console.error('getLead error', err);
@@ -189,7 +188,7 @@ exports.getLead = async (req, res) => {
 exports.assignLead = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body; // agent id (string)
+    const { userId } = req.body; // user id (string)
     const lead = await Lead.findById(id);
     if (!lead) return res.status(404).send('Not found');
 
