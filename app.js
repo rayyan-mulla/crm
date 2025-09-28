@@ -42,11 +42,13 @@ const indexRouter = require('./routes/index');
 const leadsRouter = require('./routes/leads');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users')
+const metaWebhookRouter = require('./routes/metaWebhook');
 
 app.use('/', indexRouter);
 app.use('/leads', leadsRouter);
 app.use('/auth', authRouter);
 app.use('/users', usersRouter)
+app.use('/webhooks/meta', metaWebhookRouter);
 
 // --- 404 handler ---
 app.use((req, res, next) => {

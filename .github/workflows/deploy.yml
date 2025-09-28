@@ -45,7 +45,7 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-secrets=MONGO_URI=MONGO_URI:latest,SESSION_SECRET=SESSION_SECRET:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest,GOOGLE_CREDENTIALS=GOOGLE_CREDENTIALS:latest
+            --set-secrets=MONGO_URI=MONGO_URI:latest,SESSION_SECRET=SESSION_SECRET:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest,GOOGLE_CREDENTIALS=GOOGLE_CREDENTIALS:latest,META_VERIFY_TOKEN:latest,META_PAGE_ACCESS_TOKEN:latest
 
       # Ensure unauthenticated access (fix 401/403)
       - name: Allow unauthenticated access
