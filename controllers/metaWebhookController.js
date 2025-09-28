@@ -20,6 +20,7 @@ exports.verifyWebhook = (req, res) => {
 
 // POST /webhooks/meta (for new leads)
 exports.handleWebhook = async (req, res) => {
+  console.log("Incoming Meta webhook:", JSON.stringify(req.body, null, 2));
   try {
     if (req.body.object === 'page') {
       for (const entry of req.body.entry || []) {
@@ -29,7 +30,7 @@ exports.handleWebhook = async (req, res) => {
 
             // Fetch lead details
             const { data: leadData } = await axios.get(
-              `https://graph.facebook.com/v19.0/${leadgenId}`,
+              `https://graph.facebook.com/v23.0/${leadgenId}`,
               { params: { access_token: process.env.META_PAGE_ACCESS_TOKEN } }
             );
 
