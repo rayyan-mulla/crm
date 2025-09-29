@@ -8,7 +8,10 @@ let PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN; // fallback if refre
 
 // Helper: generate appsecret_proof for secure API calls
 function getAppSecretProof(token) {
-  return crypto.createHmac('sha256', APP_SECRET).update(token).digest('hex');
+  if (!APP_SECRET) {
+    throw new Error("Meta App Secret (META_APP_SECRET) is missing or not set in env");
+  }
+  return crypto.createHmac('sha256', APP_SECRET.trim()).update(token).digest('hex');
 }
 
 // Helper: refresh the page token using long-lived token flow
