@@ -119,6 +119,10 @@ exports.handleWebhook = async (req, res) => {
               leadData.field_data.find(f => f.name === 'phone_number')?.values?.[0] || '';
             const email =
               leadData.field_data.find(f => f.name === 'email')?.values?.[0] || '';
+            const requirement = 
+              leadData.field_data.find(f => f.name === 'order_details_and_requirements')?.values?.[0] || '';
+            const city = 
+              leadData.field_data.find(f => f.name === 'city')?.values?.[0] || '';
 
             // Save to DB
             await Lead.create({
@@ -126,7 +130,8 @@ exports.handleWebhook = async (req, res) => {
               customer_name: customerName,
               contact_number: contactNumber,
               email_id: email,
-              requirement: 'Meta Lead',
+              city: city,
+              requirement: requirement,
               status: 'New',
               source: 'meta',
               sourceMeta: leadData,

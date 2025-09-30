@@ -1,12 +1,15 @@
 // controllers/leadController.js
 const Lead = require('../models/Lead');
 const User = require('../models/User');
+const WhatsappNumber = require('../models/WhatsappNumber');
+const Chat = require('../models/Chat');
 const { getSheetRows } = require('../utils/googleSheets'); // optional, used by import
 const mongoose = require('mongoose');
 const multer = require("multer");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 
 const upload = multer({ dest: "uploads/" });
 
@@ -136,6 +139,24 @@ exports.postCreate = async (req, res) => {
   }
 };
 
+async function fetchTemplates(businessAccountId, accessToken) {
+  const url = `https://graph.facebook.com/v17.0/${businessAccountId}/message_templates`;
+  const { data } = await axios.get(url, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  return data.data.map(t => ({
+    name: t.name,
+    language: t.language
+  }));
+}
+
+function isWithin24Hours(lastInboundAt) {
+  if (!lastInboundAt) return false;
+  const now = Date.now();
+  const diff = now - new Date(lastInboundAt).getTime();
+  return diff < 24 * 60 * 60 * 1000; // 24 hours in ms
+}
+
 exports.getLead = async (req, res) => {
   try {
     const id = req.params.id;
@@ -145,18 +166,17 @@ exports.getLead = async (req, res) => {
       .populate('assignedTo', 'fullName username role')
       .populate('notes.user', 'fullName username')
       .populate('statusHistory.changedBy', 'fullName username')
-      .lean(); // stop populating sourceMeta.* because it won’t work
+      .lean();
 
     if (!lead) return res.redirect('/leads');
 
-    // 🔹 Handle sourceMeta user manually
+    // sourceMeta user resolution (unchanged)
     if (lead.sourceMeta) {
       const userId =
         lead.sourceMeta.importedBy ||
         lead.sourceMeta.uploadedBy ||
         lead.sourceMeta.createdBy ||
         null;
-
       if (userId) {
         const u = await User.findById(userId, 'fullName username').lean();
         lead.sourceMeta.byUser = u ? u.fullName : null;
@@ -173,9 +193,25 @@ exports.getLead = async (req, res) => {
       ).lean();
     }
 
+    // fetch WhatsApp numbers
+    const whatsappNumbers = await WhatsappNumber.find({ isActive: true }).lean();
+
+    const whatsappTemplates = await fetchTemplates(process.env.META_WABA_ID, process.env.WHATSAPP_ACCESS_TOKEN);
+
+    // fetch chat history for this lead
+    const chats = await Chat.find({ to: lead.contact_number })
+      .sort({ timestamp: 1 })
+      .lean();
+
+    const within24h = isWithin24Hours(lead.lastInboundAt);
+
     res.render('leads/detail', {
       lead,
       assignableUsers: users,
+      whatsappNumbers,
+      chats,
+      whatsappTemplates,
+      within24h,
       user: req.session.user,
       activePage: 'leadsDetail'
     });

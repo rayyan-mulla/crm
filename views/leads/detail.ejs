@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <style>
     .scroll-box, .status-box {
-      min-height: 100px;
+      min-height: 120px;
       max-height: 160px;  /* reduced from 280px */
       overflow-y: auto;
     }
@@ -230,20 +230,89 @@
 
     <!-- WhatsApp -->
     <div class="col-md-6">
-        <div class="card shadow-sm h-100 d-flex flex-column">
-            <div class="card-body d-flex flex-column">
-            <h5>WhatsApp</h5>
-            <div class="chat-box">
-                <div class="chat-msg received">Hello, I am interested in your chairs.</div>
-                <div class="chat-msg sent">Great! Can you tell me more about your requirements?</div>
-                <div class="chat-msg received">I need 20 office chairs.</div>
-            </div>
-            <form class="d-flex mt-2">
-                <input type="text" class="form-control me-2" placeholder="Type a message...">
-                <button class="btn btn-success"><i class="bi bi-send"></i></button>
+      <div class="card shadow-sm h-100 d-flex flex-column">
+        <div class="card-body d-flex flex-column">
+          <!-- Header with WhatsApp title + number selector -->
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">WhatsApp</h5>
+            <form action="/leads/<%= lead._id %>/whatsapp-number" method="post" class="d-flex">
+              <select name="whatsappNumberId" class="form-select form-select-sm me-2">
+                <option value="">-- Select Number --</option>
+                <% whatsappNumbers.forEach(num => { %>
+                  <option value="<%= num.phone_number_id %>" <%= lead.whatsappNumberId === num.phone_number_id ? 'selected' : '' %>>
+                    <%= num.display_number %> (<%= num.label %>)
+                  </option>
+                <% }) %>
+              </select>
+              <button class="btn btn-outline-success btn-sm">Save</button>
             </form>
+          </div>
+          <% if (!lead.whatsappNumberId) { %>
+            <p class="text-muted">⚠️ Please assign a WhatsApp number to this lead before chatting.</p>
+          <% } else { %>
+            <div class="chat-box">
+              <% if (chats.length) { %>
+                <% chats.forEach(c => { %>
+                  <div class="chat-msg <%= c.direction === 'outbound' ? 'sent' : 'received' %>">
+                    <% if (c.type === 'text') { %>
+                      <%= c.content %>
+                    <% } else if (c.type === 'image' && c.mediaId) { %>
+                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
+                        <img src="/whatsapp/media/<%= c.mediaId %>" 
+                            alt="Image" 
+                            style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
+                      </a>
+                      <% if (c.caption) { %><div><%= c.caption %></div><% } %>
+                    <% } else if (c.type === 'document' && c.mediaId) { %>
+                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
+                        📄 Download Document
+                      </a>
+                      <% if (c.caption) { %><div><%= c.caption %></div><% } %>
+                    <% } else if (c.type === 'audio' && c.mediaId) { %>
+                      <audio controls style="width:100%;">
+                        <source src="/whatsapp/media/<%= c.mediaId %>" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                      </audio>
+                    <% } else { %>
+                      [<%= c.type %>]
+                    <% } %>
+                    <div class="small text-muted">
+                      <%= new Date(c.timestamp).toLocaleString() %>
+                    </div>
+                  </div>
+                <% }) %>
+              <% } else { %>
+                <p class="text-muted">No messages yet</p>
+              <% } %>
             </div>
+
+            <!-- Chat input -->
+            <% if (!lead.hasReplied || !within24h) { %>
+              <!-- First time: require sending template -->
+              <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2">
+                <input type="hidden" name="to" value="<%= lead.contact_number %>">
+                <select name="templateName" class="form-select me-2" required>
+                  <option value="">-- Select Template --</option>
+                  <% whatsappTemplates.forEach(t => { %>
+                    <option value="<%= t.name %>"><%= t.name %> (<%= t.language %>)</option>
+                  <% }) %>
+                </select>
+                <button class="btn btn-primary">
+                  <i class="bi bi-chat-left-text"></i>
+                </button>
+              </form>
+              <p class="text-muted small mt-1">💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.</p>
+            <% } else { %>
+              <!-- Normal text input -->
+              <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2">
+                <input type="hidden" name="to" value="<%= lead.contact_number %>">
+                <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
+                <button class="btn btn-success"><i class="bi bi-send"></i></button>
+              </form>
+            <% } %>
+          <% } %>
         </div>
+      </div>
     </div>
   </div>
 </div>

@@ -43,12 +43,14 @@ const leadsRouter = require('./routes/leads');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users')
 const metaWebhookRouter = require('./routes/metaWebhook');
+const whatsappWebhookRoutes = require('./routes/whatsappWebhook');
 
 app.use('/', indexRouter);
 app.use('/leads', leadsRouter);
 app.use('/auth', authRouter);
 app.use('/users', usersRouter)
 app.use('/webhooks/meta', metaWebhookRouter);
+app.use('/webhooks/whatsapp', whatsappWebhookRoutes);
 
 // --- 404 handler ---
 app.use((req, res, next) => {

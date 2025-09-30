@@ -2,7 +2,9 @@
 const express = require('express');
 const router = express.Router();
 const leadCtrl = require('../controllers/leadController');
+const whatsappCtrl = require('../controllers/whatsappWebhookController');
 const { isLoggedIn, isAdmin } = require('../middlewares/auth');
+const Lead = require('../models/Lead')
 
 // list leads (server-side filtering/pagination/sort)
 router.get('/', isLoggedIn, leadCtrl.listLeads);
@@ -29,5 +31,14 @@ router.post('/:id/status', isLoggedIn, leadCtrl.updateStatus);
 
 // add note
 router.post('/:id/note', isLoggedIn, leadCtrl.addNote);
+
+router.post('/:id/whatsapp-number', async (req, res) => {
+  const { id } = req.params;
+  const { whatsappNumberId } = req.body;
+  await Lead.findByIdAndUpdate(id, { whatsappNumberId });
+  res.redirect(`/leads/${id}`);
+});
+
+router.post('/:id/whatsapp/send-text', whatsappCtrl.sendText);
 
 module.exports = router;

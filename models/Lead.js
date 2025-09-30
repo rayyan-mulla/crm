@@ -47,6 +47,8 @@ const LeadSchema = new mongoose.Schema({
   statusHistory: { type: [StatusHistorySchema], default: [] },
   communications: { type: [CommunicationSchema], default: [] },
   externalId: { type: String, index: true }, // optional id from external source
+  whatsappNumberId: { type: String },
+  hasReplied: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
