@@ -269,14 +269,15 @@ exports.sendText = async (req, res) => {
     const { id } = req.params;   // Lead ID
     const { to, body } = req.body;
 
-    // 1. Find last inbound message for this lead
-    const lastInbound = await Chat.findOne({
-      lead: id,
-      direction: 'inbound'
-    }).sort({ timestamp: -1 });
+    // 1. Load lead directly
+    const lead = await Lead.findById(id).lean();
+    if (!lead) {
+      return res.status(404).send('Lead not found');
+    }
 
     const now = Date.now();
-    const sessionActive = lastInbound && (now - lastInbound.timestamp.getTime()) < 24 * 60 * 60 * 1000;
+    const sessionActive = lead.lastInboundAt &&
+      (now - new Date(lead.lastInboundAt).getTime()) < 24 * 60 * 60 * 1000;
 
     if (sessionActive) {
       // ✅ 24h session active → can send free text
