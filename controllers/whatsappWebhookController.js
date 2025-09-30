@@ -233,9 +233,22 @@ exports.handleWebhook = async (req, res) => {
               raw: msg,
               timestamp: new Date(parseInt(msg.timestamp) * 1000)
             });
+            
+            console.log("➡️ Updating lead:", leadId);
 
             // update lead lastInboundAt for session tracking
-            await Lead.findByIdAndUpdate(leadId, { lastInboundAt: new Date(), hasReplied: true });
+            const update = { lastInboundAt: new Date(), hasReplied: true };
+            const result = await Lead.findByIdAndUpdate(leadId, update, { new: true });
+
+            if (!result) {
+              console.warn("⚠️ Lead not found for ID:", leadId);
+            } else {
+              console.log("✅ Lead updated:", {
+                id: result._id,
+                hasReplied: result.hasReplied,
+                lastInboundAt: result.lastInboundAt
+              });
+            }
 
             console.log(`💾 Saved inbound WhatsApp msg via ${displayNumber} from ${from}`);
           }
