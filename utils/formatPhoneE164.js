@@ -9,21 +9,33 @@
 function formatPhoneE164(phone, defaultCountryCode = "91") {
   if (!phone) return null;
 
-  // Remove spaces, hyphens, parentheses
-  let cleaned = phone.replace(/[^\d+]/g, "");
+  let cleaned = phone.toString().replace(/\D/g, ''); // remove non-digits
 
-  // Already in E.164 format
-  if (cleaned.startsWith("+")) {
+  if (cleaned.startsWith('00')) {
+    // e.g. 00919876543210 → +919876543210
+    return '+' + cleaned.slice(2);
+  }
+
+  if (cleaned.startsWith('91') && cleaned.length === 12) {
+    // e.g. 919876543210 → +919876543210
+    return '+' + cleaned;
+  }
+
+  if (cleaned.length === 10) {
+    // e.g. 9876543210 → +919876543210 (default country)
+    return defaultCountryCode + cleaned;
+  }
+
+  if (cleaned.startsWith('+')) {
     return cleaned;
   }
 
-  // Remove leading zero if present
   if (cleaned.startsWith("0")) {
-    cleaned = cleaned.slice(1);
+    return '+' + cleaned.slice(1);
   }
 
-  // Prepend country code
-  return `${defaultCountryCode}${cleaned}`;
+  // fallback: add '+' if missing
+  return '+' + cleaned;
 }
 
 module.exports = formatPhoneE164;

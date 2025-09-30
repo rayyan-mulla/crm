@@ -117,8 +117,10 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
 }
 
 async function findOrCreateLeadByPhone(phone, wabaNumberId) {
+  const formattedTo = formatPhoneE164(phone);
+  
   // Try to find existing lead
-  let lead = await Lead.findOne({ contact_number: phone }).exec();
+  let lead = await Lead.findOne({ contact_number: formattedTo }).exec();
 
   if (!lead) {
     lead = await Lead.create({
