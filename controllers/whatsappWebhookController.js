@@ -117,28 +117,49 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
 }
 
 async function findOrCreateLeadByPhone(phone, wabaNumberId) {
-  const formattedTo = formatPhoneE164(phone);
-  
-  // Try to find existing lead
-  let lead = await Lead.findOne({ contact_number: formattedTo }).exec();
+  // Always normalize input to E.164 for storage
+  const formattedPhone = formatPhoneE164(phone);
+
+  // Generate possible variants for matching
+  const variants = new Set([formattedPhone]);
+
+  if (formattedPhone.startsWith('+91')) {
+    const withoutPlus = formattedPhone.slice(1);    // 91XXXXXXXXXX
+    const withoutZero = '0' + formattedPhone.slice(-10); // 0XXXXXXXXXX
+    const doubleZero = '00' + formattedPhone.slice(1);   // 0091XXXXXXXXXX
+    const local10 = formattedPhone.slice(-10);      // XXXXXXXXXX
+
+    variants.add(withoutPlus);
+    variants.add(local10);
+    variants.add(withoutZero);
+    variants.add(doubleZero);
+  }
+
+  // Try to find an existing lead by any variant
+  let lead = await Lead.findOne({ contact_number: { $in: Array.from(variants) } }).exec();
 
   if (!lead) {
+    // Create new lead if none exists
     lead = await Lead.create({
       date: new Date(),
       customer_name: 'WhatsApp User',
-      contact_number: phone,
+      contact_number: formattedPhone,  // ✅ always save in E.164
       email_id: '',
       requirement: 'WhatsApp Lead',
       status: 'New',
       source: 'manual',
       whatsappNumberId: wabaNumberId
     });
-    console.log(`🆕 Created new lead for WhatsApp number ${phone}`);
-  }
-
-  // If lead exists but not linked to this WABA number, update it
-  if (!lead.whatsappNumberId) {
-    lead.whatsappNumberId = wabaNumberId;
+    console.log(`🆕 Created new lead for WhatsApp number ${formattedPhone}`);
+  } else {
+    // If found but stored in a non-E.164 format → update it
+    if (lead.contact_number !== formattedPhone) {
+      lead.contact_number = formattedPhone;
+    }
+    // If lead exists but not linked to this WABA number, update it
+    if (!lead.whatsappNumberId) {
+      lead.whatsappNumberId = wabaNumberId;
+    }
     await lead.save();
   }
 
