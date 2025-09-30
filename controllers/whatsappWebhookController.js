@@ -237,7 +237,8 @@ exports.handleWebhook = async (req, res) => {
             console.log("➡️ Updating lead:", leadId);
 
             // update lead lastInboundAt for session tracking
-            const update = { lastInboundAt: new Date(), hasReplied: true };
+            const messageDate = new Date(parseInt(msg.timestamp) * 1000);
+            const update = { lastInboundAt: messageDate, hasReplied: true };
             const result = await Lead.findByIdAndUpdate(leadId, update, { new: true });
 
             if (!result) {
