@@ -10,6 +10,7 @@ const XLSX = require("xlsx");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
+const formatPhoneE164 = require('../utils/formatPhoneE164')
 
 const upload = multer({ dest: "uploads/" });
 
@@ -198,10 +199,27 @@ exports.getLead = async (req, res) => {
 
     const whatsappTemplates = await fetchTemplates(process.env.META_WABA_ID, process.env.META_USER_ACCESS_TOKEN);
 
-    // fetch chat history for this lead
-    const chats = await Chat.find({ to: lead.contact_number })
-      .sort({ timestamp: 1 })
-      .lean();
+    const variants = new Set();
+    const formatted = formatPhoneE164(lead.contact_number);
+
+    variants.add(formatted);
+
+    if (formatted.startsWith('+91')) {
+      variants.add(formatted.slice(1));           // 91XXXXXXXXXX
+      variants.add('0' + formatted.slice(-10));   // 0XXXXXXXXXX
+      variants.add('00' + formatted.slice(1));    // 0091XXXXXXXXXX
+      variants.add(formatted.slice(-10));         // XXXXXXXXXX
+    }
+
+    // Fetch chats where lead number is either "to" or "from"
+    const chats = await Chat.find({
+      $or: [
+        { to: { $in: Array.from(variants) } },
+        { from: { $in: Array.from(variants) } }
+      ]
+    })
+    .sort({ timestamp: 1 })
+    .lean();
 
     const within24h = isWithin24Hours(lead.lastInboundAt);
 
