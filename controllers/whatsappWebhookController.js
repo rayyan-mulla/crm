@@ -4,30 +4,42 @@ const Lead = require('../models/Lead');
 const WhatsappNumber = require('../models/WhatsappNumber');
 const formatPhoneE164 = require('../utils/formatPhoneE164')
 const axios = require('axios');
+const {
+  getUserToken,
+  refreshUserToken,
+} = require('../utils/metaTokenManager');
 
 async function sendWhatsappMessage(leadId, to, text) {
   const lead = await Lead.findById(leadId).lean();
-  if (!lead || !lead.whatsappNumberId) {
-    throw new Error("Lead not linked to a WhatsApp number");
-  }
+  if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
   const formattedTo = formatPhoneE164(to);
-
   const url = `https://graph.facebook.com/v23.0/${lead.whatsappNumberId}/messages`;
 
-  await axios.post(url, {
+  const payload = {
     messaging_product: "whatsapp",
     to: formattedTo,
     type: "text",
     text: { body: text }
-  }, {
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-      "Content-Type": "application/json"
-    }
-  });
+  };
 
-  // store in chat history
+  let token = getUserToken();
+  try {
+    await axios.post(url, payload, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    if (err.response?.status === 401) {
+      console.warn("⚠️ WhatsApp token expired, refreshing...");
+      token = await refreshUserToken();
+      await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      });
+    } else {
+      throw err;
+    }
+  }
+
   await Chat.create({
     lead: lead._id,
     direction: 'outbound',
@@ -43,25 +55,34 @@ async function sendWhatsappMessage(leadId, to, text) {
 
 async function sendWhatsappImage(leadId, to, imageUrl, caption) {
   const lead = await Lead.findById(leadId).lean();
-  if (!lead || !lead.whatsappNumberId) {
-    throw new Error("Lead not linked to a WhatsApp number");
-  }
+  if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
   const formattedTo = formatPhoneE164(to);
-
   const url = `https://graph.facebook.com/v23.0/${lead.whatsappNumberId}/messages`;
 
-  await axios.post(url, {
+  const payload = {
     messaging_product: "whatsapp",
     to: formattedTo,
     type: "image",
     image: { link: imageUrl, caption }
-  }, {
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-      "Content-Type": "application/json"
+  };
+
+  let token = getUserToken();
+  try {
+    await axios.post(url, payload, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    if (err.response?.status === 401) {
+      console.warn("⚠️ WhatsApp token expired, refreshing...");
+      token = await refreshUserToken();
+      await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      });
+    } else {
+      throw err;
     }
-  });
+  }
 
   await Chat.create({
     lead: lead._id,
@@ -74,34 +95,39 @@ async function sendWhatsappImage(leadId, to, imageUrl, caption) {
     timestamp: new Date()
   });
 
-  console.log(`✅ Sent image via ${lead.whatsappNumberId} to ${to}`);
+  console.log(`✅ Sent WhatsApp image via ${lead.whatsappNumberId} to ${to}`);
 }
 
 async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en_US', components = []) {
   const lead = await Lead.findById(leadId).lean();
-  if (!lead || !lead.whatsappNumberId) {
-    throw new Error("Lead not linked to a WhatsApp number");
-  }
+  if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
   const formattedTo = formatPhoneE164(to);
-
   const url = `https://graph.facebook.com/v23.0/${lead.whatsappNumberId}/messages`;
 
-  await axios.post(url, {
+  const payload = {
     messaging_product: "whatsapp",
     to: formattedTo,
     type: "template",
-    template: {
-      name: templateName,
-      language: { code: languageCode },
-      components
+    template: { name: templateName, language: { code: languageCode }, components }
+  };
+
+  let token = getUserToken();
+  try {
+    await axios.post(url, payload, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    if (err.response?.status === 401) {
+      console.warn("⚠️ WhatsApp token expired, refreshing...");
+      token = await refreshUserToken();
+      await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+      });
+    } else {
+      throw err;
     }
-  }, {
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-      "Content-Type": "application/json"
-    }
-  });
+  }
 
   await Chat.create({
     lead: lead._id,
@@ -113,7 +139,7 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
     timestamp: new Date()
   });
 
-  console.log(`✅ Sent template '${templateName}' via ${lead.whatsappNumberId} to ${to}`);
+  console.log(`✅ Sent WhatsApp template '${templateName}' via ${lead.whatsappNumberId} to ${to}`);
 }
 
 async function findOrCreateLeadByPhone(phone, wabaNumberId) {
@@ -168,7 +194,7 @@ async function findOrCreateLeadByPhone(phone, wabaNumberId) {
 
 // GET /webhooks/whatsapp (verification)
 exports.verifyWebhook = (req, res) => {
-  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+  const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
