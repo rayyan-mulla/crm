@@ -10,7 +10,7 @@ async function seedWhatsappNumbers() {
     }
 
     const WABA_ID = process.env.META_WABA_ID;
-    const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+    const ACCESS_TOKEN = process.env.META_USER_ACCESS_TOKEN;
 
     if (!WABA_ID || !ACCESS_TOKEN) {
       console.error("❌ META_WABA_ID and WHATSAPP_ACCESS_TOKEN must be set in .env");
