@@ -196,7 +196,7 @@ exports.getLead = async (req, res) => {
     // fetch WhatsApp numbers
     const whatsappNumbers = await WhatsappNumber.find({ isActive: true }).lean();
 
-    const whatsappTemplates = await fetchTemplates(process.env.META_WABA_ID, process.env.WHATSAPP_ACCESS_TOKEN);
+    const whatsappTemplates = await fetchTemplates(process.env.META_WABA_ID, process.env.META_USER_ACCESS_TOKEN);
 
     // fetch chat history for this lead
     const chats = await Chat.find({ to: lead.contact_number })

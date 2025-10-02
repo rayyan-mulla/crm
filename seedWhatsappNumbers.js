@@ -1,19 +1,15 @@
+// seedWhatsappNumbers.js
 require('dotenv').config();
-const mongoose = require('mongoose');
-const axios = require('axios');
 const WhatsappNumber = require('./models/WhatsappNumber');
+const axios = require('axios');
+
+const WABA_ID = process.env.META_WABA_ID;
+const ACCESS_TOKEN = process.env.META_USER_ACCESS_TOKEN;
 
 async function seedWhatsappNumbers() {
   try {
-    if (require.main === module) {
-      await mongoose.connect(process.env.MONGO_URI);
-    }
-
-    const WABA_ID = process.env.META_WABA_ID;
-    const ACCESS_TOKEN = process.env.META_USER_ACCESS_TOKEN;
-
     if (!WABA_ID || !ACCESS_TOKEN) {
-      console.error("❌ META_WABA_ID and WHATSAPP_ACCESS_TOKEN must be set in .env");
+      console.error("❌ META_WABA_ID and META_USER_ACCESS_TOKEN must be set in .env");
       return;
     }
 
@@ -23,7 +19,7 @@ async function seedWhatsappNumbers() {
       headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }
     });
 
-    if (!data.data?.length) {
+    if (!data.data || !data.data.length) {
       console.log("⚠️ No phone numbers found in this WABA.");
       return;
     }
@@ -46,16 +42,25 @@ async function seedWhatsappNumbers() {
       console.log(`✅ Inserted: ${num.display_phone_number} (${num.id})`);
     }
 
-    console.log("🎉 Seeding complete!");
+    console.log("🎉 WhatsApp number seeding complete!");
   } catch (err) {
     console.error("❌ Error seeding WhatsApp numbers:", err.response?.data || err.message);
-  } finally {
-    if (require.main === module) mongoose.disconnect();
   }
 }
 
+// If run directly (node seedWhatsappNumbers.js)
 if (require.main === module) {
-  seedWhatsappNumbers().then(() => process.exit(0));
+  const mongoose = require('mongoose');
+
+  (async () => {
+    try {
+      await mongoose.connect(process.env.MONGO_URI);
+      await seedWhatsappNumbers();
+    } finally {
+      mongoose.disconnect();
+    }
+    process.exit(0);
+  })();
 }
 
 module.exports = seedWhatsappNumbers;

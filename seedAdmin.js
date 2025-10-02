@@ -1,14 +1,9 @@
+// seedAdmin.js
 require('dotenv').config();
-const mongoose = require('mongoose');
 const User = require('./models/User');
 
 async function seedAdmin() {
   try {
-    // Only connect if running directly
-    if (require.main === module) {
-      await mongoose.connect(process.env.MONGO_URI);
-    }
-
     const existing = await User.findOne({ username: 'admin' });
     if (existing) {
       console.log('ℹ️ Admin user already exists');
@@ -27,13 +22,22 @@ async function seedAdmin() {
     console.log('✅ Admin created');
   } catch (err) {
     console.error('❌ Error seeding admin:', err);
-  } finally {
-    if (require.main === module) mongoose.disconnect();
   }
 }
 
+// If run directly: connect + run + exit
 if (require.main === module) {
-  seedAdmin().then(() => process.exit(0));
+  const mongoose = require('mongoose');
+
+  (async () => {
+    try {
+      await mongoose.connect(process.env.MONGO_URI);
+      await seedAdmin();
+    } finally {
+      mongoose.disconnect();
+    }
+    process.exit(0);
+  })();
 }
 
 module.exports = seedAdmin;
