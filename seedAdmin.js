@@ -2,19 +2,17 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('./models/User');
 
-async function run() {
+async function seedAdmin() {
   try {
-    const mongoUri = process.env.MONGO_URI;
-    if (!mongoUri) {
-      throw new Error('MONGO_URI is not defined in environment');
+    // Only connect if running directly
+    if (require.main === module) {
+      await mongoose.connect(process.env.MONGO_URI);
     }
-
-    await mongoose.connect(mongoUri);
 
     const existing = await User.findOne({ username: 'admin' });
     if (existing) {
-      console.log('Admin user already exists');
-      process.exit(0);
+      console.log('ℹ️ Admin user already exists');
+      return;
     }
 
     const admin = new User({
@@ -26,12 +24,16 @@ async function run() {
     });
 
     await admin.save();
-    console.log('Admin created');
-    process.exit(0);
+    console.log('✅ Admin created');
   } catch (err) {
-    console.error('Error seeding admin:', err);
-    process.exit(1);
+    console.error('❌ Error seeding admin:', err);
+  } finally {
+    if (require.main === module) mongoose.disconnect();
   }
 }
 
-run();
+if (require.main === module) {
+  seedAdmin().then(() => process.exit(0));
+}
+
+module.exports = seedAdmin;
