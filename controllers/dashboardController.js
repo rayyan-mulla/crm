@@ -24,7 +24,9 @@ exports.getDashboard = async (req, res) => {
 
     if (user.role === 'admin') {
       // Admin sees all leads
-      const allLeads = await Lead.find().lean();
+      const allLeads = await Lead.find()
+        .populate('assignedTo', 'fullName')
+        .lean();
 
       // Summary counts
       summary.totalLeads = allLeads.length;
@@ -46,7 +48,7 @@ exports.getDashboard = async (req, res) => {
 
       usersData = allUsers.map(u => {
         const userLeads = allLeads.filter(l => {
-          const assignedToMatch = l.assignedTo?.toString() === u._id.toString();
+          const assignedToMatch = l.assignedTo?._id?.toString() === u._id.toString();
           const importedByMatch = l.sourceMeta?.importedBy?.toString() === u._id.toString();
           const uploadedByMatch = l.sourceMeta?.uploadedBy?.toString() === u._id.toString();
           const createdByMatch = l.sourceMeta?.createdBy?.toString() === u._id.toString();
@@ -73,20 +75,23 @@ exports.getDashboard = async (req, res) => {
         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
         .slice(0, 10)
         .map(l => ({
-          message: `${l.customer_name} - ${l.status} (${l.assignedTo ? 'Assigned to ' + l.assignedTo : 'Unassigned'})`,
+          message: `${l.customer_name} - ${l.status} (${l.assignedTo ? 'Assigned to ' + l.assignedTo.fullName : 'Unassigned'})`,
           time: new Date(l.updatedAt).toLocaleString()
         }));
 
     } else {
-      // User sees only leads they created or assigned to them
+      // User sees only their leads
       const userObjectId = new mongoose.Types.ObjectId(user.id);
       const myLeads = await Lead.find({
         $or: [
           { assignedTo: userObjectId },
-          { 'sourceMeta.createdBy':userObjectId }
+          { 'sourceMeta.createdBy': userObjectId }
         ]
-      }).lean();
+      })
+        .populate('assignedTo', 'fullName')
+        .lean();
 
+      // Summary
       summary.totalLeads = myLeads.length;
       summary.newLeads = myLeads.filter(l => l.status === 'New').length;
       summary.inProgressLeads = myLeads.filter(l => l.status === 'In Progress').length;
@@ -106,9 +111,24 @@ exports.getDashboard = async (req, res) => {
         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
         .slice(0, 10)
         .map(l => ({
-          message: `${l.customer_name} - ${l.status}`,
+          message: `${l.customer_name} - ${l.status} (${l.assignedTo ? 'Assigned to ' + l.assignedTo.fullName : 'Unassigned'})`,
           time: new Date(l.updatedAt).toLocaleString()
         }));
+
+      // User performance (for self only)
+      const newLeads = myLeads.filter(l => l.status === 'New').length;
+      const inProgressLeads = myLeads.filter(l => l.status === 'In Progress').length;
+      const closedLeads = myLeads.filter(l => l.status === 'Closed').length;
+
+      usersData = [{
+        fullName: user.fullName,
+        role: user.role,
+        totalLeads: myLeads.length,
+        newLeads,
+        inProgressLeads,
+        closedLeads,
+        conversionRate: myLeads.length ? Math.round((closedLeads / myLeads.length) * 100) : 0
+      }];
     }
 
     // Status chart data

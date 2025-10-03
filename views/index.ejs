@@ -98,39 +98,62 @@
   </div>
 
   <!-- User Performance -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5>User Performance</h5>
-      <% if (users && users.length) { %>
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Total Leads</th>
-              <th>Closed Leads</th>
-              <th>Conversion %</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% users.forEach(u => { %>
-            <tr>
-              <td><%= u.fullName %></td>
-              <td><%= u.role %></td>
-              <td><%= u.totalLeads || 0 %></td>
-              <td><%= u.closedLeads || 0 %></td>
-              <td><%= u.conversionRate || 0 %>%</td>
-            </tr>
-            <% }) %>
-          </tbody>
-        </table>
+  <% if (user.role === 'admin') { %>
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5>User Performance</h5>
+        <% if (users && users.length) { %>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Total Leads</th>
+                <th>Closed Leads</th>
+                <th>Conversion %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% users.forEach(u => { %>
+                <tr>
+                  <td><%= u.fullName %></td>
+                  <td><%= u.role %></td>
+                  <td><%= u.totalLeads || 0 %></td>
+                  <td><%= u.closedLeads || 0 %></td>
+                  <td><%= u.conversionRate || 0 %>%</td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% } else { %>
+          <div class="alert alert-light">No user performance data yet.</div>
+        <% } %>
       </div>
-      <% } else { %>
-        <div class="alert alert-light">No user performance data yet.</div>
-      <% } %>
     </div>
-  </div>
+  <% } else if (users && users.length === 1) { %>
+    <!-- Compact My Performance card for non-admin -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-body text-center">
+        <h5>My Performance</h5>
+        <div class="row g-3 mt-2">
+          <div class="col-4">
+            <div class="fw-bold"><%= users[0].totalLeads || 0 %></div>
+            <div class="text-muted small">Total Leads</div>
+          </div>
+          <div class="col-4">
+            <div class="fw-bold"><%= users[0].closedLeads || 0 %></div>
+            <div class="text-muted small">Closed Leads</div>
+          </div>
+          <div class="col-4">
+            <div class="fw-bold"><%= users[0].conversionRate || 0 %>%</div>
+            <div class="text-muted small">Conversion</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% } %>
 
   <!-- Recent Activity -->
   <div class="card shadow-sm">
