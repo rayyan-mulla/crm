@@ -43,16 +43,13 @@
                       </td>
                       <td>
                         <% if (chair.colors && chair.colors.length) { %>
-                            <table class="table table-borderless table-sm mb-0">
-                            <tbody>
-                                <% chair.colors.forEach(col => { %>
-                                <tr>
-                                    <td><span class="badge bg-secondary"><%= col.name %></span></td>
-                                    <td>₹<%= col.basePrice %></td>
-                                </tr>
-                                <% }) %>
-                            </tbody>
-                            </table>
+                            <div class="d-flex flex-wrap gap-1">
+                            <% chair.colors.forEach(col => { %>
+                                <span class="badge bg-light text-dark border">
+                                <%= col.name %> <span class="text-muted">₹<%= col.basePrice %></span>
+                                </span>
+                            <% }) %>
+                            </div>
                         <% } else { %>
                             <span class="text-muted">—</span>
                         <% } %>
