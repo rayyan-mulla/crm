@@ -41,4 +41,10 @@ router.post('/:id/whatsapp-number', async (req, res) => {
 
 router.post('/:id/whatsapp/send-text', whatsappCtrl.sendText);
 
+router.get('/:id/requirement/add', leadCtrl.addRequirementForm);
+router.post('/:id/requirement/add', leadCtrl.addRequirement);
+
+router.get('/:id/requirement/:reqId/edit', leadCtrl.editRequirementForm);
+router.post('/:id/requirement/:reqId/edit', leadCtrl.updateRequirement);
+
 module.exports = router;

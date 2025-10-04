@@ -1,6 +1,7 @@
 // controllers/leadController.js
 const Lead = require('../models/Lead');
 const User = require('../models/User');
+const Chair = require('../models/Chair');
 const WhatsappNumber = require('../models/WhatsappNumber');
 const Chat = require('../models/Chat');
 const { getSheetRows } = require('../utils/googleSheets'); // optional, used by import
@@ -167,6 +168,7 @@ exports.getLead = async (req, res) => {
       .populate('assignedTo', 'fullName username role')
       .populate('notes.user', 'fullName username')
       .populate('statusHistory.changedBy', 'fullName username')
+      .populate('normalizedRequirements.chair')
       .lean();
 
     if (!lead) return res.redirect('/leads');
@@ -427,4 +429,83 @@ exports.sampleExcel = (req, res) => {
     console.error("Error generating sample Excel:", err);
     res.status(500).send("Could not generate sample Excel");
   }
+};
+
+exports.addRequirementForm = async (req, res) => {
+  const lead = await Lead.findById(req.params.id).lean();
+  const chairs = await Chair.find({ isActive: true }).lean();
+  res.render('leads/addRequirement', { lead, chairs, user: req.session.user, activePage: 'addRequirement' });
+};
+
+exports.addRequirement = async (req, res) => {
+  const { chairId, colorId, quantity, unitPrice, note } = req.body;
+
+  const qty = parseInt(quantity) || 1;
+  const unit = parseFloat(unitPrice) || 0;
+
+  await Lead.findByIdAndUpdate(req.params.id, {
+    $push: {
+      normalizedRequirements: {
+        chair: chairId,
+        colorId,
+        quantity: qty,
+        unitPrice: unit,
+        totalPrice: qty * unit,
+        note
+      }
+    }
+  });
+
+  res.redirect(`/leads/${req.params.id}`);
+};
+
+exports.editRequirementForm = async (req, res) => {
+  try {
+    const lead = await Lead.findById(req.params.id)
+      .populate('normalizedRequirements.chair')
+      .lean();
+
+    if (!lead) return res.redirect('/leads');
+
+    const requirement = lead.normalizedRequirements.find(r => r._id.toString() === req.params.reqId);
+    if (!requirement) {
+      return res.redirect(`/leads/${req.params.id}`);
+    }
+
+    const chairs = await Chair.find({ isActive: true }).lean();
+
+    res.render('leads/editRequirement', {
+      lead,
+      requirement,
+      chairs,
+      user: req.session.user,
+      activePage: 'leadsDetail'
+    });
+  } catch (err) {
+    console.error('editRequirementForm error', err);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.updateRequirement = async (req, res) => {
+  const { chairId, colorId, quantity, unitPrice, note } = req.body;
+
+  const qty = parseInt(quantity) || 1;
+  const unit = parseFloat(unitPrice) || 0;
+
+  await Lead.updateOne(
+    { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
+    {
+      $set: {
+        "normalizedRequirements.$.chair": chairId,
+        "normalizedRequirements.$.colorId": colorId,
+        "normalizedRequirements.$.quantity": qty,
+        "normalizedRequirements.$.unitPrice": unit,
+        "normalizedRequirements.$.totalPrice": qty * unit,
+        "normalizedRequirements.$.note": note
+      }
+    }
+  );
+
+  res.redirect(`/leads/${req.params.id}`);
 };

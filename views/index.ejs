@@ -16,6 +16,9 @@
     }
     .chart-wrapper.doughnut {
       height: 220px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
   </style>
 </head>
@@ -62,36 +65,90 @@
     </div>
   </div>
 
-  <!-- Charts -->
+  <!-- Charts Row 1: Status + Source -->
   <div class="row g-4 mb-4">
     <div class="col-md-6">
       <div class="card shadow-sm chart-container">
-        <div class="card-body h-100 d-flex flex-column">
-          <h5 class="mb-3">Lead Status</h5>
+        <div class="card-body">
+          <h5>Lead Status</h5>
           <% if (summary.totalLeads) { %>
-            <div class="chart-wrapper doughnut">
-              <canvas id="statusChart"></canvas>
-            </div>
+            <div class="chart-wrapper doughnut"><canvas id="statusChart"></canvas></div>
           <% } else { %>
-            <div class="alert alert-light flex-grow-1 d-flex align-items-center justify-content-center">
-              No leads available
-            </div>
+            <div class="alert alert-light">No leads available</div>
           <% } %>
         </div>
       </div>
     </div>
+
     <div class="col-md-6">
       <div class="card shadow-sm chart-container">
-        <div class="card-body h-100 d-flex flex-column">
-          <h5 class="mb-3">Leads by Source</h5>
+        <div class="card-body">
+          <h5>Leads by Source</h5>
           <% if (charts.source.data.length) { %>
-            <div class="chart-wrapper">
-              <canvas id="sourceChart"></canvas>
-            </div>
+            <div class="chart-wrapper"><canvas id="sourceChart"></canvas></div>
           <% } else { %>
-            <div class="alert alert-light flex-grow-1 d-flex align-items-center justify-content-center">
-              No leads available
-            </div>
+            <div class="alert alert-light">No leads available</div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row 2: Chairs by User + Revenue by User -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm chart-container">
+        <div class="card-body">
+          <h5>Chairs Sold by User</h5>
+          <% if (charts.chairsByUser.data.length) { %>
+            <div class="chart-wrapper"><canvas id="chairsByUserChart"></canvas></div>
+          <% } else { %>
+            <div class="alert alert-light">No chair sales yet</div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card shadow-sm chart-container">
+        <div class="card-body">
+          <h5>Revenue by User</h5>
+          <% if (charts.revenueByUser.data.length) { %>
+            <div class="chart-wrapper"><canvas id="revenueByUserChart"></canvas></div>
+          <% } else { %>
+            <div class="alert alert-light">No revenue data yet</div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row 3: Chairs by Model -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm chart-container">
+        <div class="card-body">
+          <h5>Chairs Sold by Model</h5>
+          <% if (charts.chairsByModel.data.length) { %>
+            <div class="chart-wrapper doughnut"><canvas id="chairsByModelChart"></canvas></div>
+          <% } else { %>
+            <div class="alert alert-light">No model data yet</div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row 4: Monthly Trend -->
+  <div class="row g-4 mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm chart-container">
+        <div class="card-body">
+          <h5>Monthly Chairs Sold & Revenue</h5>
+          <% if (charts.monthlyTrend.labels.length) { %>
+            <div class="chart-wrapper"><canvas id="monthlyTrendChart"></canvas></div>
+          <% } else { %>
+            <div class="alert alert-light">No trend data yet</div>
           <% } %>
         </div>
       </div>
@@ -177,38 +234,106 @@
 
 </div>
 
+<!-- Scripts for Charts -->
 <script>
   <% if (summary.totalLeads) { %>
-    const statusCtx = document.getElementById('statusChart').getContext('2d');
-    new Chart(statusCtx, {
+    new Chart(document.getElementById('statusChart'), {
       type: 'doughnut',
       data: {
         labels: ['New', 'In Progress', 'Closed'],
-        datasets: [{
-          data: [<%= summary.newLeads %>, <%= summary.inProgressLeads %>, <%= summary.closedLeads %>],
-          backgroundColor: ['#0d6efd','#ffc107','#198754']
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false }
+        datasets: [{ data: [<%= summary.newLeads %>, <%= summary.inProgressLeads %>, <%= summary.closedLeads %>],
+                     backgroundColor: ['#0d6efd','#ffc107','#198754']}]
+      }
     });
   <% } %>
 
   <% if (charts.source.data.length) { %>
-    const sourceCtx = document.getElementById('sourceChart').getContext('2d');
-    new Chart(sourceCtx, {
+    new Chart(document.getElementById('sourceChart'), {
       type: 'bar',
       data: {
         labels: <%- JSON.stringify(charts.source.labels) %>,
-        datasets: [{
-          label: 'Leads',
-          data: <%- JSON.stringify(charts.source.data) %>,
-          backgroundColor: '#0d6efd'
-        }]
+        datasets: [{ label: 'Leads', data: <%- JSON.stringify(charts.source.data) %>, backgroundColor: '#0d6efd' }]
+      },
+      options: { scales: { y: { beginAtZero: true } } }
+    });
+  <% } %>
+
+  <% if (charts.chairsByUser.data.length) { %>
+    new Chart(document.getElementById('chairsByUserChart'), {
+      type: 'bar',
+      data: {
+        labels: <%- JSON.stringify(charts.chairsByUser.labels) %>,
+        datasets: [{ label: 'Chairs Sold', data: <%- JSON.stringify(charts.chairsByUser.data) %>, backgroundColor: '#20c997' }]
+      },
+      options: { scales: { y: { beginAtZero: true } } }
+    });
+  <% } %>
+
+  <% if (charts.revenueByUser.data.length) { %>
+    new Chart(document.getElementById('revenueByUserChart'), {
+      type: 'bar',
+      data: {
+        labels: <%- JSON.stringify(charts.revenueByUser.labels) %>,
+        datasets: [{ label: 'Revenue (₹)', data: <%- JSON.stringify(charts.revenueByUser.data) %>, backgroundColor: '#fd7e14' }]
+      },
+      options: { scales: { y: { beginAtZero: true } }, plugins: { tooltip: { callbacks: { label: ctx => "₹" + ctx.raw } } } }
+    });
+  <% } %>
+
+  <% if (charts.chairsByModel.data.length) { %>
+    new Chart(document.getElementById('chairsByModelChart'), {
+      type: 'doughnut',
+      data: {
+        labels: <%- JSON.stringify(charts.chairsByModel.labels) %>,
+        datasets: [{ data: <%- JSON.stringify(charts.chairsByModel.data) %>, backgroundColor: ['#0d6efd','#6f42c1','#198754','#dc3545','#ffc107'] }]
+      }
+    });
+  <% } %>
+  <% if (charts.monthlyTrend.labels.length) { %>
+    new Chart(document.getElementById('monthlyTrendChart'), {
+      type: 'line',
+      data: {
+        labels: <%- JSON.stringify(charts.monthlyTrend.labels) %>,
+        datasets: [
+          {
+            label: 'Chairs Sold',
+            data: <%- JSON.stringify(charts.monthlyTrend.chairs) %>,
+            borderColor: '#20c997',
+            backgroundColor: '#20c99733',
+            tension: 0.3,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Revenue (₹)',
+            data: <%- JSON.stringify(charts.monthlyTrend.revenue) %>,
+            borderColor: '#fd7e14',
+            backgroundColor: '#fd7e1433',
+            tension: 0.3,
+            yAxisID: 'y1'
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true } }
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Chairs Sold' } },
+          y1: {
+            beginAtZero: true,
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Revenue (₹)' }
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: ctx => ctx.dataset.label === 'Revenue (₹)' 
+                ? "₹" + ctx.raw 
+                : ctx.raw
+            }
+          }
+        }
       }
     });
   <% } %>

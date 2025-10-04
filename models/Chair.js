@@ -8,7 +8,6 @@ const ColorSchema = new mongoose.Schema({
 
 const ChairSchema = new mongoose.Schema({
   modelName: { type: String, required: true, trim: true, unique: true },
-  description: { type: String, trim: true },
   colors: { type: [ColorSchema], default: [] },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });

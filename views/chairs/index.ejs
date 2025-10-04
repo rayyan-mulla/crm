@@ -24,7 +24,6 @@
                   <tr>
                     <th style="width: 40px;">#</th>
                     <th style="max-width: 150px;">Model</th>
-                    <th style="max-width: 200px;">Description</th>
                     <th style="max-width: 250px;">Colors</th>
                     <th style="width: 100px;">Status</th>
                     <th style="width: 120px;">Created At</th>
@@ -37,9 +36,6 @@
                       <td><%= index + 1 %></td>
                       <td class="text-truncate" style="max-width:150px;" title="<%= chair.modelName %>">
                         <%= chair.modelName %>
-                      </td>
-                      <td class="text-truncate" style="max-width:200px;" title="<%= chair.description %>">
-                        <%= chair.description || '-' %>
                       </td>
                       <td>
                         <% if (chair.colors && chair.colors.length) { %>

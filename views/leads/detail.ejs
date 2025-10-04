@@ -136,6 +136,36 @@
     </div>
   </div>
 
+  <!-- Structured Requirement (new section) -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Structured Requirement</h5>
+
+      <% if (lead.normalizedRequirements && lead.normalizedRequirements.length) { %>
+        <ul class="list-group mb-3">
+          <% lead.normalizedRequirements.forEach(req => { %>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong><%= req.chair.modelName %></strong> - 
+                <%= req.chair.colors.find(c => c._id.toString() === req.colorId.toString()).name %>
+                (x<%= req.quantity %>)
+                <br>
+                <small>Unit: ₹<%= req.unitPrice %></small> | 
+                <small>Total: ₹<%= req.totalPrice %></small>
+                <% if (req.note) { %><br><small class="text-muted">Note: <%= req.note %></small><% } %>
+              </div>
+              <a href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-muted">No structured requirement set yet.</p>
+      <% } %>
+
+      <a href="/leads/<%= lead._id %>/requirement/add" class="btn btn-sm btn-success">+ Add Requirement</a>
+    </div>
+  </div>
+
   <!-- Assign & Status -->
   <div class="row mb-4">
     <div class="col-md-6">

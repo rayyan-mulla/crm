@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Edit Requirement - Olive Chairs CRM</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<%- include('../partials/navbar', { user, activePage }) %>
+
+<div class="container py-4">
+  <h3 class="mb-3">Edit Requirement for <%= lead.customer_name %></h3>
+
+  <form action="/leads/<%= lead._id %>/requirement/<%= requirement._id %>/edit" method="post" class="card shadow-sm p-4">
+    <div class="mb-3">
+      <label class="form-label">Chair Model</label>
+      <select name="chairId" id="chairSelect" class="form-select" required>
+        <% chairs.forEach(c => { %>
+          <option value="<%= c._id %>" <%= requirement.chair._id.toString() === c._id.toString() ? 'selected' : '' %>>
+            <%= c.modelName %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Color</label>
+      <select name="colorId" id="colorSelect" class="form-select" required>
+        <% requirement.chair.colors.forEach(col => { %>
+          <option value="<%= col._id %>" <%= requirement.colorId.toString() === col._id.toString() ? 'selected' : '' %>>
+            <%= col.name %> (₹<%= col.basePrice %>)
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="mb-3 row">
+      <div class="col-md-4">
+        <label class="form-label">Quantity</label>
+        <input type="number" name="quantity" id="quantity" class="form-control" min="1" value="<%= requirement.quantity %>" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Unit Price (₹)</label>
+        <input type="number" name="unitPrice" id="unitPrice" class="form-control" min="0" step="1" value="<%= requirement.unitPrice %>" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Total Price (₹)</label>
+        <input type="text" id="totalPrice" class="form-control" value="<%= requirement.totalPrice %>" readonly>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Note</label>
+      <textarea name="note" class="form-control" rows="2"><%= requirement.note %></textarea>
+    </div>
+
+    <div class="d-flex justify-content-end">
+      <a href="/leads/<%= lead._id %>" class="btn btn-secondary me-2">Cancel</a>
+      <button class="btn btn-primary">Save Changes</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const chairs = <%- JSON.stringify(chairs) %>;
+  const chairSelect = document.getElementById('chairSelect');
+  const colorSelect = document.getElementById('colorSelect');
+  const qty = document.getElementById('quantity');
+  const unit = document.getElementById('unitPrice');
+  const total = document.getElementById('totalPrice');
+
+  chairSelect.addEventListener('change', () => {
+    const selected = chairs.find(c => c._id === chairSelect.value);
+    colorSelect.innerHTML = '<option value="">-- Select Color --</option>';
+    if (selected) {
+      selected.colors.forEach(col => {
+        const opt = document.createElement('option');
+        opt.value = col._id;
+        opt.textContent = `${col.name} (₹${col.basePrice})`;
+        colorSelect.appendChild(opt);
+      });
+    }
+  });
+
+  function updateTotal() {
+    const q = parseInt(qty.value) || 0;
+    const u = parseFloat(unit.value) || 0;
+    total.value = q * u;
+  }
+
+  qty.addEventListener('input', updateTotal);
+  unit.addEventListener('input', updateTotal);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

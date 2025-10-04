@@ -26,13 +26,26 @@ const CommunicationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: true });
 
+const RequirementItemSchema = new mongoose.Schema({
+  chair: { type: mongoose.Schema.Types.ObjectId, ref: 'Chair', required: true },
+  colorId: { type: mongoose.Schema.Types.ObjectId, required: true }, 
+  quantity: { type: Number, default: 1 },
+  unitPrice: { type: Number, required: true }, // agreed per-unit price
+  totalPrice: { type: Number, required: true }, // auto-calculated
+  note: { type: String }
+}, { _id: true });
+
 const LeadSchema = new mongoose.Schema({
   date: { type: Date, required: true }, // from sheet/manual form
   customer_name: { type: String, required: true },
   contact_number: { type: String, required: true },
   email_id: { type: String },
   city: { type: String },
+  // original unstructured requirement (keep it for history / raw entry)
   requirement: { type: String, required: true },
+
+  // new structured requirement
+  normalizedRequirements: { type: [RequirementItemSchema], default: [] },
   // lead status: New, In Progress, Closed, etc.
   status: { type: String, default: 'New' },
   // source of the lead
