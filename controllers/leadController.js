@@ -210,6 +210,9 @@ exports.getLead = async (req, res) => {
       .sort({ timestamp: 1 })
       .lean();
 
+    // make sure normalizedRequirements is always an array
+    lead.normalizedRequirements = lead.normalizedRequirements || [];
+
     // calculate session state
     const within24h = isWithin24Hours(lead.lastInboundAt);
     const canFreeChat = lead.hasReplied && within24h;

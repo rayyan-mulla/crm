@@ -147,7 +147,7 @@
             <li class="list-group-item d-flex justify-content-between align-items-center">
               <div>
                 <% 
-                  const colorObj = req.chair.colors.find(c => c._id.toString() === req.colorId.toString()); 
+                  const colorObj = req.chair && req.chair.colors.find(c => c._id.toString() === req.colorId.toString());
                   const basePrice = colorObj ? colorObj.basePrice : null;
                   const unitPrice = req.unitPrice;
                   const priceDiff = basePrice !== null ? unitPrice - basePrice : null;
@@ -179,14 +179,13 @@
       <% } %>
       <%
         let totalDiff = 0;
-        lead.normalizedRequirements.forEach(r => {
-          const color = r.chair.colors.find(c => c._id.toString() === r.colorId.toString());
+        (lead.normalizedRequirements || []).forEach(r => {
+          const color = r.chair && r.chair.colors.find(c => c._id.toString() === r.colorId.toString());
           if (color) {
             totalDiff += (r.unitPrice - color.basePrice) * r.quantity;
           }
         });
       %>
-
       <div class="alert 
         <%= totalDiff > 0 
             ? 'alert-danger' 
