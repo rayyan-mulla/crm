@@ -287,6 +287,8 @@
                   <div class="chat-msg <%= c.direction === 'outbound' ? 'sent' : 'received' %>">
                     <% if (c.type === 'text') { %>
                       <%= c.content %>
+                    <% } else if (c.type === 'template') { %>
+                      📑 Sent template: <strong><%= c.content %></strong>
                     <% } else if (c.type === 'image' && c.mediaId) { %>
                       <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
                         <img src="/whatsapp/media/<%= c.mediaId %>" 
