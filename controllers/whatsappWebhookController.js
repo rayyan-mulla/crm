@@ -9,7 +9,7 @@ const {
   refreshUserToken,
 } = require('../utils/metaTokenManager');
 
-async function sendWhatsappMessage(leadId, to, text) {
+async function sendWhatsappMessage(req, leadId, to, text) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
@@ -40,7 +40,7 @@ async function sendWhatsappMessage(leadId, to, text) {
     }
   }
 
-  await Chat.create({
+  const chat = await Chat.create({
     lead: lead._id,
     direction: 'outbound',
     from: lead.whatsappNumberId,
@@ -50,10 +50,15 @@ async function sendWhatsappMessage(leadId, to, text) {
     timestamp: new Date()
   });
 
+  // 👇 emit to that lead’s room
+  if (req?.io) {
+    req.io.to(lead._id.toString()).emit('newMessage', chat);
+  }
+
   console.log(`✅ Sent WhatsApp message via ${lead.whatsappNumberId} to ${to}`);
 }
 
-async function sendWhatsappImage(leadId, to, imageUrl, caption) {
+async function sendWhatsappImage(req, leadId, to, imageUrl, caption) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
@@ -84,7 +89,7 @@ async function sendWhatsappImage(leadId, to, imageUrl, caption) {
     }
   }
 
-  await Chat.create({
+  const chat = await Chat.create({
     lead: lead._id,
     direction: 'outbound',
     from: lead.whatsappNumberId,
@@ -95,10 +100,15 @@ async function sendWhatsappImage(leadId, to, imageUrl, caption) {
     timestamp: new Date()
   });
 
+  // 👇 emit to that lead’s room
+  if (req?.io) {
+    req.io.to(lead._id.toString()).emit('newMessage', chat);
+  }
+
   console.log(`✅ Sent WhatsApp image via ${lead.whatsappNumberId} to ${to}`);
 }
 
-async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en_US', components = []) {
+async function sendWhatsappTemplate(req, leadId, to, templateName, languageCode = 'en_US', components = []) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
@@ -129,15 +139,21 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
     }
   }
 
-  await Chat.create({
+  const chat = await Chat.create({
     lead: lead._id,
     direction: 'outbound',
     from: lead.whatsappNumberId,
     to,
     type: 'template',
     content: templateName,
+    raw: { language: languageCode, components },
     timestamp: new Date()
   });
+
+  // 👇 emit to that lead’s room
+  if (req?.io) {
+    req.io.to(lead._id.toString()).emit('newMessage', chat);
+  }
 
   console.log(`✅ Sent WhatsApp template '${templateName}' via ${lead.whatsappNumberId} to ${to}`);
 }
@@ -246,7 +262,7 @@ exports.handleWebhook = async (req, res) => {
 
             const leadId = await findOrCreateLeadByPhone(from, wabaNumberId);
 
-            await Chat.create({
+            const chat = await Chat.create({
               lead: leadId,
               direction: 'inbound',
               from,
@@ -278,6 +294,9 @@ exports.handleWebhook = async (req, res) => {
               });
             }
 
+            // 👇 broadcast to lead room
+            req.io.to(leadId.toString()).emit('newMessage', chat);
+
             console.log(`💾 Saved inbound WhatsApp msg via ${displayNumber} from ${from}`);
           }
         }
@@ -305,7 +324,7 @@ exports.sendText = async (req, res) => {
       (now - new Date(lead.lastInboundAt).getTime()) < 24 * 60 * 60 * 1000;
 
     if (sessionActive && body) {
-      await sendWhatsappMessage(id, to, body);
+      await sendWhatsappMessage(req, id, to, body);
       console.log(`✅ Sent text to ${to} (active session)`);
     } else {
       if (!templateName) {
@@ -316,7 +335,7 @@ exports.sendText = async (req, res) => {
       const [name, lang] = templateName.split("||");
 
       console.log(`⚠️ No active session. Sending template '${name}' (${lang}) to ${to}.`);
-      await sendWhatsappTemplate(id, to, name, lang);
+      await sendWhatsappTemplate(req, id, to, name, lang);
     }
 
     res.redirect(`/leads/${id}`);

@@ -413,6 +413,32 @@
   // Optional: re-scroll on new message add (you’ll hook this after adding msgs via JS/Server)
 </script>
 
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  // join this lead’s room
+  socket.emit('joinLeadRoom', "<%= lead._id %>");
+
+  // when server pushes a new message
+  socket.on('newMessage', (msg) => {
+    console.log("📩 New message arrived", msg);
+
+    const chatBox = document.querySelector('.chat-box');
+
+    // create message bubble
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + (msg.direction === 'outbound' ? 'sent' : 'received');
+    div.innerHTML = `
+      ${msg.type === 'text' ? msg.content : `[${msg.type}]`}
+      <div class="small text-muted">${new Date(msg.timestamp).toLocaleString()}</div>
+    `;
+
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
