@@ -2,14 +2,15 @@ const Chat = require('../models/Chat');
 const User = require('../models/User');
 const Lead = require('../models/Lead');
 const WhatsappNumber = require('../models/WhatsappNumber');
-const formatPhoneE164 = require('../utils/formatPhoneE164')
+const formatPhoneE164 = require('../utils/formatPhoneE164');
+const { getIO } = require('../socket');
 const axios = require('axios');
 const {
   getUserToken,
   refreshUserToken,
 } = require('../utils/metaTokenManager');
 
-async function sendWhatsappMessage(req, leadId, to, text) {
+async function sendWhatsappMessage(leadId, to, text) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
@@ -51,14 +52,17 @@ async function sendWhatsappMessage(req, leadId, to, text) {
   });
 
   // 👇 emit to that lead’s room
-  if (req?.io) {
-    req.io.to(lead._id.toString()).emit('newMessage', chat);
+  try {
+    const io = getIO();
+    io.to(leadId.toString()).emit('newMessage', chat);
+  } catch (e) {
+    console.warn("⚠️ Socket emit failed:", e.message);
   }
 
   console.log(`✅ Sent WhatsApp message via ${lead.whatsappNumberId} to ${to}`);
 }
 
-async function sendWhatsappImage(req, leadId, to, imageUrl, caption) {
+async function sendWhatsappImage(leadId, to, imageUrl, caption) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
@@ -101,14 +105,17 @@ async function sendWhatsappImage(req, leadId, to, imageUrl, caption) {
   });
 
   // 👇 emit to that lead’s room
-  if (req?.io) {
-    req.io.to(lead._id.toString()).emit('newMessage', chat);
+  try {
+    const io = getIO();
+    io.to(leadId.toString()).emit('newMessage', chat);
+  } catch (e) {
+    console.warn("⚠️ Socket emit failed:", e.message);
   }
 
   console.log(`✅ Sent WhatsApp image via ${lead.whatsappNumberId} to ${to}`);
 }
 
-async function sendWhatsappTemplate(req, leadId, to, templateName, languageCode = 'en_US', components = []) {
+async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en_US', components = []) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
 
@@ -151,8 +158,11 @@ async function sendWhatsappTemplate(req, leadId, to, templateName, languageCode 
   });
 
   // 👇 emit to that lead’s room
-  if (req?.io) {
-    req.io.to(lead._id.toString()).emit('newMessage', chat);
+  try {
+    const io = getIO();
+    io.to(leadId.toString()).emit('newMessage', chat);
+  } catch (e) {
+    console.warn("⚠️ Socket emit failed:", e.message);
   }
 
   console.log(`✅ Sent WhatsApp template '${templateName}' via ${lead.whatsappNumberId} to ${to}`);
@@ -294,8 +304,13 @@ exports.handleWebhook = async (req, res) => {
               });
             }
 
-            // 👇 broadcast to lead room
-            req.io.to(leadId.toString()).emit('newMessage', chat);
+            // 👇 emit to that lead’s room
+            try {
+              const io = getIO();
+              io.to(leadId.toString()).emit('newMessage', chat);
+            } catch (e) {
+              console.warn("⚠️ Socket emit failed:", e.message);
+            }
 
             console.log(`💾 Saved inbound WhatsApp msg via ${displayNumber} from ${from}`);
           }
@@ -324,7 +339,7 @@ exports.sendText = async (req, res) => {
       (now - new Date(lead.lastInboundAt).getTime()) < 24 * 60 * 60 * 1000;
 
     if (sessionActive && body) {
-      await sendWhatsappMessage(req, id, to, body);
+      await sendWhatsappMessage(id, to, body);
       console.log(`✅ Sent text to ${to} (active session)`);
     } else {
       if (!templateName) {
@@ -335,7 +350,7 @@ exports.sendText = async (req, res) => {
       const [name, lang] = templateName.split("||");
 
       console.log(`⚠️ No active session. Sending template '${name}' (${lang}) to ${to}.`);
-      await sendWhatsappTemplate(req, id, to, name, lang);
+      await sendWhatsappTemplate(id, to, name, lang);
     }
 
     res.redirect(`/leads/${id}`);

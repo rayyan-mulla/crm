@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 
 const chatSchema = new mongoose.Schema({
+  lead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
   direction: { type: String, enum: ['inbound', 'outbound'], required: true },
   from: String,
   to: String,

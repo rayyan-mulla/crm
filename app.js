@@ -5,14 +5,14 @@ const session = require('express-session');
 const path = require('path');
 const flash = require('connect-flash');
 const http = require('http');           // 👈 required
-const { Server } = require('socket.io'); 
+const { init } = require('./socket');
 
 const seedAdmin = require('./seedAdmin');
 const seedWhatsappNumbers = require('./seedWhatsappNumbers');
 
 const app = express();
 const server = http.createServer(app); // 👈 wrap express with http server
-const io = new Server(server);  
+const io = init(server);
 
 // Environment variables
 const PORT = process.env.PORT || 8080;
@@ -85,25 +85,19 @@ app.use('/chairs', chairsRouter);
   }, 6 * 60 * 60 * 1000); // every 6 hours
 })();
 
-// Middleware to attach io to req (now io is defined ✅)
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
-
-// Socket connections
 io.on('connection', (socket) => {
-  console.log('🔌 A user connected');
+  console.log('🔌 User connected');
 
   socket.on('joinLeadRoom', (leadId) => {
     console.log(`📌 User joined lead room: ${leadId}`);
-    socket.join(leadId); // join room per lead
+    socket.join(leadId);
   });
 
   socket.on('disconnect', () => {
     console.log('❌ User disconnected');
   });
 });
+
 
 // --- 404 handler ---
 app.use((req, res, next) => {

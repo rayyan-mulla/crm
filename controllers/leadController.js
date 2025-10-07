@@ -173,7 +173,7 @@ exports.getLead = async (req, res) => {
 
     if (!lead) return res.redirect('/leads');
 
-    // sourceMeta user resolution (unchanged)
+    // resolve sourceMeta user
     if (lead.sourceMeta) {
       const userId =
         lead.sourceMeta.importedBy ||
@@ -205,37 +205,14 @@ exports.getLead = async (req, res) => {
       process.env.META_USER_ACCESS_TOKEN
     );
 
-    // prepare number variants
-    const variants = new Set();
-    const formatted = formatPhoneE164(lead.contact_number);
-
-    variants.add(formatted);
-
-    if (formatted.startsWith('+91')) {
-      variants.add(formatted.slice(1));           // 91XXXXXXXXXX
-      variants.add('0' + formatted.slice(-10));   // 0XXXXXXXXXX
-      variants.add('00' + formatted.slice(1));    // 0091XXXXXXXXXX
-      variants.add(formatted.slice(-10));         // XXXXXXXXXX
-    }
-
-    // 👇 FIX: add WhatsApp number ID for outbound "from" matching
-    if (lead.whatsappNumberId) {
-      variants.add(lead.whatsappNumberId);
-    }
-
-    // Fetch chats where lead number is either "to" or "from"
-    const chats = await Chat.find({
-      $or: [
-        { to: { $in: Array.from(variants) } },
-        { from: { $in: Array.from(variants) } }
-      ]
-    })
+    // ✅ fetch chats directly by lead._id
+    const chats = await Chat.find({ lead: lead._id })
       .sort({ timestamp: 1 })
       .lean();
 
     // calculate session state
     const within24h = isWithin24Hours(lead.lastInboundAt);
-    const canFreeChat = lead.hasReplied && within24h; // 👈 cleaner logic
+    const canFreeChat = lead.hasReplied && within24h;
 
     console.log("DEBUG session check:", {
       hasReplied: lead.hasReplied,
@@ -251,7 +228,7 @@ exports.getLead = async (req, res) => {
       chats,
       whatsappTemplates,
       within24h,
-      canFreeChat, // 👈 pass to EJS
+      canFreeChat,
       user: req.session.user,
       activePage: 'leadsDetail'
     });
