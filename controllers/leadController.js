@@ -199,8 +199,13 @@ exports.getLead = async (req, res) => {
     // fetch WhatsApp numbers
     const whatsappNumbers = await WhatsappNumber.find({ isActive: true }).lean();
 
-    const whatsappTemplates = await fetchTemplates(process.env.META_WABA_ID, process.env.META_USER_ACCESS_TOKEN);
+    // fetch WhatsApp templates
+    const whatsappTemplates = await fetchTemplates(
+      process.env.META_WABA_ID,
+      process.env.META_USER_ACCESS_TOKEN
+    );
 
+    // prepare number variants
     const variants = new Set();
     const formatted = formatPhoneE164(lead.contact_number);
 
@@ -213,6 +218,11 @@ exports.getLead = async (req, res) => {
       variants.add(formatted.slice(-10));         // XXXXXXXXXX
     }
 
+    // 👇 FIX: add WhatsApp number ID for outbound "from" matching
+    if (lead.whatsappNumberId) {
+      variants.add(lead.whatsappNumberId);
+    }
+
     // Fetch chats where lead number is either "to" or "from"
     const chats = await Chat.find({
       $or: [
@@ -220,10 +230,12 @@ exports.getLead = async (req, res) => {
         { from: { $in: Array.from(variants) } }
       ]
     })
-    .sort({ timestamp: 1 })
-    .lean();
+      .sort({ timestamp: 1 })
+      .lean();
 
+    // calculate session state
     const within24h = isWithin24Hours(lead.lastInboundAt);
+    const canFreeChat = lead.hasReplied && within24h; // 👈 cleaner logic
 
     res.render('leads/detail', {
       lead,
@@ -232,6 +244,7 @@ exports.getLead = async (req, res) => {
       chats,
       whatsappTemplates,
       within24h,
+      canFreeChat, // 👈 pass to EJS
       user: req.session.user,
       activePage: 'leadsDetail'
     });

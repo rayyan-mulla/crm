@@ -318,8 +318,15 @@
             </div>
 
             <!-- Chat input -->
-            <% if (!lead.hasReplied || !within24h) { %>
-              <!-- First time: require sending template -->
+            <% if (canFreeChat) { %>
+              <!-- ✅ Normal text input (within 24h after reply) -->
+              <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2">
+                <input type="hidden" name="to" value="<%= lead.contact_number %>">
+                <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
+                <button class="btn btn-success"><i class="bi bi-send"></i></button>
+              </form>
+            <% } else { %>
+              <!-- ⚠️ Session expired or no reply yet → template required -->
               <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2">
                 <input type="hidden" name="to" value="<%= lead.contact_number %>">
                 <select name="templateName" class="form-select me-2" required>
@@ -332,14 +339,9 @@
                   <i class="bi bi-chat-left-text"></i>
                 </button>
               </form>
-              <p class="text-muted small mt-1">💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.</p>
-            <% } else { %>
-              <!-- Normal text input -->
-              <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2">
-                <input type="hidden" name="to" value="<%= lead.contact_number %>">
-                <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
-                <button class="btn btn-success"><i class="bi bi-send"></i></button>
-              </form>
+              <p class="text-muted small mt-1">
+                💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
+              </p>
             <% } %>
           <% } %>
         </div>
