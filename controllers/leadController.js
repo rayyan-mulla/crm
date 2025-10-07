@@ -509,3 +509,18 @@ exports.updateRequirement = async (req, res) => {
 
   res.redirect(`/leads/${req.params.id}`);
 };
+
+exports.deleteLead = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await Lead.findByIdAndDelete(id);
+
+    req.flash('success', 'Lead deleted successfully');
+    res.redirect('/leads');
+  } catch (error) {
+    console.error('Error deleting lead:', error);
+    req.flash('error', 'Could not delete lead');
+    res.redirect('/leads');
+  }
+};

@@ -23,6 +23,8 @@ router.get("/sample-excel", isAdmin, leadCtrl.sampleExcel);
 // lead detail
 router.get('/:id', isLoggedIn, leadCtrl.getLead);
 
+router.post('/:id/delete', isAdmin, leadCtrl.deleteLead);
+
 // assign (admin)
 router.post('/:id/assign', isAdmin, leadCtrl.assignLead);
 
