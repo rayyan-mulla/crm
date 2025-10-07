@@ -146,13 +146,29 @@
           <% lead.normalizedRequirements.forEach(req => { %>
             <li class="list-group-item d-flex justify-content-between align-items-center">
               <div>
-                <strong><%= req.chair.modelName %></strong> - 
-                <%= req.chair.colors.find(c => c._id.toString() === req.colorId.toString()).name %>
+                <% 
+                  const colorObj = req.chair.colors.find(c => c._id.toString() === req.colorId.toString()); 
+                  const basePrice = colorObj ? colorObj.basePrice : null;
+                  const unitPrice = req.unitPrice;
+                  const priceDiff = basePrice !== null ? unitPrice - basePrice : null;
+                %>
+                <strong><%= req.chair.modelName %></strong> – 
+                <%= colorObj ? colorObj.name : 'Unknown Color' %>
                 (x<%= req.quantity %>)
                 <br>
-                <small>Unit: ₹<%= req.unitPrice %></small> | 
-                <small>Total: ₹<%= req.totalPrice %></small>
-                <% if (req.note) { %><br><small class="text-muted">Note: <%= req.note %></small><% } %>
+                <small>Base Price: ₹<%= basePrice !== null ? basePrice : '-' %></small><br>
+                <small>
+                  Unit: ₹<%= unitPrice %>
+                  <% if (priceDiff !== null && priceDiff !== 0) { %>
+                    <span class="<%= priceDiff > 0 ? 'text-danger' : 'text-success' %>">
+                      (<%= priceDiff > 0 ? '+' : '' %><%= priceDiff %>)
+                    </span>
+                  <% } %>
+                  | Total: ₹<%= req.totalPrice %>
+                </small>
+                <% if (req.note) { %>
+                  <br><small class="text-muted">Note: <%= req.note %></small>
+                <% } %>
               </div>
               <a href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
             </li>
@@ -161,7 +177,28 @@
       <% } else { %>
         <p class="text-muted">No structured requirement set yet.</p>
       <% } %>
+      <%
+        let totalDiff = 0;
+        lead.normalizedRequirements.forEach(r => {
+          const color = r.chair.colors.find(c => c._id.toString() === r.colorId.toString());
+          if (color) {
+            totalDiff += (r.unitPrice - color.basePrice) * r.quantity;
+          }
+        });
+      %>
 
+      <div class="alert 
+        <%= totalDiff > 0 
+            ? 'alert-danger' 
+            : (totalDiff < 0 ? 'alert-success' : 'alert-secondary') %> 
+        d-flex justify-content-between align-items-center mt-2">
+        <span>
+          Overall <%= totalDiff > 0 ? 'Markup' : (totalDiff < 0 ? 'Discount' : 'No markup/discount') %>
+        </span>
+        <strong>
+          ₹<%= totalDiff %>
+        </strong>
+      </div>
       <a href="/leads/<%= lead._id %>/requirement/add" class="btn btn-sm btn-success">+ Add Requirement</a>
     </div>
   </div>
