@@ -292,10 +292,9 @@ exports.handleWebhook = async (req, res) => {
 
 exports.sendText = async (req, res) => {
   try {
-    const { id } = req.params;   // Lead ID
-    const { to, body } = req.body;
+    const { id } = req.params;
+    const { to, body, templateName } = req.body;
 
-    // 1. Load lead directly
     const lead = await Lead.findById(id).lean();
     if (!lead) {
       return res.status(404).send('Lead not found');
@@ -305,14 +304,19 @@ exports.sendText = async (req, res) => {
     const sessionActive = lead.lastInboundAt &&
       (now - new Date(lead.lastInboundAt).getTime()) < 24 * 60 * 60 * 1000;
 
-    if (sessionActive) {
-      // ✅ 24h session active → can send free text
+    if (sessionActive && body) {
       await sendWhatsappMessage(id, to, body);
       console.log(`✅ Sent text to ${to} (active session)`);
     } else {
-      // ⚠️ Session expired → must send a template first
-      console.log(`⚠️ No active session for ${to}. Sending template instead.`);
-      await sendWhatsappTemplate(id, to, "hello_world");
+      if (!templateName) {
+        return res.status(400).send("Template required when session is expired.");
+      }
+
+      // unpack template name + language
+      const [name, lang] = templateName.split("||");
+
+      console.log(`⚠️ No active session. Sending template '${name}' (${lang}) to ${to}.`);
+      await sendWhatsappTemplate(id, to, name, lang);
     }
 
     res.redirect(`/leads/${id}`);

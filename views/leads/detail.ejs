@@ -325,7 +325,7 @@
                 <select name="templateName" class="form-select me-2" required>
                   <option value="">-- Select Template --</option>
                   <% whatsappTemplates.forEach(t => { %>
-                    <option value="<%= t.name %>"><%= t.name %> (<%= t.language %>)</option>
+                    <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
                   <% }) %>
                 </select>
                 <button class="btn btn-primary">
