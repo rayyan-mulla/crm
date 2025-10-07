@@ -237,6 +237,13 @@ exports.getLead = async (req, res) => {
     const within24h = isWithin24Hours(lead.lastInboundAt);
     const canFreeChat = lead.hasReplied && within24h; // 👈 cleaner logic
 
+    console.log("DEBUG session check:", {
+      hasReplied: lead.hasReplied,
+      lastInboundAt: lead.lastInboundAt,
+      within24h,
+      canFreeChat
+    });
+
     res.render('leads/detail', {
       lead,
       assignableUsers: users,
