@@ -34,21 +34,21 @@ router.post('/:id/status', isLoggedIn, leadCtrl.updateStatus);
 // add note
 router.post('/:id/note', isLoggedIn, leadCtrl.addNote);
 
-router.post('/:id/whatsapp-number', async (req, res) => {
+router.post('/:id/whatsapp-number', isLoggedIn, async (req, res) => {
   const { id } = req.params;
   const { whatsappNumberId } = req.body;
   await Lead.findByIdAndUpdate(id, { whatsappNumberId });
   res.redirect(`/leads/${id}`);
 });
 
-router.post('/:id/whatsapp/send-text', whatsappCtrl.sendText);
+router.post('/:id/whatsapp/send-text', isLoggedIn, whatsappCtrl.sendText);
 
 // Add new
-router.get("/:id/requirement/add", leadCtrl.requirementForm);
-router.post("/:id/requirement/add", leadCtrl.saveRequirement);
+router.get("/:id/requirement/add", isLoggedIn, leadCtrl.requirementForm);
+router.post("/:id/requirement/add", isLoggedIn, leadCtrl.saveRequirement);
 
 // Edit existing
-router.get("/:id/requirement/:reqId/edit", leadCtrl.requirementForm);
-router.post("/:id/requirement/:reqId/edit", leadCtrl.saveRequirement);
+router.get("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.requirementForm);
+router.post("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.saveRequirement);
 
 module.exports = router;

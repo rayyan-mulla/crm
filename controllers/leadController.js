@@ -304,45 +304,96 @@ exports.addNote = async (req, res) => {
   }
 };
 
+function normalizeEmail(e) {
+  if (!e) return null;
+  const s = String(e).trim().toLowerCase();
+  return s || null;
+}
+
 // Import from Google Sheet and save into DB
 exports.importFromGoogle = async (req, res) => {
   try {
     const sheetId = process.env.GOOGLE_SHEET_ID;
     const rows = await getSheetRows(sheetId, 'Sheet1!A2:Z');
 
-    const leads = [];
+    const importedBy = req.session?.user?.id
+      ? new mongoose.mongo.ObjectId(req.session.user.id)
+      : undefined;
+
+    const importedAt = new Date();
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const externalId = `row_${i + 2}`; // keep track of row index as externalId
 
-      const leadData = {
-        date: r[0] ? new Date(r[0]) : new Date(),
-        customer_name: r[1] || '',
-        contact_number: r[2] || '',
-        email_id: r[3] || '',
-        city: r[4] || '',
-        requirement: r[5] || '',
-        status: 'New',
+      // Pull fields from sheet
+      const rawDate = r[0];
+      const name = r[1] || '';
+      const rawPhone = r[2] || '';
+      const rawEmail = r[3] || '';
+      const city = r[4] || '';
+      const requirement = r[5] || '';
+
+      // Build a stable natural key
+      let phone = null;
+      try { phone = rawPhone ? formatPhoneE164(rawPhone) : null; } catch (_) { phone = null; }
+      const email = normalizeEmail(rawEmail);
+
+      // Build base payload from the sheet
+      const sheetData = {
+        date: rawDate ? new Date(rawDate) : new Date(),
+        customer_name: name,
+        contact_number: phone || rawPhone || '',
+        email_id: email || '',
+        city,
+        requirement,
         source: 'google_sheet',
         sourceMeta: {
-            sheetId: sheetId,
-            row: r,
-            rowNumber: i + 2,
-            importedBy: new mongoose.mongo.ObjectId(req.session.user.id),
-            importedAt: new Date()
-        },
-        externalId
+          sheetId,
+          row: r,
+          rowNumber: i + 2,       // keep for traceability only
+          importedBy,
+          importedAt
+        }
       };
 
-      // prevent duplicate imports (upsert by externalId)
-      const lead = await Lead.findOneAndUpdate(
-        { externalId, source: 'google_sheet' },
-        { $set: leadData },
-        { upsert: true, new: true }
-      );
+      // Try to find an existing lead by stable natural key (phone or email)
+      let matchQuery = { source: 'google_sheet' };
+      const or = [];
+      if (phone) or.push({ contact_number: phone });
+      if (email) or.push({ email_id: email });
+      if (or.length > 0) {
+        matchQuery.$or = or;
+      } else {
+        // No stable key (no phone/email) → never overwrite; always create new
+        await Lead.create({
+          ...sheetData,
+          status: 'New',
+          externalId: undefined // don't use row-based keys anymore
+        });
+        continue;
+      }
 
-      leads.push(lead);
+      let lead = await Lead.findOne(matchQuery);
+
+      if (lead) {
+        // ✅ Update only sheet-driven fields; preserve status/notes/etc.
+        lead.customer_name = sheetData.customer_name;
+        if (phone) lead.contact_number = phone;       // maintain normalized phone
+        lead.email_id = sheetData.email_id;
+        lead.city = sheetData.city;
+        lead.requirement = sheetData.requirement;
+        lead.sourceMeta = sheetData.sourceMeta;       // refresh import metadata
+        // DO NOT touch lead.status or other CRM-managed fields
+        await lead.save();
+      } else {
+        // ✅ New person (different phone/email): insert a new lead
+        await Lead.create({
+          ...sheetData,
+          status: 'New',
+          // optional: a more stable externalId, not row-based
+          externalId: phone ? `gs_phone:${phone}` : (email ? `gs_email:${email}` : undefined)
+        });
+      }
     }
 
     res.redirect('/leads');
@@ -352,7 +403,6 @@ exports.importFromGoogle = async (req, res) => {
   }
 };
 
-// Upload from Excel file and save into DB
 exports.uploadFromExcel = [
   upload.single("excelFile"),
   async (req, res) => {
@@ -366,16 +416,25 @@ exports.uploadFromExcel = [
 
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
-        const externalId = `row_${i + 2}`; // Excel row index
 
-        const leadData = {
+        // Normalize identifiers
+        let phone = r["Contact Number"] ? r["Contact Number"].toString().trim() : null;
+        let email = r["Email ID"] ? r["Email ID"].toString().trim().toLowerCase() : null;
+
+        // Use phone/email as externalId
+        let externalId;
+        if (phone) externalId = `phone_${phone}`;
+        else if (email) externalId = `email_${email}`;
+        else externalId = `excel_${req.file.originalname}_row_${i + 2}`;
+
+        // Import fields (safe to overwrite)
+        const importFields = {
           date: r["Date"] ? new Date(r["Date"]) : new Date(),
           customer_name: r["Customer Name"] || "",
-          contact_number: r["Contact Number"] || "",
-          email_id: r["Email ID"] || "",
+          contact_number: phone || "",
+          email_id: email || "",
           city: r["City"] || "",
           requirement: r["Requirement"] || "",
-          status: "New",
           source: "excel_upload",
           sourceMeta: {
             fileName: req.file.originalname,
@@ -387,12 +446,21 @@ exports.uploadFromExcel = [
           externalId
         };
 
-        // upsert by externalId & source
-        const lead = await Lead.findOneAndUpdate(
-          { externalId, source: "excel_upload" },
-          { $set: leadData },
-          { upsert: true, new: true }
-        );
+        // Find by externalId + source
+        let lead = await Lead.findOne({ externalId, source: "excel_upload" });
+
+        if (lead) {
+          // ✅ Update only import fields, keep CRM fields
+          Object.assign(lead, importFields);
+          await lead.save();
+        } else {
+          // ✅ New lead
+          lead = new Lead({
+            ...importFields,
+            status: "New"
+          });
+          await lead.save();
+        }
 
         leads.push(lead);
       }
