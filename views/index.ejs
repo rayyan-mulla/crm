@@ -32,7 +32,7 @@
   <!-- Summary Cards -->
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-      <div class="card shadow-sm text-center">
+      <div class="card shadow-sm text-center bg-light text-dark border">
         <div class="card-body">
           <h5>Total Leads</h5>
           <h3><%= summary.totalLeads || 0 %></h3>
@@ -40,7 +40,7 @@
       </div>
     </div>
     <div class="col-6 col-md-3">
-      <div class="card shadow-sm text-center">
+      <div class="card shadow-sm text-center bg-primary text-white border">
         <div class="card-body">
           <h5>New Leads</h5>
           <h3><%= summary.newLeads || 0 %></h3>
@@ -48,7 +48,7 @@
       </div>
     </div>
     <div class="col-6 col-md-3">
-      <div class="card shadow-sm text-center">
+      <div class="card shadow-sm text-center bg-warning text-white border">
         <div class="card-body">
           <h5>In Progress</h5>
           <h3><%= summary.inProgressLeads || 0 %></h3>
@@ -56,10 +56,34 @@
       </div>
     </div>
     <div class="col-6 col-md-3">
-      <div class="card shadow-sm text-center">
+      <div class="card shadow-sm text-center bg-info text-white border">
+        <div class="card-body">
+          <h5>Assigned</h5>
+          <h3><%= summary.assignedLeads || 0 %></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm text-center bg-danger text-white border">
+        <div class="card-body">
+          <h5>Deal Drop</h5>
+          <h3><%= summary.dealDropLeads || 0 %></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm text-center bg-success text-white border">
         <div class="card-body">
           <h5>Closed</h5>
           <h3><%= summary.closedLeads || 0 %></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm text-center bg-secondary text-white border">
+        <div class="card-body">
+          <h5>Other</h5>
+          <h3><%= summary.otherLeads || 0 %></h3>
         </div>
       </div>
     </div>
@@ -168,7 +192,12 @@
                 <th>Name</th>
                 <th>Role</th>
                 <th>Total Leads</th>
-                <th>Closed Leads</th>
+                <th class="text-primary">New</th>
+                <th class="text-warning">In Progress</th>
+                <th class="text-info">Assigned</th>
+                <th class="text-danger">Deal Drop</th>
+                <th class="text-secondary">Other</th>
+                <th class="text-success">Closed</th>
                 <th>Conversion %</th>
               </tr>
             </thead>
@@ -178,7 +207,12 @@
                   <td><%= u.fullName %></td>
                   <td><%= u.role %></td>
                   <td><%= u.totalLeads || 0 %></td>
-                  <td><%= u.closedLeads || 0 %></td>
+                  <td class="text-primary"><%= u.newLeads || 0 %></td>
+                  <td class="text-warning"><%= u.inProgressLeads || 0 %></td>
+                  <td class="text-info"><%= u.assignedLeads || 0 %></td>
+                  <td class="text-danger"><%= u.dealDropLeads || 0 %></td>
+                  <td class="text-secondary"><%= u.otherLeads || 0 %></td>
+                  <td class="text-success"><%= u.closedLeads || 0 %></td>
                   <td><%= u.conversionRate || 0 %>%</td>
                 </tr>
               <% }) %>
@@ -240,9 +274,23 @@
     new Chart(document.getElementById('statusChart'), {
       type: 'doughnut',
       data: {
-        labels: ['New', 'In Progress', 'Closed'],
-        datasets: [{ data: [<%= summary.newLeads %>, <%= summary.inProgressLeads %>, <%= summary.closedLeads %>],
-                     backgroundColor: ['#0d6efd','#ffc107','#198754']}]
+        labels: <%- JSON.stringify(charts.status.labels) %>,
+        datasets: [{
+          data: <%- JSON.stringify(charts.status.data) %>,
+          backgroundColor: <%- JSON.stringify(charts.status.colors) %>
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return ctx.label + ': ' + ctx.raw;
+              }
+            }
+          }
+        }
       }
     });
   <% } %>
@@ -289,6 +337,7 @@
       }
     });
   <% } %>
+
   <% if (charts.monthlyTrend.labels.length) { %>
     new Chart(document.getElementById('monthlyTrendChart'), {
       type: 'line',

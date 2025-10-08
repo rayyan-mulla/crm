@@ -4,6 +4,8 @@ const User = require('../models/User');
 const Chair = require('../models/Chair');
 const mongoose = require('mongoose');
 
+const FIXED_STATUSES = ['New', 'In Progress', 'Assigned', 'Deal Drop', 'Closed'];
+
 exports.getDashboard = async (req, res) => {
   try {
     const user = req.session.user;
@@ -12,11 +14,14 @@ exports.getDashboard = async (req, res) => {
       totalLeads: 0,
       newLeads: 0,
       inProgressLeads: 0,
-      closedLeads: 0
+      assignedLeads: 0,
+      dealDropLeads: 0,
+      closedLeads: 0,
+      otherLeads: 0
     };
 
     const charts = {
-      status: { labels: ['New', 'In Progress', 'Closed'], data: [0, 0, 0] },
+      status: { labels: [], data: [], colors: [] },
       source: { labels: [], data: [] },
       chairsByUser: { labels: [], data: [] },
       revenueByUser: { labels: [], data: [] },
@@ -27,18 +32,36 @@ exports.getDashboard = async (req, res) => {
     let usersData = [];
     let activity = [];
 
+    // ================== COMMON FUNCTION: count statuses ==================
+    const countStatuses = (leads) => {
+      const counts = {};
+      for (const lead of leads) {
+        const s = lead.status || 'Other';
+        if (FIXED_STATUSES.includes(s)) {
+          counts[s] = (counts[s] || 0) + 1;
+        } else {
+          counts['Other'] = (counts['Other'] || 0) + 1;
+        }
+      }
+      return counts;
+    };
+
+    // ================== ADMIN ==================
     if (user.role === 'admin') {
-      // --- Admin: all leads ---
       const allLeads = await Lead.find()
         .populate('assignedTo', 'fullName')
         .populate('normalizedRequirements.chair', 'modelName colors')
         .lean();
 
       // Summary
+      const statusCount = countStatuses(allLeads);
       summary.totalLeads = allLeads.length;
-      summary.newLeads = allLeads.filter(l => l.status === 'New').length;
-      summary.inProgressLeads = allLeads.filter(l => l.status === 'In Progress').length;
-      summary.closedLeads = allLeads.filter(l => l.status === 'Closed').length;
+      summary.newLeads = statusCount['New'] || 0;
+      summary.inProgressLeads = statusCount['In Progress'] || 0;
+      summary.assignedLeads = statusCount['Assigned'] || 0;
+      summary.dealDropLeads = statusCount['Deal Drop'] || 0;
+      summary.closedLeads = statusCount['Closed'] || 0;
+      summary.otherLeads = statusCount['Other'] || 0;
 
       // Leads by source
       const sourceCount = {};
@@ -49,7 +72,7 @@ exports.getDashboard = async (req, res) => {
       charts.source.labels = Object.keys(sourceCount);
       charts.source.data = Object.values(sourceCount);
 
-      // User performance table
+      // User performance
       const allUsers = await User.find({ role: { $in: ['user', 'admin'] } }).lean();
 
       usersData = allUsers.map(u => {
@@ -61,22 +84,23 @@ exports.getDashboard = async (req, res) => {
           return assignedToMatch || importedByMatch || uploadedByMatch || createdByMatch;
         });
 
-        const newLeads = userLeads.filter(l => l.status === 'New').length;
-        const inProgressLeads = userLeads.filter(l => l.status === 'In Progress').length;
-        const closedLeads = userLeads.filter(l => l.status === 'Closed').length;
+        const userStatus = countStatuses(userLeads);
 
         return {
           fullName: u.fullName,
           role: u.role,
           totalLeads: userLeads.length,
-          newLeads,
-          inProgressLeads,
-          closedLeads,
-          conversionRate: userLeads.length ? Math.round((closedLeads / userLeads.length) * 100) : 0
+          newLeads: userStatus['New'] || 0,
+          inProgressLeads: userStatus['In Progress'] || 0,
+          assignedLeads: userStatus['Assigned'] || 0,
+          dealDropLeads: userStatus['Deal Drop'] || 0,
+          closedLeads: userStatus['Closed'] || 0,
+          otherLeads: userStatus['Other'] || 0,
+          conversionRate: userLeads.length ? Math.round(((userStatus['Closed'] || 0) / userLeads.length) * 100) : 0
         };
       });
 
-      // --- Chair & revenue analytics (ONLY Closed leads) ---
+      // Chair & revenue analytics (closed only)
       const closedWithReqs = allLeads.filter(
         l => l.status === 'Closed' && Array.isArray(l.normalizedRequirements) && l.normalizedRequirements.length
       );
@@ -103,12 +127,12 @@ exports.getDashboard = async (req, res) => {
       charts.revenueByUser = { labels: Object.keys(revenueByUser), data: Object.values(revenueByUser) };
       charts.chairsByModel = { labels: Object.keys(chairsByModel), data: Object.values(chairsByModel) };
 
-      // Monthly trend (Closed only)
+      // Monthly trend
       const monthlyStats = {};
       for (const l of closedWithReqs) {
         for (const req of l.normalizedRequirements) {
           const d = new Date(l.updatedAt);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           if (!monthlyStats[key]) monthlyStats[key] = { chairs: 0, revenue: 0 };
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
@@ -133,7 +157,7 @@ exports.getDashboard = async (req, res) => {
         }));
 
     } else {
-      // --- User: only own leads ---
+      // ================== USER ==================
       const userObjectId = new mongoose.Types.ObjectId(user.id);
       const myLeads = await Lead.find({
         $or: [
@@ -146,10 +170,14 @@ exports.getDashboard = async (req, res) => {
         .lean();
 
       // Summary
+      const statusCount = countStatuses(myLeads);
       summary.totalLeads = myLeads.length;
-      summary.newLeads = myLeads.filter(l => l.status === 'New').length;
-      summary.inProgressLeads = myLeads.filter(l => l.status === 'In Progress').length;
-      summary.closedLeads = myLeads.filter(l => l.status === 'Closed').length;
+      summary.newLeads = statusCount['New'] || 0;
+      summary.inProgressLeads = statusCount['In Progress'] || 0;
+      summary.assignedLeads = statusCount['Assigned'] || 0;
+      summary.dealDropLeads = statusCount['Deal Drop'] || 0;
+      summary.closedLeads = statusCount['Closed'] || 0;
+      summary.otherLeads = statusCount['Other'] || 0;
 
       // Leads by source
       const sourceCount = {};
@@ -160,22 +188,21 @@ exports.getDashboard = async (req, res) => {
       charts.source.labels = Object.keys(sourceCount);
       charts.source.data = Object.values(sourceCount);
 
-      // Self performance row
-      const newLeads = summary.newLeads;
-      const inProgressLeads = summary.inProgressLeads;
-      const closedLeads = summary.closedLeads;
-
+      // Self performance
       usersData = [{
         fullName: user.fullName,
         role: user.role,
         totalLeads: summary.totalLeads,
-        newLeads,
-        inProgressLeads,
-        closedLeads,
-        conversionRate: summary.totalLeads ? Math.round((closedLeads / summary.totalLeads) * 100) : 0
+        newLeads: summary.newLeads,
+        inProgressLeads: summary.inProgressLeads,
+        assignedLeads: summary.assignedLeads,
+        dealDropLeads: summary.dealDropLeads,
+        closedLeads: summary.closedLeads,
+        otherLeads: summary.otherLeads,
+        conversionRate: summary.totalLeads ? Math.round((summary.closedLeads / summary.totalLeads) * 100) : 0
       }];
 
-      // Chair & revenue analytics (ONLY Closed leads for this user)
+      // Chair & revenue analytics
       const closedWithReqs = myLeads.filter(
         l => l.status === 'Closed' && Array.isArray(l.normalizedRequirements) && l.normalizedRequirements.length
       );
@@ -186,7 +213,7 @@ exports.getDashboard = async (req, res) => {
 
       for (const l of closedWithReqs) {
         for (const req of l.normalizedRequirements) {
-          const userName = user.fullName; // self
+          const userName = user.fullName;
           const modelName = req.chair?.modelName || 'Unknown Model';
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
@@ -202,11 +229,12 @@ exports.getDashboard = async (req, res) => {
       charts.revenueByUser = { labels: Object.keys(revenueByUser), data: Object.values(revenueByUser) };
       charts.chairsByModel = { labels: Object.keys(chairsByModel), data: Object.values(chairsByModel) };
 
-       const monthlyStats = {};
+      // Monthly trend
+      const monthlyStats = {};
       for (const l of closedWithReqs) {
         for (const req of l.normalizedRequirements) {
           const d = new Date(l.updatedAt);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           if (!monthlyStats[key]) monthlyStats[key] = { chairs: 0, revenue: 0 };
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
@@ -220,7 +248,7 @@ exports.getDashboard = async (req, res) => {
         chairs: sortedKeys.map(k => monthlyStats[k].chairs),
         revenue: sortedKeys.map(k => monthlyStats[k].revenue)
       };
-      
+
       // Recent activity
       activity = myLeads
         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
@@ -231,9 +259,28 @@ exports.getDashboard = async (req, res) => {
         }));
     }
 
-    // Status chart data
-    charts.status.data = [summary.newLeads, summary.inProgressLeads, summary.closedLeads];
+    // ================== STATUS CHART ==================
+    charts.status = {
+      labels: [...FIXED_STATUSES, 'Other'],
+      data: [
+        summary.newLeads,
+        summary.inProgressLeads,
+        summary.assignedLeads,
+        summary.dealDropLeads,
+        summary.closedLeads,
+        summary.otherLeads
+      ],
+      colors: [
+        '#0d6efd', // New - Bootstrap Primary
+        '#ffc107', // In Progress - Bootstrap Warning
+        '#0dcaf0', // Assigned - Bootstrap Info
+        '#dc3545', // Deal Drop - Bootstrap Danger
+        '#198754', // Closed - Bootstrap Success
+        '#6c757d'  // Other - Bootstrap Secondary
+      ]
+    };
 
+    // Render view
     res.render('index', {
       user,
       summary,

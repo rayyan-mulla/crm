@@ -46,6 +46,7 @@
         <option value="In Progress" <%= query.status==='In Progress' ? 'selected' : '' %>>In Progress</option>
         <option value="Closed" <%= query.status==='Closed' ? 'selected' : '' %>>Closed</option>
         <option value="Assigned" <%= query.status==='Assigned' ? 'selected' : '' %>>Assigned</option>
+        <option value="Deal Drop" <%= query.status==='Deal Drop' ? 'selected' : '' %>>Deal Drop</option>
         </select>
     </div>
     <div class="col-6 col-sm-6 col-md-2">
@@ -110,9 +111,11 @@
                 <td>
                     <span class="badge 
                     <%= l.status==='New' ? 'bg-primary' : 
-                        l.status==='In Progress' ? 'bg-warning text-dark' :
-                        l.status==='Assigned' ? 'bg-info text-dark' :
-                        'bg-success' %>">
+                        l.status==='In Progress' ? 'bg-warning' :
+                        l.status==='Assigned' ? 'bg-info' :
+                        l.status==='Deal Drop' ? 'bg-danger' :
+                        l.status==='Closed' ? 'bg-success' :
+                        'bg-secondary' %>">
                     <%= l.status %>
                     </span>
                 </td>
