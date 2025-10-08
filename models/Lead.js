@@ -31,6 +31,7 @@ const RequirementItemSchema = new mongoose.Schema({
   colorId: { type: mongoose.Schema.Types.ObjectId, required: true }, 
   quantity: { type: Number, default: 1 },
   unitPrice: { type: Number, required: true }, // agreed per-unit price
+  shippingUnit: { type: Number, default: 0 },
   totalPrice: { type: Number, required: true }, // auto-calculated
   note: { type: String }
 }, { _id: true });

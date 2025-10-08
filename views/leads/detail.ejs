@@ -150,13 +150,17 @@
                   const colorObj = req.chair && req.chair.colors.find(c => c._id.toString() === req.colorId.toString());
                   const basePrice = colorObj ? colorObj.basePrice : null;
                   const unitPrice = req.unitPrice;
-                  const priceDiff = basePrice !== null ? unitPrice - basePrice : null;
+                  const shipping = req.shippingUnit || 0;
+                  const priceDiff = basePrice !== null 
+                    ? ( (unitPrice / 1.18) - (basePrice / 1.18) - shipping ) 
+                    : null;
                 %>
                 <strong><%= req.chair.modelName %></strong> – 
                 <%= colorObj ? colorObj.name : 'Unknown Color' %>
                 (x<%= req.quantity %>)
                 <br>
                 <small>Base Price: ₹<%= basePrice !== null ? basePrice : '-' %></small><br>
+                <small>Shipping/Unit: ₹<%= shipping %></small><br>
                 <small>
                   Unit: ₹<%= unitPrice %>
                   <% if (priceDiff !== null && priceDiff !== 0) { %>
@@ -182,7 +186,10 @@
         (lead.normalizedRequirements || []).forEach(r => {
           const color = r.chair && r.chair.colors.find(c => c._id.toString() === r.colorId.toString());
           if (color) {
-            totalDiff += (r.unitPrice - color.basePrice) * r.quantity;
+            const unitBase = (r.unitPrice || 0) / 1.18;
+            const base = (color.basePrice || 0) / 1.18;
+            const shipping = r.shippingUnit || 0;
+            totalDiff += (unitBase - base - shipping) * r.quantity;
           }
         });
       %>

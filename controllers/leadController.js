@@ -431,35 +431,8 @@ exports.sampleExcel = (req, res) => {
   }
 };
 
-exports.addRequirementForm = async (req, res) => {
-  const lead = await Lead.findById(req.params.id).lean();
-  const chairs = await Chair.find({ isActive: true }).lean();
-  res.render('leads/addRequirement', { lead, chairs, user: req.session.user, activePage: 'addRequirement' });
-};
-
-exports.addRequirement = async (req, res) => {
-  const { chairId, colorId, quantity, unitPrice, note } = req.body;
-
-  const qty = parseInt(quantity) || 1;
-  const unit = parseFloat(unitPrice) || 0;
-
-  await Lead.findByIdAndUpdate(req.params.id, {
-    $push: {
-      normalizedRequirements: {
-        chair: chairId,
-        colorId,
-        quantity: qty,
-        unitPrice: unit,
-        totalPrice: qty * unit,
-        note
-      }
-    }
-  });
-
-  res.redirect(`/leads/${req.params.id}`);
-};
-
-exports.editRequirementForm = async (req, res) => {
+// Render form for both add & edit
+exports.requirementForm = async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id)
       .populate('normalizedRequirements.chair')
@@ -467,47 +440,93 @@ exports.editRequirementForm = async (req, res) => {
 
     if (!lead) return res.redirect('/leads');
 
-    const requirement = lead.normalizedRequirements.find(r => r._id.toString() === req.params.reqId);
-    if (!requirement) {
-      return res.redirect(`/leads/${req.params.id}`);
-    }
-
     const chairs = await Chair.find({ isActive: true }).lean();
 
-    res.render('leads/editRequirement', {
+    let requirement = null;
+    let mode = "add";
+
+    if (req.params.reqId) {
+      // Editing case
+      requirement = lead.normalizedRequirements.find(
+        r => r._id.toString() === req.params.reqId
+      );
+      if (!requirement) return res.redirect(`/leads/${req.params.id}`);
+      mode = "edit";
+    }
+
+    res.render('leads/requirementForm', {
       lead,
       requirement,
       chairs,
+      mode,
       user: req.session.user,
       activePage: 'leadsDetail'
     });
   } catch (err) {
-    console.error('editRequirementForm error', err);
-    res.status(500).send('Server error');
+    console.error("requirementForm error", err);
+    res.status(500).send("Server error");
   }
 };
 
-exports.updateRequirement = async (req, res) => {
-  const { chairId, colorId, quantity, unitPrice, note } = req.body;
+// Handle create or update in one place
+// Handle create or update in one place
+exports.saveRequirement = async (req, res) => {
+  try {
+    if (req.params.reqId) {
+      // ✅ update case (single)
+      const { chairId, colorId, quantity, unitPrice, shippingUnit, note } = req.body;
+      const qty = parseInt(quantity) || 1;
+      const unit = parseFloat(unitPrice) || 0;
+      const ship = parseFloat(shippingUnit) || 0;
+      const total = (unit + ship) * qty;
 
-  const qty = parseInt(quantity) || 1;
-  const unit = parseFloat(unitPrice) || 0;
+      await Lead.updateOne(
+        { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
+        {
+          $set: {
+            "normalizedRequirements.$.chair": chairId,
+            "normalizedRequirements.$.colorId": colorId,
+            "normalizedRequirements.$.quantity": qty,
+            "normalizedRequirements.$.unitPrice": unit,
+            "normalizedRequirements.$.shippingUnit": ship,
+            "normalizedRequirements.$.totalPrice": total,
+            "normalizedRequirements.$.note": note
+          }
+        }
+      );
+    } else {
+      // ✅ add case (multiple requirements from array)
+      const requirements = req.body.requirements || [];
 
-  await Lead.updateOne(
-    { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
-    {
-      $set: {
-        "normalizedRequirements.$.chair": chairId,
-        "normalizedRequirements.$.colorId": colorId,
-        "normalizedRequirements.$.quantity": qty,
-        "normalizedRequirements.$.unitPrice": unit,
-        "normalizedRequirements.$.totalPrice": qty * unit,
-        "normalizedRequirements.$.note": note
+      const reqs = Object.values(requirements).map(r => {
+        const qty = parseInt(r.quantity) || 1;
+        const unit = parseFloat(r.unitPrice) || 0;
+        const ship = parseFloat(r.shippingUnit) || 0;
+        const total = (unit + ship) * qty;
+
+        return {
+          chair: r.chairId,
+          colorId: r.colorId,
+          quantity: qty,
+          unitPrice: unit,
+          shippingUnit: ship,
+          totalPrice: total,
+          note: r.note || ""
+        };
+      });
+
+      if (reqs.length) {
+        await Lead.findByIdAndUpdate(req.params.id, {
+          $push: { normalizedRequirements: { $each: reqs } }
+        });
       }
     }
-  );
 
-  res.redirect(`/leads/${req.params.id}`);
+    res.redirect(`/leads/${req.params.id}`);
+  } catch (err) {
+    console.error("saveRequirement error", err);
+    res.status(500).send("Server error");
+  }
 };
 
 exports.deleteLead = async (req, res) => {
