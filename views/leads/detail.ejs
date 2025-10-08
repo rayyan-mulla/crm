@@ -152,7 +152,7 @@
                   const unitPrice = req.unitPrice;
                   const shipping = req.shippingUnit || 0;
                   const priceDiff = basePrice !== null 
-                    ? ( (unitPrice / 1.18) - (basePrice / 1.18) - shipping ) 
+                    ? Math.round( (unitPrice / 1.18) - (basePrice / 1.18) - shipping ) 
                     : null;
                 %>
                 <strong><%= req.chair.modelName %></strong> – 
@@ -189,7 +189,7 @@
             const unitBase = (r.unitPrice || 0) / 1.18;
             const base = (color.basePrice || 0) / 1.18;
             const shipping = r.shippingUnit || 0;
-            totalDiff += (unitBase - base - shipping) * r.quantity;
+            totalDiff += Math.round((unitBase - base - shipping) * r.quantity);
           }
         });
       %>

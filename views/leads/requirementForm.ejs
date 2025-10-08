@@ -226,7 +226,7 @@
       const q = parseInt(row.querySelector('.qty').value) || 0;
       const u = parseFloat(row.querySelector('.unit').value) || 0;
       const s = parseFloat(row.querySelector('.ship').value) || 0;
-      row.querySelector('.total').value = (u + s) * q;
+      row.querySelector('.total').value = u * q;
     }
   });
 </script>

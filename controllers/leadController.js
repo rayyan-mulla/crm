@@ -478,7 +478,7 @@ exports.saveRequirement = async (req, res) => {
       const qty = parseInt(quantity) || 1;
       const unit = parseFloat(unitPrice) || 0;
       const ship = parseFloat(shippingUnit) || 0;
-      const total = (unit + ship) * qty;
+      const total = unit * qty;
 
       await Lead.updateOne(
         { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
@@ -502,7 +502,7 @@ exports.saveRequirement = async (req, res) => {
         const qty = parseInt(r.quantity) || 1;
         const unit = parseFloat(r.unitPrice) || 0;
         const ship = parseFloat(r.shippingUnit) || 0;
-        const total = (unit + ship) * qty;
+        const total = unit * qty;
 
         return {
           chair: r.chairId,
