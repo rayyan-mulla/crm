@@ -237,7 +237,13 @@
           <form action="/leads/<%= lead._id %>/status" method="post" class="d-flex align-items-center">
             <select name="status" id="statusSelect" class="form-select me-2" onchange="toggleCustomStatus()">
               <option value="">-- Update Status --</option>
-              <% ["New","In Progress","Closed","Assigned","Deal Drop"].forEach(s => { %>
+              <% 
+                const adminStatuses = ["New","Assigned","In Progress","Deal Drop","Closed"];
+                const userStatuses = ["In Progress","Deal Drop","Closed"];
+                const statuses = user.role === 'admin' ? adminStatuses : userStatuses;
+              %>
+
+              <% statuses.forEach(s => { %>
                 <option value="<%= s %>" <%= lead.status===s ? 'selected' : '' %>><%= s %></option>
               <% }) %>
               <option value="__other__">Other...</option>

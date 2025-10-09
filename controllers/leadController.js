@@ -107,6 +107,8 @@ exports.postCreate = async (req, res) => {
       requirement
     } = req.body;
 
+    const isAdmin = req.session.user.role === 'admin';
+
     const lead = new Lead({
       date: date ? new Date(date) : new Date(),
       customer_name,
@@ -115,8 +117,8 @@ exports.postCreate = async (req, res) => {
       city,
       requirement,
       source: 'manual',
-      status: 'New',
-      assignedTo: new mongoose.mongo.ObjectId(req.session.user.id),
+      status: isAdmin ? 'New' : 'Assigned',
+      assignedTo: isAdmin ? null : new mongoose.mongo.ObjectId(req.session.user.id),
       sourceMeta: {
         createdBy: new mongoose.mongo.ObjectId(req.session.user.id),
         createdAt: new Date(),
@@ -124,7 +126,7 @@ exports.postCreate = async (req, res) => {
       },
       statusHistory: [
         {
-          status: 'New',
+          status: isAdmin ? 'New' : 'Assigned',
           changedBy: new mongoose.mongo.ObjectId(req.session.user.id),
           changedAt: new Date()
         }
@@ -264,6 +266,76 @@ exports.assignLead = async (req, res) => {
   } catch (err) {
     console.error('assignLead', err);
     res.status(500).send('Server error');
+  }
+};
+
+// Bulk-assign multiple leads to a single user (AJAX version)
+exports.bulkAssignLeads = async (req, res) => {
+  try {
+    if (!req.session?.user || req.session.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    let { userId, leadIds } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    if (!Array.isArray(leadIds)) {
+      leadIds = leadIds ? [leadIds] : [];
+    }
+    if (leadIds.length === 0) {
+      return res.json({ success: true, assigned: 0, skipped: 0, assignedIds: [], skippedIds: [] });
+    }
+
+    const changedBy = req.session.user.id || req.session.user._id;
+    const now = new Date();
+
+    // Fetch user name for UI
+    const assignedUser = await User.findById(userId).lean();
+
+    // Find leads
+    const leads = await Lead.find({ _id: { $in: leadIds } }).lean();
+
+    const assignable = [];
+    const skipped = [];
+
+    for (const lead of leads) {
+      if (!lead.assignedTo && lead.status !== 'Closed' && lead.status !== 'Deal Drop') {
+        assignable.push(lead._id);
+      } else {
+        skipped.push(lead._id);
+      }
+    }
+
+    let assignedCount = 0;
+    if (assignable.length > 0) {
+      const result = await Lead.updateMany(
+        { _id: { $in: assignable } },
+        {
+          $set: { assignedTo: userId, status: 'Assigned' },
+          $push: {
+            statusHistory: {
+              status: 'Assigned',
+              changedBy,
+              changedAt: now,
+              notes: 'Bulk assignment'
+            }
+          }
+        }
+      );
+      assignedCount = result.modifiedCount || 0;
+    }
+
+    return res.json({
+      success: true,
+      assigned: assignedCount,
+      skipped: skipped.length,
+      assignedIds: assignable.map(id => id.toString()),
+      skippedIds: skipped.map(id => id.toString()),
+      user: assignedUser ? (assignedUser.fullName || assignedUser.username) : "User"
+    });
+  } catch (err) {
+    console.error("bulkAssignLeads error", err);
+    res.status(500).json({ error: "Server error" });
   }
 };
 
@@ -604,11 +676,9 @@ exports.deleteLead = async (req, res) => {
 
     await Lead.findByIdAndDelete(id);
 
-    req.flash('success', 'Lead deleted successfully');
     res.redirect('/leads');
   } catch (error) {
     console.error('Error deleting lead:', error);
-    req.flash('error', 'Could not delete lead');
     res.redirect('/leads');
   }
 };

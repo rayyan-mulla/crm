@@ -28,6 +28,8 @@ router.post('/:id/delete', isAdmin, leadCtrl.deleteLead);
 // assign (admin)
 router.post('/:id/assign', isAdmin, leadCtrl.assignLead);
 
+router.post('/bulk-assign', isAdmin, leadCtrl.bulkAssignLeads);
+
 // update status (assigned user or admin)
 router.post('/:id/status', isLoggedIn, leadCtrl.updateStatus);
 
