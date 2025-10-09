@@ -116,6 +116,7 @@ exports.postCreate = async (req, res) => {
       requirement,
       source: 'manual',
       status: 'New',
+      assignedTo: new mongoose.mongo.ObjectId(req.session.user.id),
       sourceMeta: {
         createdBy: new mongoose.mongo.ObjectId(req.session.user.id),
         createdAt: new Date(),

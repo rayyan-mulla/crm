@@ -20,6 +20,28 @@
       justify-content: center;
       align-items: center;
     }
+    .small-card .card-body {
+    padding: 0.5rem 0.25rem; /* reduce height */
+  }
+  .small-card h6 {
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+  }
+  .small-card .fs-6 {
+    font-size: 1rem !important;
+  }
+
+  /* Custom 7-column flex for large screens */
+  @media (min-width: 992px) {
+    .small-cards {
+      display: flex;
+      flex-wrap: nowrap;
+    }
+    .small-cards .card-wrapper {
+      flex: 1 0 0;
+      max-width: calc(100% / 7);
+    }
+  }
   </style>
 </head>
 <body>
@@ -30,8 +52,8 @@
   <h3 class="mb-4">Welcome, <%= user.fullName %></h3>
 
   <!-- Summary Cards -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
+  <div class="row g-3 mb-4 small-cards">
+    <div class="col-4 col-lg card-wrapper">
       <div class="card shadow-sm text-center bg-light text-dark border">
         <div class="card-body">
           <h5>Total Leads</h5>
@@ -39,7 +61,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4 col-lg card-wrapper">
       <div class="card shadow-sm text-center bg-primary text-white border">
         <div class="card-body">
           <h5>New Leads</h5>
@@ -47,7 +69,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4 col-lg card-wrapper">
       <div class="card shadow-sm text-center bg-warning text-white border">
         <div class="card-body">
           <h5>In Progress</h5>
@@ -55,7 +77,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4 col-lg card-wrapper">
       <div class="card shadow-sm text-center bg-info text-white border">
         <div class="card-body">
           <h5>Assigned</h5>
@@ -63,7 +85,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4 col-lg card-wrapper">
       <div class="card shadow-sm text-center bg-danger text-white border">
         <div class="card-body">
           <h5>Deal Drop</h5>
@@ -71,7 +93,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4 col-lg card-wrapper">
       <div class="card shadow-sm text-center bg-success text-white border">
         <div class="card-body">
           <h5>Closed</h5>
@@ -79,7 +101,7 @@
         </div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-4 col-lg card-wrapper">
       <div class="card shadow-sm text-center bg-secondary text-white border">
         <div class="card-body">
           <h5>Other</h5>
