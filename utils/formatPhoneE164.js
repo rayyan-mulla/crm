@@ -9,11 +9,20 @@
 function formatPhoneE164(phone, defaultCountryCode = "91") {
   if (!phone) return null;
 
-  let cleaned = phone.toString().replace(/\D/g, ''); // remove non-digits
+  const raw = phone.toString().trim();
 
-  if (cleaned.startsWith('00')) {
-    // e.g. 00919876543210 → +919876543210
-    return '+' + cleaned.slice(2);
+  if (raw.startsWith("+")) {
+    return raw;
+  }
+
+  let cleaned = raw.replace(/\D/g, ''); // remove non-digits
+
+  if (cleaned.startsWith('0091') && cleaned.length === 14) {
+    return '+91' + cleaned.slice(4);
+  }
+
+  if (cleaned.startsWith('00') && cleaned.length === 12) {
+    return '+91' + cleaned.slice(2);
   }
 
   if (cleaned.startsWith('91') && cleaned.length === 12) {
@@ -23,19 +32,16 @@ function formatPhoneE164(phone, defaultCountryCode = "91") {
 
   if (cleaned.length === 10) {
     // e.g. 9876543210 → +919876543210 (default country)
-    return defaultCountryCode + cleaned;
+    return '+' + defaultCountryCode + cleaned;
   }
 
-  if (cleaned.startsWith('+')) {
-    return cleaned;
-  }
-
-  if (cleaned.startsWith("0")) {
-    return '+' + cleaned.slice(1);
+  if (cleaned.startsWith("0") && cleaned.length === 11) {
+    // e.g. 08779951264 → +918779951264
+    return '+' + defaultCountryCode + cleaned.slice(1);
   }
 
   // fallback: add '+' if missing
-  return '+' + cleaned;
+  return null
 }
 
 module.exports = formatPhoneE164;

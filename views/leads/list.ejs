@@ -126,6 +126,7 @@
                 <th style="max-width: 100px;">City</th>
                 <th style="max-width: 150px;">Requirement</th>
                 <th style="width: 120px;">Source</th>
+                <th class="text-nowrap" style="max-width: 150px;">Lead Source</th>
                 <th style="width: 110px;">Status</th>
                 <th style="max-width: 160px;">Assigned</th>
                 <th style="width: 160px;">Actions</th>
@@ -147,6 +148,7 @@
                   <td class="text-truncate" style="max-width:100px;" title="<%= l.city %>"><%= l.city || '-' %></td>
                   <td class="text-truncate" style="max-width:150px;" title="<%= l.requirement %>"><%= l.requirement %></td>
                   <td><%= displaySource(l.source) %></td>
+                  <td class="text-truncate" style="max-width:150px;" title="<%= l.leadSource %>"><%= l.leadSource || '-' %></td>
                   <td>
                     <span class="badge 
                       <%= l.status==='New' ? 'bg-primary' : 

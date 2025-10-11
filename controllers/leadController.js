@@ -104,7 +104,8 @@ exports.postCreate = async (req, res) => {
       contact_number,
       email_id,
       city,
-      requirement
+      requirement,
+      leadSource
     } = req.body;
 
     const isAdmin = req.session.user.role === 'admin';
@@ -117,6 +118,7 @@ exports.postCreate = async (req, res) => {
       city,
       requirement,
       source: 'manual',
+      leadSource: leadSource || null,
       status: isAdmin ? 'New' : 'Assigned',
       assignedTo: isAdmin ? null : new mongoose.mongo.ObjectId(req.session.user.id),
       sourceMeta: {
@@ -405,6 +407,7 @@ exports.importFromGoogle = async (req, res) => {
       const rawEmail = r[3] || '';
       const city = r[4] || '';
       const requirement = r[5] || '';
+      const leadSource = r[6] || '';
 
       // Build a stable natural key
       let phone = null;
@@ -419,6 +422,7 @@ exports.importFromGoogle = async (req, res) => {
         email_id: email || '',
         city,
         requirement,
+        leadSource: leadSource || null,
         source: 'google_sheet',
         sourceMeta: {
           sheetId,
@@ -455,6 +459,7 @@ exports.importFromGoogle = async (req, res) => {
         lead.email_id = sheetData.email_id;
         lead.city = sheetData.city;
         lead.requirement = sheetData.requirement;
+        lead.leadSource = sheetData.leadSource; 
         lead.sourceMeta = sheetData.sourceMeta;       // refresh import metadata
         // DO NOT touch lead.status or other CRM-managed fields
         await lead.save();
@@ -485,20 +490,12 @@ exports.uploadFromExcel = [
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet);
 
-      const leads = [];
-
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
 
         // Normalize identifiers
         let phone = r["Contact Number"] ? r["Contact Number"].toString().trim() : null;
         let email = r["Email ID"] ? r["Email ID"].toString().trim().toLowerCase() : null;
-
-        // Use phone/email as externalId
-        let externalId;
-        if (phone) externalId = `phone_${phone}`;
-        else if (email) externalId = `email_${email}`;
-        else externalId = `excel_${req.file.originalname}_row_${i + 2}`;
 
         // Import fields (safe to overwrite)
         const importFields = {
@@ -508,6 +505,7 @@ exports.uploadFromExcel = [
           email_id: email || "",
           city: r["City"] || "",
           requirement: r["Requirement"] || "",
+          leadSource: r["Lead Source"] || null,
           source: "excel_upload",
           sourceMeta: {
             fileName: req.file.originalname,
@@ -515,27 +513,43 @@ exports.uploadFromExcel = [
             rowNumber: i + 2,
             uploadedBy: new mongoose.mongo.ObjectId(req.session.user.id),
             uploadedAt: new Date()
-          },
-          externalId
+          }
         };
 
-        // Find by externalId + source
-        let lead = await Lead.findOne({ externalId, source: "excel_upload" });
+        // ✅ Try to find existing lead by phone or email
+        let matchQuery = { source: "excel_upload" };
+        const or = [];
+        if (phone) or.push({ contact_number: phone });
+        if (email) or.push({ email_id: email });
+        if (or.length > 0) matchQuery.$or = or;
+
+        let lead = await Lead.findOne(matchQuery);
 
         if (lead) {
-          // ✅ Update only import fields, keep CRM fields
-          Object.assign(lead, importFields);
+          // ✅ Update only import fields, keep CRM-managed fields
+          lead.customer_name = importFields.customer_name;
+          if (phone) lead.contact_number = phone;
+          if (email) lead.email_id = email;
+          lead.city = importFields.city;
+          lead.requirement = importFields.requirement;
+          lead.leadSource = importFields.leadSource;
+          lead.sourceMeta = importFields.sourceMeta;
           await lead.save();
         } else {
-          // ✅ New lead
+          // ✅ Create new lead if no match found
+          const externalId = phone 
+            ? `excel_phone:${phone}` 
+            : email 
+              ? `excel_email:${email}` 
+              : `excel_${req.file.originalname}_row_${i + 2}`;
+
           lead = new Lead({
             ...importFields,
-            status: "New"
+            status: "New",
+            externalId
           });
           await lead.save();
         }
-
-        leads.push(lead);
       }
 
       // cleanup uploaded file
@@ -553,7 +567,7 @@ exports.uploadFromExcel = [
 exports.sampleExcel = (req, res) => {
   try {
     const headers = [
-      ["Date", "Customer Name", "Contact Number", "Email", "City", "Requirement"]
+      ["Date", "Customer Name", "Contact Number", "Email", "City", "Requirement", "Lead Source"]
     ];
 
     const wb = XLSX.utils.book_new();

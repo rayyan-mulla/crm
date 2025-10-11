@@ -55,6 +55,7 @@ const LeadSchema = new mongoose.Schema({
     enum: ['google_sheet', 'meta', 'indiamart', 'manual', 'excel_upload'],
     required: true
   },
+  leadSource: { type: String, default: null },
   sourceMeta: { type: mongoose.Schema.Types.Mixed, default: {} }, // store raw row or extra data
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   notes: { type: [NoteSchema], default: [] },

@@ -68,8 +68,13 @@
       </div>
 
       <div class="row g-4">
-        <!-- Contact Info -->
+        <!-- Contact Info + Date -->
         <div class="col-md-6">
+          <div class="mb-3">
+            <small class="text-muted d-block">Date</small>
+            <span><%= lead.date ? new Date(lead.date).toLocaleDateString() : '-' %></span>
+          </div>
+          
           <div class="mb-3">
             <small class="text-muted d-block">Phone</small>
             <div class="d-flex align-items-center">
@@ -100,33 +105,42 @@
           </div>
         </div>
 
-        <!-- Meta Info -->
+        <!-- Meta Info (source, requirement, assigned, etc.) -->
         <div class="col-md-6">
-          <div class="mb-3">
-            <small class="text-muted d-block">Date</small>
-            <span><%= lead.date ? new Date(lead.date).toLocaleDateString() : '-' %></span>
-          </div>
           <div class="mb-3">
             <small class="text-muted d-block">Source</small>
             <span class="fw-semibold text-dark">
-                <%= displaySource(lead.source) %>
-                <% if (lead.sourceMeta && (lead.sourceMeta.byUser || lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt)) { %>
+              <%= displaySource(lead.source) %>
+              <% if (lead.sourceMeta && (lead.sourceMeta.byUser || lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt)) { %>
                 <small class="text-muted">
-                    (
-                    <% if (lead.sourceMeta.byUser) { %>
+                  (
+                  <% if (lead.sourceMeta.byUser) { %>
                     by <%= lead.sourceMeta.byUser %>
-                    <% } %>
-                    <% 
-                    const sourceDate = lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt;
-                    if (sourceDate) { 
-                    %>
+                  <% } %>
+                  <% const sourceDate = lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt; %>
+                  <% if (sourceDate) { %>
                     on <%= new Date(sourceDate).toLocaleString() %>
-                    <% } %>
-                    )
+                  <% } %>
+                  )
                 </small>
-                <% } %>
+              <% } %>
             </span>
           </div>
+
+          <div class="mb-3">
+            <small class="text-muted d-block">Lead Source</small>
+            <span class="d-inline-block text-truncate" style="max-width: 100%;" title="<%= lead.leadSource || '' %>">
+              <%= lead.leadSource || '—' %>
+            </span>
+          </div>
+
+          <div class="mb-3">
+            <small class="text-muted d-block">Requirement</small>
+            <span class="d-inline-block text-truncate" style="max-width: 100%;" title="<%= lead.requirement || '' %>">
+              <%= lead.requirement || '—' %>
+            </span>
+          </div>
+
           <div class="mb-3">
             <small class="text-muted d-block">Assigned To</small>
             <span><%= lead.assignedTo ? lead.assignedTo.fullName : '—' %></span>
