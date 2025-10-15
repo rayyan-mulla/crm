@@ -40,6 +40,7 @@ const LeadSchema = new mongoose.Schema({
   date: { type: Date, required: true }, // from sheet/manual form
   customer_name: { type: String, required: true },
   contact_number: { type: String, required: true },
+  alternate_number: { type: String, default: null },
   email_id: { type: String },
   city: { type: String },
   // original unstructured requirement (keep it for history / raw entry)

@@ -53,4 +53,7 @@ router.post("/:id/requirement/add", isLoggedIn, leadCtrl.saveRequirement);
 router.get("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.requirementForm);
 router.post("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.saveRequirement);
 
+// Add this new route
+router.post('/:id/alternate-number', isLoggedIn, leadCtrl.saveAlternateNumber);
+
 module.exports = router;

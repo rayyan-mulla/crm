@@ -210,12 +210,20 @@ exports.getLead = async (req, res) => {
       process.env.META_USER_ACCESS_TOKEN
     );
 
-    // ✅ fetch chats directly by lead._id
-    const chats = await Chat.find({ lead: lead._id })
+    // ✅ new: figure out selected "from" and "to"
+    const selectedFrom = req.query.from || lead.whatsappNumberId || null;
+    const selectedTo = req.query.to || lead.contact_number || lead.alternate_number || null;
+
+    // ✅ filter chats by lead + from + to if provided
+    const chatFilter = { lead: lead._id };
+    if (selectedFrom) chatFilter.from = selectedFrom;   // your WABA number id
+    if (selectedTo) chatFilter.to = selectedTo;         // customer number
+
+    const chats = await Chat.find(chatFilter)
       .sort({ timestamp: 1 })
       .lean();
 
-    // make sure normalizedRequirements is always an array
+    // ensure requirements is always array
     lead.normalizedRequirements = lead.normalizedRequirements || [];
 
     // calculate session state
@@ -237,6 +245,8 @@ exports.getLead = async (req, res) => {
       whatsappTemplates,
       within24h,
       canFreeChat,
+      selectedFrom,
+      selectedTo,
       user: req.session.user,
       activePage: 'leadsDetail'
     });
@@ -694,5 +704,26 @@ exports.deleteLead = async (req, res) => {
   } catch (error) {
     console.error('Error deleting lead:', error);
     res.redirect('/leads');
+  }
+};
+
+// NEW: Save/Update alternate number for a lead
+exports.saveAlternateNumber = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { alternate_number } = req.body;
+
+    // optional: normalize/validate
+    const formatPhoneE164 = require('../utils/formatPhoneE164');
+    const formatted = alternate_number ? formatPhoneE164(alternate_number) : null;
+
+    await Lead.findByIdAndUpdate(id, {
+      $set: { alternate_number: formatted }
+    });
+
+    res.redirect(`/leads/${id}`);
+  } catch (err) {
+    console.error('saveAlternateNumber error', err);
+    res.redirect(`/leads/${req.params.id}`);
   }
 };

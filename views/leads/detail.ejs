@@ -87,6 +87,21 @@
             </div>
           </div>
 
+          <!-- NEW: Alternate Number (right after the Phone block) -->
+          <div class="mb-3">
+            <small class="text-muted d-block">Alternate Phone</small>
+            <form action="/leads/<%= lead._id %>/alternate-number" method="post" class="d-flex">
+              <input
+                type="text"
+                name="alternate_number"
+                class="form-control me-2"
+                value="<%= lead.alternate_number || '' %>"
+                placeholder="Enter alternate number"
+              >
+              <button class="btn btn-outline-primary btn-sm">Save</button>
+            </form>
+          </div>
+
           <div class="mb-3">
             <small class="text-muted d-block">Email</small>
             <div class="d-flex align-items-center">
@@ -322,98 +337,120 @@
       </div>
     </div>
 
-    <!-- WhatsApp -->
-    <div class="col-md-6">
-      <div class="card shadow-sm h-100 d-flex flex-column">
-        <div class="card-body d-flex flex-column">
-          <!-- Header with WhatsApp title + number selector -->
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="mb-0">WhatsApp</h5>
-            <form action="/leads/<%= lead._id %>/whatsapp-number" method="post" class="d-flex">
-              <select name="whatsappNumberId" class="form-select form-select-sm me-2">
-                <option value="">-- Select Number --</option>
-                <% whatsappNumbers.forEach(num => { %>
-                  <option value="<%= num.phone_number_id %>" <%= lead.whatsappNumberId === num.phone_number_id ? 'selected' : '' %>>
-                    <%= num.display_number %> (<%= num.label %>)
-                  </option>
-                <% }) %>
-              </select>
-              <button class="btn btn-outline-success btn-sm">Save</button>
-            </form>
-          </div>
-          <% if (!lead.whatsappNumberId) { %>
-            <p class="text-muted">⚠️ Please assign a WhatsApp number to this lead before chatting.</p>
-          <% } else { %>
-            <div class="chat-box">
-              <% if (chats.length) { %>
-                <% chats.forEach(c => { %>
-                  <div class="chat-msg <%= c.direction === 'outbound' ? 'sent' : 'received' %>">
-                    <% if (c.type === 'text') { %>
-                      <%= c.content %>
-                    <% } else if (c.type === 'template') { %>
-                      📑 Sent template: <strong><%= c.content %></strong>
-                    <% } else if (c.type === 'image' && c.mediaId) { %>
-                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
-                        <img src="/whatsapp/media/<%= c.mediaId %>" 
-                            alt="Image" 
-                            style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
-                      </a>
-                      <% if (c.caption) { %><div><%= c.caption %></div><% } %>
-                    <% } else if (c.type === 'document' && c.mediaId) { %>
-                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
-                        📄 Download Document
-                      </a>
-                      <% if (c.caption) { %><div><%= c.caption %></div><% } %>
-                    <% } else if (c.type === 'audio' && c.mediaId) { %>
-                      <audio controls style="width:100%;">
-                        <source src="/whatsapp/media/<%= c.mediaId %>" type="audio/mpeg">
-                        Your browser does not support the audio element.
-                      </audio>
-                    <% } else { %>
-                      [<%= c.type %>]
-                    <% } %>
-                    <div class="small text-muted">
-                      <%= new Date(c.timestamp).toLocaleString() %>
-                    </div>
-                  </div>
-                <% }) %>
-              <% } else { %>
-                <p class="text-muted">No messages yet</p>
-              <% } %>
-            </div>
+      <!-- WhatsApp -->
+      <div class="col-md-6">
+        <div class="card shadow-sm h-100 d-flex flex-column">
+          <div class="card-body d-flex flex-column">
+            <!-- Header with WhatsApp title -->
+            <h5 class="mb-3">WhatsApp</h5>
 
-            <!-- Chat input -->
-            <% if (canFreeChat) { %>
-              <!-- ✅ Normal text input (within 24h after reply) -->
-              <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2">
-                <input type="hidden" name="to" value="<%= lead.contact_number %>">
-                <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
-                <button class="btn btn-success"><i class="bi bi-send"></i></button>
-              </form>
+            <!-- Numbers row -->
+            <div class="d-flex mb-3">
+              <!-- From: Persisted (Save button required) -->
+              <div class="me-2 flex-grow-1">
+                <label class="small text-muted">From</label>
+                <form action="/leads/<%= lead._id %>/whatsapp-number" method="post" class="d-flex">
+                  <select name="whatsappNumberId" class="form-select form-select-sm me-2">
+                    <option value="">-- Select Number --</option>
+                    <% whatsappNumbers.forEach(num => { %>
+                      <option value="<%= num.phone_number_id %>" <%= lead.whatsappNumberId === num.phone_number_id ? 'selected' : '' %>>
+                        <%= num.display_number %> (<%= num.label %>)
+                      </option>
+                    <% }) %>
+                  </select>
+                  <button class="btn btn-outline-success btn-sm">Save</button>
+                </form>
+              </div>
+
+              <!-- To: Filter only (dynamic) -->
+              <div class="flex-grow-1">
+                <label class="small text-muted">To</label>
+                <form id="chatFilterForm" method="get">
+                  <select id="toNumberSelect" name="to" class="form-select form-select-sm" onchange="document.getElementById('chatFilterForm').submit()">
+                    <% if (lead.contact_number) { %>
+                      <option value="<%= lead.contact_number %>" <%= selectedTo === lead.contact_number ? 'selected' : '' %>>
+                        <%= lead.contact_number %> (Primary)
+                      </option>
+                    <% } %>
+                    <% if (lead.alternate_number) { %>
+                      <option value="<%= lead.alternate_number %>" <%= selectedTo === lead.alternate_number ? 'selected' : '' %>>
+                        <%= lead.alternate_number %> (Alternate)
+                      </option>
+                    <% } %>
+                  </select>
+                </form>
+              </div>
+            </div>
+            <% if (!lead.whatsappNumberId) { %>
+              <p class="text-muted">⚠️ Please assign a WhatsApp number to this lead before chatting.</p>
             <% } else { %>
-              <!-- ⚠️ Session expired or no reply yet → template required -->
-              <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2">
-                <input type="hidden" name="to" value="<%= lead.contact_number %>">
-                <select name="templateName" class="form-select me-2" required>
-                  <option value="">-- Select Template --</option>
-                  <% whatsappTemplates.forEach(t => { %>
-                    <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
+              <div class="chat-box">
+                <% if (chats.length) { %>
+                  <% chats.forEach(c => { %>
+                    <div class="chat-msg <%= c.direction === 'outbound' ? 'sent' : 'received' %>">
+                      <% if (c.type === 'text') { %>
+                        <%= c.content %>
+                      <% } else if (c.type === 'template') { %>
+                        📑 Sent template: <strong><%= c.content %></strong>
+                      <% } else if (c.type === 'image' && c.mediaId) { %>
+                        <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
+                          <img src="/whatsapp/media/<%= c.mediaId %>" 
+                              alt="Image" 
+                              style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
+                        </a>
+                        <% if (c.caption) { %><div><%= c.caption %></div><% } %>
+                      <% } else if (c.type === 'document' && c.mediaId) { %>
+                        <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
+                          📄 Download Document
+                        </a>
+                        <% if (c.caption) { %><div><%= c.caption %></div><% } %>
+                      <% } else if (c.type === 'audio' && c.mediaId) { %>
+                        <audio controls style="width:100%;">
+                          <source src="/whatsapp/media/<%= c.mediaId %>" type="audio/mpeg">
+                          Your browser does not support the audio element.
+                        </audio>
+                      <% } else { %>
+                        [<%= c.type %>]
+                      <% } %>
+                      <div class="small text-muted">
+                        <%= new Date(c.timestamp).toLocaleString() %>
+                      </div>
+                    </div>
                   <% }) %>
-                </select>
-                <button class="btn btn-primary">
-                  <i class="bi bi-chat-left-text"></i>
-                </button>
-              </form>
-              <p class="text-muted small mt-1">
-                💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
-              </p>
+                <% } else { %>
+                  <p class="text-muted">No messages yet</p>
+                <% } %>
+              </div>
+
+              <% if (canFreeChat) { %>
+                <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
+                  <input type="hidden" name="to" id="hiddenToNumber">
+                  <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
+                  <button class="btn btn-success"><i class="bi bi-send"></i></button>
+                </form>
+              <% } else { %>
+                <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
+                  <input type="hidden" name="to" id="hiddenToNumber">
+                  <select name="templateName" class="form-select me-2" required>
+                    <option value="">-- Select Template --</option>
+                    <% whatsappTemplates.forEach(t => { %>
+                      <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
+                    <% }) %>
+                  </select>
+                  <button class="btn btn-primary">
+                    <i class="bi bi-chat-left-text"></i>
+                  </button>
+                </form>
+                <p class="text-muted small mt-1">
+                  💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
+                </p>
+              <% } %>
             <% } %>
-          <% } %>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
 <script>
   function toggleCustomStatus() {
@@ -463,6 +500,13 @@
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
   });
+</script>
+
+<script>
+  function syncToNumber(form) {
+    const selectedTo = document.getElementById('toNumberSelect').value;
+    form.querySelector('#hiddenToNumber').value = selectedTo;
+  }
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
