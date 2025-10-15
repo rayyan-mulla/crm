@@ -37,7 +37,16 @@ exports.listLeads = async (req, res) => {
         { requirement: re }
       ];
     }
-    if (status) filter.status = status;
+
+    if (status) {
+      if (status === 'Other') {
+        // Show all statuses not in the main set
+        filter.status = { $nin: ["New", "In Progress", "Assigned", "Deal Drop", "Closed"] };
+      } else {
+        filter.status = status;
+      }
+    }
+
     if (source) filter.source = source;
 
     // Restrict user view (robustly handle string/ObjectId stored values)
