@@ -50,33 +50,46 @@ exports.listLeads = async (req, res) => {
     if (source) filter.source = source;
 
     // Restrict user view (robustly handle string/ObjectId stored values)
-    if (req.session && req.session.user && req.session.user.role === 'user') {
-      // session can store id as `id` or `_id`
-      const sessionId = req.session.user.id || req.session.user._id || req.session.user.uid;
-      if (!sessionId) {
-        console.warn('listLeads: user session id missing', req.session.user);
-        // no id — make filter impossible
-        filter.assignedTo = null;
-      } else {
-        let objId = null;
-        try {
-          objId = mongoose.Types.ObjectId(sessionId);
-        } catch (e) {
-          objId = null;
-        }
-        // match either ObjectId or string form (covers both DB shapes)
-        filter.assignedTo = objId ? { $in: [objId, sessionId] } : sessionId;
-      }
-    }
+    // if (req.session && req.session.user && req.session.user.role === 'user') {
+    //   // session can store id as `id` or `_id`
+    //   const sessionId = req.session.user.id || req.session.user._id || req.session.user.uid;
+    //   if (!sessionId) {
+    //     console.warn('listLeads: user session id missing', req.session.user);
+    //     // no id — make filter impossible
+    //     filter.assignedTo = null;
+    //   } else {
+    //     let objId = null;
+    //     try {
+    //       objId = mongoose.Types.ObjectId(sessionId);
+    //     } catch (e) {
+    //       objId = null;
+    //     }
+    //     // match either ObjectId or string form (covers both DB shapes)
+    //     filter.assignedTo = objId ? { $in: [objId, sessionId] } : sessionId;
+    //   }
+    // }
 
     // Count + query
     const total = await Lead.countDocuments(filter);
-    const leads = await Lead.find(filter)
+    let leads = await Lead.find(filter)
       .populate('assignedTo', 'fullName username role')
       .sort({ [sortField]: sortOrder })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();
+
+    const sessionUser = req.session.user;
+    const sessionId = sessionUser ? (sessionUser.id || sessionUser._id || sessionUser.uid) : null;
+
+    // ✅ Add canEdit flag to each lead
+    leads = leads.map(l => {
+      const assignedId = l.assignedTo ? l.assignedTo._id.toString() : null;
+      return {
+        ...l,
+        canEdit: sessionUser.role === 'admin' ||
+                 (assignedId && assignedId === sessionId.toString())
+      };
+    });
 
     // Only admins need users for assignment
     let users = [];
@@ -238,6 +251,14 @@ exports.getLead = async (req, res) => {
     // calculate session state
     const within24h = isWithin24Hours(lead.lastInboundAt);
     const canFreeChat = lead.hasReplied && within24h;
+
+    // ✅ Add canEdit flag
+    const sessionUser = req.session.user;
+    const sessionId = sessionUser ? (sessionUser.id || sessionUser._id || sessionUser.uid) : null;
+    const assignedId = lead.assignedTo ? lead.assignedTo._id.toString() : null;
+
+    lead.canEdit = sessionUser.role === 'admin' ||
+                   (assignedId && assignedId === sessionId.toString());
 
     console.log("DEBUG session check:", {
       hasReplied: lead.hasReplied,

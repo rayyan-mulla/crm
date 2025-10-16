@@ -90,16 +90,20 @@
           <!-- NEW: Alternate Number (right after the Phone block) -->
           <div class="mb-3">
             <small class="text-muted d-block">Alternate Phone</small>
-            <form action="/leads/<%= lead._id %>/alternate-number" method="post" class="d-flex">
-              <input
-                type="text"
-                name="alternate_number"
-                class="form-control me-2"
-                value="<%= lead.alternate_number || '' %>"
-                placeholder="Enter alternate number"
-              >
-              <button class="btn btn-outline-primary btn-sm">Save</button>
-            </form>
+            <% if (lead.canEdit) { %>
+              <form action="/leads/<%= lead._id %>/alternate-number" method="post" class="d-flex">
+                <input
+                  type="text"
+                  name="alternate_number"
+                  class="form-control me-2"
+                  value="<%= lead.alternate_number || '' %>"
+                  placeholder="Enter alternate number"
+                >
+                <button class="btn btn-outline-primary btn-sm">Save</button>
+              </form>
+            <% } else { %>
+              <span><%= lead.alternate_number || '—' %></span>
+            <% } %>
           </div>
 
           <div class="mb-3">
@@ -203,7 +207,9 @@
                   <br><small class="text-muted">Note: <%= req.note %></small>
                 <% } %>
               </div>
-              <a href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+              <% if (lead.canEdit) { %>
+                <a href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+              <% } %>
             </li>
           <% }) %>
         </ul>
@@ -234,7 +240,11 @@
           ₹<%= totalDiff %>
         </strong>
       </div>
-      <a href="/leads/<%= lead._id %>/requirement/add" class="btn btn-sm btn-success">+ Add Requirement</a>
+      <% if (lead.canEdit) { %>
+        <a href="/leads/<%= lead._id %>/requirement/add" class="btn btn-sm btn-success">+ Add Requirement</a>
+      <% } else { %>
+        <p class="text-muted mb-0">You cannot add or edit requirements for this lead.</p>
+      <% } %>
     </div>
   </div>
 
@@ -244,17 +254,21 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <h6 class="fw-bold mb-3">Assign Lead</h6>
-          <form action="/leads/<%= lead._id %>/assign" method="post" class="d-flex">
-            <select name="userId" class="form-select me-2">
-              <option value="">-- Assign User --</option>
-              <% assignableUsers.forEach(u => { %>
-                <option value="<%= u._id %>" <%= lead.assignedTo && lead.assignedTo._id.toString() === u._id.toString() ? 'selected' : '' %>>
-                  <%= u.fullName %> (<%= u.role %>)
-                </option>
-              <% }) %>
-            </select>
-            <button class="btn btn-outline-primary">Assign</button>
-          </form>
+          <% if (lead.canEdit) { %>
+            <form action="/leads/<%= lead._id %>/assign" method="post" class="d-flex">
+              <select name="userId" class="form-select me-2">
+                <option value="">-- Assign User --</option>
+                <% assignableUsers.forEach(u => { %>
+                  <option value="<%= u._id %>" <%= lead.assignedTo && lead.assignedTo._id.toString() === u._id.toString() ? 'selected' : '' %>>
+                    <%= u.fullName %> (<%= u.role %>)
+                  </option>
+                <% }) %>
+              </select>
+              <button class="btn btn-outline-primary">Assign</button>
+            </form>
+          <% } else { %>
+            <p class="text-muted">Only admins or the assigned user can change assignment.</p>
+          <% } %>
         </div>
       </div>
     </div>
@@ -263,23 +277,27 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <h6 class="fw-bold mb-3">Update Status</h6>
-          <form action="/leads/<%= lead._id %>/status" method="post" class="d-flex align-items-center">
-            <select name="status" id="statusSelect" class="form-select me-2" onchange="toggleCustomStatus()">
-              <option value="">-- Update Status --</option>
-              <% 
-                const adminStatuses = ["New","Assigned","In Progress","Deal Drop","Closed"];
-                const userStatuses = ["In Progress","Deal Drop","Closed"];
-                const statuses = user.role === 'admin' ? adminStatuses : userStatuses;
-              %>
+          <% if (lead.canEdit) { %>
+            <form action="/leads/<%= lead._id %>/status" method="post" class="d-flex align-items-center">
+              <select name="status" id="statusSelect" class="form-select me-2" onchange="toggleCustomStatus()">
+                <option value="">-- Update Status --</option>
+                <% 
+                  const adminStatuses = ["New","Assigned","In Progress","Deal Drop","Closed"];
+                  const userStatuses = ["In Progress","Deal Drop","Closed"];
+                  const statuses = user.role === 'admin' ? adminStatuses : userStatuses;
+                %>
 
-              <% statuses.forEach(s => { %>
-                <option value="<%= s %>" <%= lead.status===s ? 'selected' : '' %>><%= s %></option>
-              <% }) %>
-              <option value="__other__">Other...</option>
-            </select>
-            <input type="text" name="customStatus" id="customStatusInput" class="form-control me-2 d-none" placeholder="Enter custom status">
-            <button class="btn btn-outline-success">Update</button>
-          </form>
+                <% statuses.forEach(s => { %>
+                  <option value="<%= s %>" <%= lead.status===s ? 'selected' : '' %>><%= s %></option>
+                <% }) %>
+                <option value="__other__">Other...</option>
+              </select>
+              <input type="text" name="customStatus" id="customStatusInput" class="form-control me-2 d-none" placeholder="Enter custom status">
+              <button class="btn btn-outline-success">Update</button>
+            </form>
+          <% } else { %>
+            <p class="text-muted">Status updates are only available for the assigned user or admin.</p>
+          <% } %>
         </div>
       </div>
     </div>
@@ -292,10 +310,14 @@
       <div class="card shadow-sm mb-2">
         <div class="card-body d-flex flex-column">
           <h5>Notes</h5>
-          <form action="/leads/<%= lead._id %>/note" method="post" class="d-flex mb-3">
-            <input type="text" name="note" class="form-control me-2" placeholder="Add a note..." required>
-            <button class="btn btn-primary">Add</button>
-          </form>
+          <% if (lead.canEdit) { %>
+            <form action="/leads/<%= lead._id %>/note" method="post" class="d-flex mb-3">
+              <input type="text" name="note" class="form-control me-2" placeholder="Add a note..." required>
+              <button class="btn btn-primary">Add</button>
+            </form>
+          <% } else { %>
+            <p class="text-muted">You can view notes, but only the assigned user or admin can add new ones.</p>
+          <% } %>
           <div class="scroll-box flex-grow-1">
             <% if (lead.notes.length) { %>
               <% lead.notes.slice().reverse().forEach(n => { %>
@@ -421,29 +443,33 @@
                   <p class="text-muted">No messages yet</p>
                 <% } %>
               </div>
-
-              <% if (canFreeChat) { %>
-                <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
-                  <input type="hidden" name="to" id="hiddenToNumber">
-                  <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
-                  <button class="btn btn-success"><i class="bi bi-send"></i></button>
-                </form>
+              
+              <% if (lead.canEdit) { %>
+                <% if (canFreeChat) { %>
+                  <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
+                    <input type="hidden" name="to" id="hiddenToNumber">
+                    <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
+                    <button class="btn btn-success"><i class="bi bi-send"></i></button>
+                  </form>
+                <% } else { %>
+                  <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
+                    <input type="hidden" name="to" id="hiddenToNumber">
+                    <select name="templateName" class="form-select me-2" required>
+                      <option value="">-- Select Template --</option>
+                      <% whatsappTemplates.forEach(t => { %>
+                        <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
+                      <% }) %>
+                    </select>
+                    <button class="btn btn-primary">
+                      <i class="bi bi-chat-left-text"></i>
+                    </button>
+                  </form>
+                  <p class="text-muted small mt-1">
+                    💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
+                  </p>
+                <% } %>
               <% } else { %>
-                <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
-                  <input type="hidden" name="to" id="hiddenToNumber">
-                  <select name="templateName" class="form-select me-2" required>
-                    <option value="">-- Select Template --</option>
-                    <% whatsappTemplates.forEach(t => { %>
-                      <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
-                    <% }) %>
-                  </select>
-                  <button class="btn btn-primary">
-                    <i class="bi bi-chat-left-text"></i>
-                  </button>
-                </form>
-                <p class="text-muted small mt-1">
-                  💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
-                </p>
+                <p class="text-muted">You can view WhatsApp messages, but only the assigned user or admin can reply.</p>
               <% } %>
             <% } %>
           </div>
