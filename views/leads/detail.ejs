@@ -18,22 +18,50 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <style>
-    .scroll-box, .status-box {
-      min-height: 120px;
-      max-height: 160px;  /* reduced from 280px */
-      overflow-y: auto;
+    /* Left column boxes */
+    :root {
+      /* Adjust this if your header/breadcrumbs get taller/shorter */
+      --lead-panels-offset: 150px;
     }
 
+    .lead-panels-row {
+      /* The entire row is now a fixed-height area */
+      height: calc(100vh - var(--lead-panels-offset));
+      min-height: 420px; /* safety floor for short viewports */
+    }
+
+    /* Make both columns fill that height */
+    .lead-left, .lead-right { height: 100%; min-height: 0; }
+
+    /* Left column: stack Notes and Status evenly and allow them to scroll */
+    .lead-left {
+      display: grid;
+      grid-template-rows: 1fr 1fr;  /* 50/50 split */
+      gap: .5rem;
+    }
+
+    /* Ensure cards and bodies can shrink so inner areas can scroll */
+    .lead-panels-row .card { height: 100%; min-height: 0; }
+    .lead-panels-row .card-body { display: flex; flex-direction: column; min-height: 0; }
+
+    /* Scrollable inner boxes */
+    .scroll-box,
+    .status-box,
+    .chat-box { overflow-y: auto; }
+
+    /* Chat area should flex and scroll without pushing the column taller */
     .chat-box {
       background: #f8f9fa;
       border-radius: 8px;
       padding: 10px;
-      min-height: 260px;
-      max-height: 400px;
+      min-height: 0; /* important for flex children */
+      flex: 1 1 auto;
       overflow-y: auto;
-      flex-grow: 1;
       margin-bottom: 0.5rem;
+      display: flex;
+      flex-direction: column;
     }
+
     .chat-msg {
       margin-bottom: 10px;
       padding: 8px 12px;
@@ -41,20 +69,40 @@
       max-width: 75%;
       word-wrap: break-word;
     }
-    .chat-msg.sent {
-      background: #d1e7dd;
-      margin-left: auto;
+    .chat-msg.sent { background: #d1e7dd; margin-left: auto; }
+    .chat-msg.received { background: #e2e3e5; margin-right: auto; }
+
+    /* Tweak small badge */
+    /* Keep the whole active row on one line and truncate long value */
+    .active-for-sending {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      flex-wrap: nowrap;        /* critical: prevent wrapping */
+      white-space: nowrap;      /* treat text as one line */
+      overflow: hidden;         /* hide overflow */
     }
-    .chat-msg.received {
-      background: #e2e3e5;
-      margin-right: auto;
+
+    /* Badge that truncates its inner text */
+    .badge-active-number {
+      display: inline-block;
+      max-width: 60%;           /* adjust as needed (60% of container) */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;  /* show "..." for long values */
+      vertical-align: middle;
     }
+
+    /* Ensure card bodies stretch */
+    .row.align-items-stretch { align-items: stretch; }
+    .card.h-100 { height: 100%; }
+    .card-body.d-flex.flex-column { display:flex; flex-direction:column; }
   </style>
 </head>
 <body>
 <%- include('../partials/navbar', { user, activePage }) %>
 <div class="container py-4">
-  
+
   <!-- Lead Info -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
@@ -180,7 +228,7 @@
             <li class="list-group-item d-flex justify-content-between align-items-center">
               <div>
                 <% 
-                  const colorObj = req.chair && req.chair.colors.find(c => c._id.toString() === req.colorId.toString());
+                  const colorObj = req.chair && req.chair.colors.find(c => c._id.toString() === (req.colorId||'').toString());
                   const basePrice = colorObj ? colorObj.basePrice : null;
                   const unitPrice = req.unitPrice;
                   const shipping = req.shippingUnit || 0;
@@ -219,7 +267,7 @@
       <%
         let totalDiff = 0;
         (lead.normalizedRequirements || []).forEach(r => {
-          const color = r.chair && r.chair.colors.find(c => c._id.toString() === r.colorId.toString());
+          const color = r.chair && r.chair.colors.find(c => c._id.toString() === (r.colorId||'').toString());
           if (color) {
             const unitBase = (r.unitPrice || 0) / 1.18;
             const base = (color.basePrice || 0) / 1.18;
@@ -304,10 +352,10 @@
   </div>
 
   <!-- Notes + Status History (Left) | WhatsApp (Right) -->
-  <div class="row">
-    <div class="col-md-6">
+  <div class="row gx-3 lead-panels-row">
+    <div class="col-md-6 lead-left d-flex flex-column">
       <!-- Notes -->
-      <div class="card shadow-sm mb-2">
+      <div class="card shadow-sm mb-2 h-100 d-flex flex-column">
         <div class="card-body d-flex flex-column">
           <h5>Notes</h5>
           <% if (lead.canEdit) { %>
@@ -318,7 +366,7 @@
           <% } else { %>
             <p class="text-muted">You can view notes, but only the assigned user or admin can add new ones.</p>
           <% } %>
-          <div class="scroll-box flex-grow-1">
+          <div class="scroll-box flex-grow-1 overflow-auto mt-2">
             <% if (lead.notes.length) { %>
               <% lead.notes.slice().reverse().forEach(n => { %>
                 <div class="border rounded p-2 mb-2 bg-light">
@@ -337,10 +385,10 @@
       </div>
 
       <!-- Status History -->
-      <div class="card shadow-sm">
+      <div class="card shadow-sm h-100 d-flex flex-column">
         <div class="card-body d-flex flex-column">
           <h5>Status History</h5>
-          <div class="status-box flex-grow-1">
+          <div class="status-box flex-grow-1 overflow-auto mt-2">
             <% if (lead.statusHistory.length) { %>
               <% lead.statusHistory.slice().reverse().forEach(h => { %>
                 <div class="border rounded p-2 mb-2 bg-light">
@@ -360,160 +408,179 @@
     </div>
 
       <!-- WhatsApp -->
-      <div class="col-md-6">
-        <div class="card shadow-sm h-100 d-flex flex-column">
-          <div class="card-body d-flex flex-column">
-            <!-- Header with WhatsApp title -->
-            <h5 class="mb-3">WhatsApp</h5>
+    <div class="col-md-6 lead-right d-flex flex-column">
+      <div class="card shadow-sm h-100 d-flex flex-column">
+        <div class="card-body d-flex flex-column">
+          <!-- Header with WhatsApp title -->
+          <h5 class="mb-3">WhatsApp</h5>
 
-            <!-- Numbers row -->
-            <div class="d-flex mb-3">
-              <!-- From: Persisted (Save button required) -->
-              <div class="me-2 flex-grow-1">
-                <label class="small text-muted">From</label>
-                <form action="/leads/<%= lead._id %>/whatsapp-number" method="post" class="d-flex">
-                  <select name="whatsappNumberId" class="form-select form-select-sm me-2">
-                    <option value="">-- Select Number --</option>
-                    <% whatsappNumbers.forEach(num => { %>
-                      <option value="<%= num.phone_number_id %>" <%= lead.whatsappNumberId === num.phone_number_id ? 'selected' : '' %>>
-                        <%= num.display_number %> (<%= num.label %>)
-                      </option>
-                    <% }) %>
-                  </select>
-                  <button class="btn btn-outline-success btn-sm">Save</button>
-                </form>
-              </div>
+          <!-- Numbers row -->
+          <div class="d-flex mb-3 gap-2">
+            <!-- From: Persisted (Set as Default button) -->
+            <div class="flex-grow-1">
+              <label class="small text-muted">From (default for sending)</label>
+              <form action="/leads/<%= lead._id %>/whatsapp-number" method="post" class="d-flex align-items-start">
+                <select name="whatsappNumberId" id="persistedFromSelect" class="form-select form-select-sm me-2">
+                  <option value="">-- Select Number --</option>
+                  <% whatsappNumbers.forEach(num => { %>
+                    <option value="<%= num.phone_number_id %>" <%= lead.whatsappNumberId === num.phone_number_id ? 'selected' : '' %>>
+                      <%= num.display_number %> (<%= num.label %>)
+                    </option>
+                  <% }) %>
+                </select>
+                <!-- Renamed button for clarity -->
+                <button class="btn btn-outline-success btn-sm" title="Mark this WhatsApp number as the active sender">Save</button>
+              </form>
 
-              <!-- To: Filter only (dynamic) -->
-              <div class="flex-grow-1">
-                <label class="small text-muted">To</label>
-                <form id="chatFilterForm" method="get">
-                  <select id="toNumberSelect" name="to" class="form-select form-select-sm" onchange="document.getElementById('chatFilterForm').submit()">
-                    <% if (lead.contact_number) { %>
-                      <option value="<%= lead.contact_number %>" <%= selectedTo === lead.contact_number ? 'selected' : '' %>>
-                        <%= lead.contact_number %> (Primary)
-                      </option>
-                    <% } %>
-                    <% if (lead.alternate_number) { %>
-                      <option value="<%= lead.alternate_number %>" <%= selectedTo === lead.alternate_number ? 'selected' : '' %>>
-                        <%= lead.alternate_number %> (Alternate)
-                      </option>
-                    <% } %>
-                  </select>
-                </form>
+              <!-- improved active-from badge -->
+              <div class="mt-2 small active-for-sending">
+                <span class="text-muted">Active for sending:</span>
+
+                <% if (lead.whatsappNumberId) { 
+                    const active = whatsappNumbers.find(n => n.phone_number_id === lead.whatsappNumberId);
+                    const activeText = active ? (active.display_number + (active.label ? (' — ' + active.label) : '')) : lead.whatsappNumberId;
+                %>
+                  <span
+                    class="badge rounded-pill bg-primary text-white ms-1 badge-active-number"
+                    title="<%= activeText %>">
+                    <i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>
+                    <%= activeText %>
+                  </span>
+                <% } else { %>
+                  <span class="text-muted ms-1">Not set</span>
+                <% } %>
               </div>
             </div>
-            <% if (!lead.whatsappNumberId) { %>
-              <p class="text-muted">⚠️ Please assign a WhatsApp number to this lead before chatting.</p>
-            <% } else { %>
-              <div class="chat-box">
-                <% if (chats.length) { %>
-                  <% chats.forEach(c => { %>
-                    <div class="chat-msg <%= c.direction === 'outbound' ? 'sent' : 'received' %>">
-                      <% if (c.type === 'text') { %>
-                        <%= c.content %>
-                      <% } else if (c.type === 'template') { %>
-                        📑 Sent template: <strong><%= c.content %></strong>
-                      <% } else if (c.type === 'image' && c.mediaId) { %>
-                        <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
-                          <img src="/whatsapp/media/<%= c.mediaId %>" 
-                              alt="Image" 
-                              style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
-                        </a>
-                        <% if (c.caption) { %><div><%= c.caption %></div><% } %>
-                      <% } else if (c.type === 'document' && c.mediaId) { %>
-                        <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
-                          📄 Download Document
-                        </a>
-                        <% if (c.caption) { %><div><%= c.caption %></div><% } %>
-                      <% } else if (c.type === 'audio' && c.mediaId) { %>
-                        <audio controls style="width:100%;">
-                          <source src="/whatsapp/media/<%= c.mediaId %>" type="audio/mpeg">
-                          Your browser does not support the audio element.
-                        </audio>
-                      <% } else { %>
-                        [<%= c.type %>]
-                      <% } %>
-                      <div class="small text-muted">
-                        <%= new Date(c.timestamp).toLocaleString() %>
-                      </div>
-                    </div>
-                  <% }) %>
-                <% } else { %>
-                  <p class="text-muted">No messages yet</p>
-                <% } %>
-              </div>
-              
-              <% if (lead.canEdit) { %>
-                <% if (canFreeChat) { %>
-                  <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
-                    <input type="hidden" name="to" id="hiddenToNumber">
-                    <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
-                    <button class="btn btn-success"><i class="bi bi-send"></i></button>
-                  </form>
-                <% } else { %>
-                  <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
-                    <input type="hidden" name="to" id="hiddenToNumber">
-                    <select name="templateName" class="form-select me-2" required>
-                      <option value="">-- Select Template --</option>
-                      <% whatsappTemplates.forEach(t => { %>
-                        <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
-                      <% }) %>
-                    </select>
-                    <button class="btn btn-primary">
-                      <i class="bi bi-chat-left-text"></i>
-                    </button>
-                  </form>
-                  <p class="text-muted small mt-1">
-                    💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
-                  </p>
-                <% } %>
-              <% } else { %>
-                <p class="text-muted">You can view WhatsApp messages, but only the assigned user or admin can reply.</p>
-              <% } %>
-            <% } %>
+
+            <!-- To: Filter only (dynamic) -->
+            <div class="flex-grow-1">
+              <label class="small text-muted">To</label>
+              <form id="chatFilterForm" method="get">
+                <select id="toNumberSelect" name="to" class="form-select form-select-sm" onchange="document.getElementById('chatFilterForm').submit()">
+                  <% if (lead.contact_number) { %>
+                    <option value="<%= lead.contact_number %>" <%= selectedTo === lead.contact_number ? 'selected' : '' %>>
+                      <%= lead.contact_number %> (Primary)
+                    </option>
+                  <% } %>
+                  <% if (lead.alternate_number) { %>
+                    <option value="<%= lead.alternate_number %>" <%= selectedTo === lead.alternate_number ? 'selected' : '' %>>
+                      <%= lead.alternate_number %> (Alternate)
+                    </option>
+                  <% } %>
+                </select>
+              </form>
+            </div>
           </div>
+          <% if (!lead.whatsappNumberId) { %>
+            <p class="text-muted">⚠️ Please assign a WhatsApp number to this lead before chatting.</p>
+          <% } else { %>
+            <div class="chat-box">
+              <% if (chats.length) { %>
+                <% chats.forEach(c => { %>
+                  <div class="chat-msg <%= c.direction === 'outbound' ? 'sent' : 'received' %>">
+                    <% if (c.type === 'text') { %>
+                      <%= c.content %>
+                    <% } else if (c.type === 'template') { %>
+                      📑 Sent template: <strong><%= c.content %></strong>
+                    <% } else if (c.type === 'image' && c.mediaId) { %>
+                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
+                        <img src="/whatsapp/media/<%= c.mediaId %>" 
+                            alt="Image" 
+                            style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
+                      </a>
+                      <% if (c.caption) { %><div><%= c.caption %></div><% } %>
+                    <% } else if (c.type === 'document' && c.mediaId) { %>
+                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
+                        📄 Download Document
+                      </a>
+                      <% if (c.caption) { %><div><%= c.caption %></div><% } %>
+                    <% } else if (c.type === 'audio' && c.mediaId) { %>
+                      <audio controls style="width:100%;">
+                        <source src="/whatsapp/media/<%= c.mediaId %>" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                      </audio>
+                    <% } else { %>
+                      [<%= c.type %>]
+                    <% } %>
+                    <div class="small text-muted mt-1">
+                      <%= new Date(c.timestamp).toLocaleString() %>
+                    </div>
+                  </div>
+                <% }) %>
+              <% } else { %>
+                <p class="text-muted">No messages yet</p>
+              <% } %>
+            </div>
+
+            <% if (lead.canEdit) { %>
+              <% if (canFreeChat) { %>
+                <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
+                  <input type="hidden" name="to" id="hiddenToNumber">
+                  <input type="text" name="body" class="form-control me-2" placeholder="Type a message..." required>
+                  <button class="btn btn-success"><i class="bi bi-send"></i></button>
+                </form>
+              <% } else { %>
+                <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
+                  <input type="hidden" name="to" id="hiddenToNumber">
+                  <select name="templateName" class="form-select me-2" required>
+                    <option value="">-- Select Template --</option>
+                    <% whatsappTemplates.forEach(t => { %>
+                      <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
+                    <% }) %>
+                  </select>
+                  <button class="btn btn-primary">
+                    <i class="bi bi-chat-left-text"></i>
+                  </button>
+                </form>
+                <p class="text-muted small mt-1">
+                  💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
+                </p>
+              <% } %>
+            <% } else { %>
+              <p class="text-muted">You can view WhatsApp messages, but only the assigned user or admin can reply.</p>
+            <% } %>
+          <% } %>
         </div>
       </div>
     </div>
   </div>
 
+</div>
+
 <script>
   function toggleCustomStatus() {
     const select = document.getElementById('statusSelect');
     const input = document.getElementById('customStatusInput');
-    if (select.value === '__other__') {
-      input.classList.remove('d-none');
-      input.required = true;
-    } else {
-      input.classList.add('d-none');
-      input.required = false;
+    if (select && input) {
+      if (select.value === '__other__') {
+        input.classList.remove('d-none');
+        input.required = true;
+      } else {
+        input.classList.add('d-none');
+        input.required = false;
+      }
     }
   }
-</script>
 
-<script>
   function scrollChatToBottom() {
     const chatBox = document.querySelector('.chat-box');
-    chatBox.scrollTop = chatBox.scrollHeight;
+    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
   }
   // Auto-scroll on load
   window.addEventListener('DOMContentLoaded', scrollChatToBottom);
-  // Optional: re-scroll on new message add (you’ll hook this after adding msgs via JS/Server)
 </script>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
-
-  // join this lead’s room
-  socket.emit('joinLeadRoom', "<%= lead._id %>");
+  // join this lead’s room (only if lead._id exists)
+  if ("<%= lead._id %>") socket.emit('joinLeadRoom', "<%= lead._id %>");
 
   // when server pushes a new message
   socket.on('newMessage', (msg) => {
     console.log("📩 New message arrived", msg);
-
     const chatBox = document.querySelector('.chat-box');
+    if (!chatBox) return;
 
     // create message bubble
     const div = document.createElement('div');
@@ -530,8 +597,11 @@
 
 <script>
   function syncToNumber(form) {
-    const selectedTo = document.getElementById('toNumberSelect').value;
-    form.querySelector('#hiddenToNumber').value = selectedTo;
+    const selectedToEl = document.getElementById('toNumberSelect');
+    if (!selectedToEl || !form) return;
+    const selectedTo = selectedToEl.value;
+    const hidden = form.querySelector('#hiddenToNumber');
+    if (hidden) hidden.value = selectedTo;
   }
 </script>
 
