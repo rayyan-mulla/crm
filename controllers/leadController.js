@@ -15,86 +15,151 @@ const formatPhoneE164 = require('../utils/formatPhoneE164')
 
 const upload = multer({ dest: "uploads/" });
 
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
+
+// Helper to build filter + sort from query (used by list + exports)
+function buildLeadFilterAndSort(query) {
+  const search    = (query.search || '').trim();
+  const status    = query.status || '';
+  const sortField = query.sortField || 'createdAt';
+  const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
+
+  const assignedToRaw = (query.assignedTo || '').trim();
+  const fromDateStr   = (query.fromDate || '').trim();
+  const toDateStr     = (query.toDate || '').trim();
+
+  const filter = {};
+
+  // Search across multiple fields
+  if (search) {
+    const re = new RegExp(search, 'i');
+    filter.$or = [
+      { customer_name: re },
+      { email_id: re },
+      { contact_number: re },
+      { city: re },
+      { requirement: re }
+    ];
+  }
+
+  // Status filter (with "Other" special case)
+  if (status) {
+    if (status === 'Other') {
+      filter.status = { $nin: ["New", "In Progress", "Assigned", "Deal Drop", "Closed"] };
+    } else {
+      filter.status = status;
+    }
+  }
+
+  // Assigned person filter
+  if (assignedToRaw) {
+    if (mongoose.Types.ObjectId.isValid(assignedToRaw)) {
+      filter.assignedTo = assignedToRaw;
+    } else {
+      console.warn('Invalid assignedTo id in query:', JSON.stringify(assignedToRaw));
+    }
+  }
+
+  // SAFE Date range filter (Lead has a `date` field of type Date)
+  const dateFilter = {};
+
+  if (fromDateStr) {
+    const fromDate = new Date(fromDateStr);
+    if (!isNaN(fromDate.getTime())) {
+      dateFilter.$gte = fromDate;
+    } else {
+      console.warn('Invalid fromDate query value:', fromDateStr);
+    }
+  }
+
+  if (toDateStr) {
+    const toDate = new Date(toDateStr);
+    if (!isNaN(toDate.getTime())) {
+      // include full "to" day
+      toDate.setHours(23, 59, 59, 999);
+      dateFilter.$lte = toDate;
+    } else {
+      console.warn('Invalid toDate query value:', toDateStr);
+    }
+  }
+
+  // Only attach `filter.date` if we actually got at least one valid bound
+  if (Object.keys(dateFilter).length > 0) {
+    filter.date = dateFilter;
+  }
+
+  const sort = { [sortField]: sortOrder };
+
+  return { filter, sort };
+}
+
 exports.listLeads = async (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page || '1'));
-    const limit = Math.max(5, parseInt(req.query.limit || '20'));
-    const search = (req.query.search || '').trim();
-    const status = req.query.status || '';
-    const source = req.query.source || '';
-    const sortField = req.query.sortField || 'createdAt';
-    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+    // safer parsing for page + limit
+    let page = parseInt(req.query.page || '1', 10);
+    if (isNaN(page) || page < 1) page = 1;
 
-    // Build filter
-    const filter = {};
-    if (search) {
-      const re = new RegExp(search, 'i');
-      filter.$or = [
-        { customer_name: re },
-        { email_id: re },
-        { contact_number: re },
-        { city: re },
-        { requirement: re }
-      ];
-    }
+    let limit = parseInt(req.query.limit || '10', 10);
+    if (isNaN(limit)) limit = 10;
+    if (limit < 5) limit = 5;
 
-    if (status) {
-      if (status === 'Other') {
-        // Show all statuses not in the main set
-        filter.status = { $nin: ["New", "In Progress", "Assigned", "Deal Drop", "Closed"] };
+    // ➜ use shared helper
+    const { filter, sort } = buildLeadFilterAndSort(req.query);
+
+    // If you want to restrict normal users to only their own leads,
+    // you can re-enable this block; it works with all filters above.
+    /*
+    if (req.session && req.session.user && req.session.user.role === 'user') {
+      const sessionId = req.session.user.id || req.session.user._id || req.session.user.uid;
+      if (!sessionId) {
+        console.warn('listLeads: user session id missing', req.session.user);
+        filter.assignedTo = null;
       } else {
-        filter.status = status;
+        let objId = null;
+        try {
+          objId = mongoose.Types.ObjectId(sessionId);
+        } catch (e) {
+          objId = null;
+        }
+        filter.assignedTo = objId ? { $in: [objId, sessionId] } : sessionId;
       }
     }
+    */
 
-    if (source) filter.source = source;
-
-    // Restrict user view (robustly handle string/ObjectId stored values)
-    // if (req.session && req.session.user && req.session.user.role === 'user') {
-    //   // session can store id as `id` or `_id`
-    //   const sessionId = req.session.user.id || req.session.user._id || req.session.user.uid;
-    //   if (!sessionId) {
-    //     console.warn('listLeads: user session id missing', req.session.user);
-    //     // no id — make filter impossible
-    //     filter.assignedTo = null;
-    //   } else {
-    //     let objId = null;
-    //     try {
-    //       objId = mongoose.Types.ObjectId(sessionId);
-    //     } catch (e) {
-    //       objId = null;
-    //     }
-    //     // match either ObjectId or string form (covers both DB shapes)
-    //     filter.assignedTo = objId ? { $in: [objId, sessionId] } : sessionId;
-    //   }
-    // }
-
-    // Count + query
     const total = await Lead.countDocuments(filter);
+
     let leads = await Lead.find(filter)
       .populate('assignedTo', 'fullName username role')
-      .sort({ [sortField]: sortOrder })
+      .sort(sort) // <--- use sort from helper
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();
 
     const sessionUser = req.session.user;
     const sessionId = sessionUser ? (sessionUser.id || sessionUser._id || sessionUser.uid) : null;
+    const isAdmin = sessionUser && sessionUser.role === 'admin';
 
-    // ✅ Add canEdit flag to each lead
+    // Add canEdit flag to each lead
     leads = leads.map(l => {
       const assignedId = l.assignedTo ? l.assignedTo._id.toString() : null;
+      const canEdit =
+        !!isAdmin ||
+        (!!sessionId && !!assignedId && assignedId === String(sessionId));
+
       return {
         ...l,
-        canEdit: sessionUser.role === 'admin' ||
-                 (assignedId && assignedId === sessionId.toString())
+        canEdit
       };
     });
 
-    // Only admins need users for assignment
+    // Only admins need users for assignment dropdown/filter
     let users = [];
-    if (req.session && req.session.user && req.session.user.role === 'admin') {
-      users = await User.find({ role: { $in: ['user', 'admin'] } }, 'fullName role').lean();
+    if (isAdmin) {
+      users = await User.find(
+        { role: { $in: ['user', 'admin'] } },
+        'fullName role'
+      ).lean();
     }
 
     res.render('leads/list', {
@@ -103,7 +168,7 @@ exports.listLeads = async (req, res) => {
       limit,
       total,
       totalPages: Math.ceil(total / limit),
-      query: req.query,
+      query: req.query,   // includes search, status, assignedTo, fromDate, toDate, sort, limit
       users,
       user: req.session.user,
       activePage: 'leads'
@@ -278,7 +343,8 @@ exports.getLead = async (req, res) => {
       selectedFrom,
       selectedTo,
       user: req.session.user,
-      activePage: 'leadsDetail'
+      activePage: 'leadsDetail',
+      showBack: true
     });
   } catch (err) {
     console.error('getLead error', err);
@@ -377,6 +443,67 @@ exports.bulkAssignLeads = async (req, res) => {
     });
   } catch (err) {
     console.error("bulkAssignLeads error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// Bulk-delete multiple leads (AJAX version)
+exports.bulkDeleteLeads = async (req, res) => {
+  try {
+    // Only admins can bulk delete
+    if (!req.session?.user || req.session.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    let { leadIds } = req.body;
+
+    // Normalize leadIds to an array
+    if (!Array.isArray(leadIds)) {
+      leadIds = leadIds ? [leadIds] : [];
+    }
+
+    if (leadIds.length === 0) {
+      return res.json({
+        success: true,
+        deleted: 0,
+        skipped: 0,
+        deletedIds: [],
+        skippedIds: []
+      });
+    }
+
+    // Fetch leads first to know which ones actually exist
+    const leads = await Lead.find({ _id: { $in: leadIds } }, '_id').lean();
+
+    if (!leads.length) {
+      return res.json({
+        success: true,
+        deleted: 0,
+        skipped: leadIds.length,
+        deletedIds: [],
+        skippedIds: leadIds.map(id => id.toString())
+      });
+    }
+
+    const idsToDelete = leads.map(l => l._id.toString());
+    const idsSet = new Set(idsToDelete);
+    const skippedIds = leadIds
+      .map(id => id.toString())
+      .filter(id => !idsSet.has(id)); // requested but not found
+
+    // Actually delete
+    const result = await Lead.deleteMany({ _id: { $in: idsToDelete } });
+    const deletedCount = result.deletedCount || 0;
+
+    return res.json({
+      success: true,
+      deleted: deletedCount,
+      skipped: skippedIds.length,
+      deletedIds: idsToDelete,
+      skippedIds
+    });
+  } catch (err) {
+    console.error("bulkDeleteLeads error", err);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -755,5 +882,200 @@ exports.saveAlternateNumber = async (req, res) => {
   } catch (err) {
     console.error('saveAlternateNumber error', err);
     res.redirect(`/leads/${req.params.id}`);
+  }
+};
+
+exports.exportLeadsExcel = async (req, res) => {
+  try {
+    const { filter, sort } = buildLeadFilterAndSort(req.query);
+
+    const leads = await Lead.find(filter)
+      .populate('assignedTo', 'fullName username role')
+      .sort(sort)
+      .lean();
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Leads');
+
+    sheet.columns = [
+      { header: '#',        key: 'index',       width: 6 },
+      { header: 'Date',     key: 'date',        width: 12 },
+      { header: 'Name',     key: 'customer',    width: 25 },
+      { header: 'Contact',  key: 'contact',     width: 18 },
+      { header: 'City',     key: 'city',        width: 18 },
+      { header: 'Requirement', key: 'req',      width: 30 },
+      { header: 'Status',   key: 'status',      width: 15 },
+      { header: 'Assigned', key: 'assignedTo',  width: 25 },
+    ];
+
+    leads.forEach((lead, idx) => {
+      sheet.addRow({
+        index: idx + 1,
+        date: lead.date ? lead.date.toISOString().slice(0,10) : '',
+        customer: lead.customer_name || '',
+        contact: lead.contact_number || '',
+        city: lead.city || '',
+        req: lead.requirement || '',
+        status: lead.status || '',
+        assignedTo: lead.assignedTo
+          ? (lead.assignedTo.fullName || lead.assignedTo.username || '')
+          : ''
+      });
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="leads.xlsx"'
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('exportLeadsExcel error', err);
+    res.status(500).send('Failed to export Excel');
+  }
+};
+
+function formatDateDDMMYYYY(d) {
+  if (!d) return '-';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '-';
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+exports.exportLeadsPdf = async (req, res) => {
+  try {
+    const { filter, sort } = buildLeadFilterAndSort(req.query);
+
+    const leads = await Lead.find(filter)
+      .populate('assignedTo', 'fullName username role')
+      .sort(sort)
+      .lean();
+
+    const doc = new PDFDocument({ margin: 30, size: 'A4' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="leads.pdf"');
+
+    doc.pipe(res);
+
+    // Title
+    doc.fontSize(16).font('Helvetica-Bold').text('Leads Report', { align: 'center' });
+    doc.moveDown(1);
+
+    // Table settings
+    const margin = 30;
+    const tableTop = 80;
+    const headerRowHeight = 22;
+
+    // Use a consistent font for table text
+    doc.fontSize(10).font('Helvetica');
+
+    // Fixed column widths that exactly fit (sum = 535)
+    const columns = [
+      { header: '#',           width: 25,  getValue: (lead, idx) => String(idx + 1) },
+      { header: 'Date',        width: 60,  getValue: (lead) => formatDateDDMMYYYY(lead.date) },
+      { header: 'Name',        width: 90,  getValue: (lead) => lead.customer_name || '' },
+      { header: 'Contact',     width: 90,  getValue: (lead) => lead.contact_number || '' },
+      { header: 'City',        width: 55,  getValue: (lead) => lead.city || '' },
+      { header: 'Requirement', width: 100, getValue: (lead) => lead.requirement || '' },
+      { header: 'Status',      width: 50,  getValue: (lead) => lead.status || '' },
+      {
+        header: 'Assigned',
+        width: 65,
+        getValue: (lead) => {
+          if (!lead.assignedTo) return '';
+          return lead.assignedTo.fullName || lead.assignedTo.username || '';
+        }
+      },
+    ];
+
+    // Compute dynamic row height for a given lead
+    function getRowHeight(lead, index) {
+      let maxHeight = 0;
+
+      columns.forEach(col => {
+        const text = String(col.getValue(lead, index) || '');
+        const h = doc.heightOfString(text, {
+          width: col.width - 6, // padding left/right
+          align: 'left'
+        });
+        if (h > maxHeight) maxHeight = h;
+      });
+
+      return maxHeight + 8; // padding top/bottom
+    }
+
+    // Draw header row (fixed height)
+    function drawHeader(y) {
+      doc.fontSize(10).font('Helvetica-Bold');
+      let x = margin;
+
+      columns.forEach(col => {
+        doc.rect(x, y, col.width, headerRowHeight).fillAndStroke('#f0f0f0', '#000000');
+        doc
+          .fillColor('#000000')
+          .text(col.header, x + 3, y + 6, {
+            width: col.width - 6,
+            align: 'left'
+          });
+        x += col.width;
+      });
+
+      doc.fillColor('#000000').font('Helvetica');
+    }
+
+    // Draw one row with given rowHeight
+    function drawRow(y, lead, index, rowHeight) {
+      let x = margin;
+
+      columns.forEach(col => {
+        const text = String(col.getValue(lead, index) || '');
+
+        // Cell border
+        doc.rect(x, y, col.width, rowHeight).stroke();
+
+        // Cell text
+        doc.text(text, x + 3, y + 4, {
+          width: col.width - 6,
+          align: 'left'
+        });
+
+        x += col.width;
+      });
+    }
+
+    // Start table
+    let y = tableTop;
+    drawHeader(y);
+    y += headerRowHeight;
+
+    // Body rows
+    leads.forEach((lead, idx) => {
+      const rowHeight = getRowHeight(lead, idx);
+
+      // Page break if this row doesn't fit
+      if (y + rowHeight > doc.page.height - margin) {
+        doc.addPage();
+        y = tableTop;
+        drawHeader(y);
+        y += headerRowHeight;
+      }
+
+      drawRow(y, lead, idx, rowHeight);
+      y += rowHeight;
+    });
+
+    doc.end();
+  } catch (err) {
+    console.error('exportLeadsPdf error', err);
+    res.status(500).send('Failed to export PDF');
   }
 };

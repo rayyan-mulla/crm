@@ -21,7 +21,8 @@ exports.newForm = (req, res) => {
     mode: 'create',
     chair: { modelName: '', colors: [] },
     user: req.session.user,
-    activePage: 'chairs'
+    activePage: 'chairs',
+    showBack: true
   });
 };
 

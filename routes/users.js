@@ -17,7 +17,7 @@ router.get('/:id/edit', isAdmin, async (req, res) => {
   try {
     const editUser = await User.findById(req.params.id);
     if (!editUser) return res.redirect('/users');
-    res.render('editUser', { editUser, user: req.session.user, activePage: 'editUser', error: null });
+    res.render('editUser', { editUser, user: req.session.user, activePage: 'editUser', error: null, showBack: true });
   } catch (err) {
     console.error(err);
     res.redirect('/users');

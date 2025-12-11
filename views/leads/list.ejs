@@ -9,6 +9,16 @@
     return map[source] || source;
 } %>
 
+<% function formatDate(value) {
+     if (!value) return '-';
+     const d = new Date(value);
+     if (isNaN(d)) return '-';
+     const day = ('0' + d.getDate()).slice(-2);
+     const month = ('0' + (d.getMonth() + 1)).slice(-2);
+     const year = d.getFullYear();
+     return `${day}/${month}/${year}`;
+} %>
+
 <!doctype html>
 <html>
 <head>
@@ -27,6 +37,23 @@
     }
     .row-select-col {
       width: 36px;
+    }
+    .sticky-actions {
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+      background: #fff;
+      padding: .5rem 0;
+    }
+    .row-select-col {
+      width: 36px;
+    }
+    .sticky-pagination {
+      position: sticky;
+      bottom: 0;
+      z-index: 1010;
+      background: #fff;
+      padding: .5rem 0;
     }
   </style>
 </head>
@@ -50,61 +77,150 @@
   </div>
 
   <!-- Filters -->
-  <form class="row g-2 mb-3" method="get" action="/leads">
-    <div class="col-12 col-sm-12 col-md-3">
-      <input name="search" class="form-control" placeholder="Search" value="<%= query.search||'' %>">
+  <form id="filterForm" class="row g-3 mb-4 align-items-end" method="get" action="/leads">
+
+    <!-- Search -->
+    <div class="col-12 col-md-3">
+      <label class="form-label">Search</label>
+      <input name="search" class="form-control" placeholder="Search" 
+            value="<%= query.search || '' %>">
     </div>
-    <div class="col-6 col-sm-6 col-md-2">
+
+    <!-- From Date -->
+    <div class="col-6 col-md-3">
+      <label class="form-label">From Date</label>
+      <input type="date" name="fromDate" class="form-control" 
+            value="<%= query.fromDate || '' %>">
+    </div>
+
+    <!-- To Date -->
+    <div class="col-6 col-md-3">
+      <label class="form-label">To Date</label>
+      <input type="date" name="toDate" class="form-control" 
+            value="<%= query.toDate || '' %>">
+    </div>
+
+    <!-- Assigned To -->
+    <div class="col-12 col-md-3">
+      <label class="form-label">Assigned To</label>
+      <select name="assignedTo" class="form-select">
+        <option value="">All Assigned</option>
+        <% if (users) { users.forEach(u => { %>
+          <option value="<%= u._id %>" 
+                  <%= String(query.assignedTo)===String(u._id) ? 'selected' : '' %>>
+            <%= u.fullName %> (<%= u.role %>)
+          </option>
+        <% }) } %>
+      </select>
+    </div>
+
+    <!-- Status -->
+    <div class="col-6 col-md-3">
+      <label class="form-label">Status</label>
       <select name="status" class="form-select">
         <option value="">All Status</option>
-        <option value="New" <%= query.status==='New' ? 'selected' : '' %>>New</option>
-        <option value="In Progress" <%= query.status==='In Progress' ? 'selected' : '' %>>In Progress</option>
-        <option value="Closed" <%= query.status==='Closed' ? 'selected' : '' %>>Closed</option>
-        <option value="Assigned" <%= query.status==='Assigned' ? 'selected' : '' %>>Assigned</option>
-        <option value="Deal Drop" <%= query.status==='Deal Drop' ? 'selected' : '' %>>Deal Drop</option>
-        <option value="Other" <%= query.status==='Other' ? 'selected' : '' %>>Other</option>
+        <% ["New","In Progress","Closed","Assigned","Deal Drop","Other"].forEach(s => { %>
+          <option value="<%= s %>" <%= query.status===s ? 'selected' : '' %>>
+            <%= s %>
+          </option>
+        <% }) %>
       </select>
     </div>
-    <div class="col-6 col-sm-6 col-md-2">
-      <select name="source" class="form-select">
-        <option value="">All Source</option>
-        <option value="google_sheet" <%= query.source==='google_sheet' ? 'selected' : '' %>>Google Sheets</option>
-        <option value="meta" <%= query.source==='meta' ? 'selected' : '' %>>Meta</option>
-        <option value="indiamart" <%= query.source==='indiamart' ? 'selected' : '' %>>IndiaMART</option>
-        <option value="manual" <%= query.source==='manual' ? 'selected' : '' %>>Manual</option>
-        <option value="excel_upload" <%= query.source==='excel_upload' ? 'selected' : '' %>>Excel</option>
-      </select>
-    </div>
-    <div class="col-6 col-sm-6 col-md-2">
+
+    <!-- Sort Field -->
+    <div class="col-6 col-md-3">
+      <label class="form-label">Sort By</label>
       <select name="sortField" class="form-select">
-        <option value="createdAt" <%= query.sortField==='createdAt' ? 'selected' : '' %>>Newest</option>
-        <option value="customer_name" <%= query.sortField==='customer_name' ? 'selected' : '' %>>Name</option>
+        <option value="createdAt" <%= query.sortField==="createdAt" ? "selected" : "" %>>Newest</option>
+        <option value="customer_name" <%= query.sortField==="customer_name" ? "selected" : "" %>>Name</option>
       </select>
     </div>
-    <div class="col-6 col-sm-6 col-md-1">
+
+    <!-- Sort Order -->
+    <div class="col-6 col-md-2">
+      <label class="form-label">Order</label>
       <select name="sortOrder" class="form-select">
-        <option value="desc" <%= query.sortOrder==='desc' ? 'selected' : '' %>>Desc</option>
-        <option value="asc" <%= query.sortOrder==='asc' ? 'selected' : '' %>>Asc</option>
+        <option value="desc" <%= query.sortOrder==="desc" ? "selected" : "" %>>Desc</option>
+        <option value="asc"  <%= query.sortOrder==="asc" ? "selected" : "" %>>Asc</option>
       </select>
     </div>
-    <div class="col-12 col-sm-12 col-md-2 d-grid">
-      <button class="btn btn-primary">Filter</button>
+
+    <!-- Buttons Row -->
+    <div class="col-12 col-md-4">
+      <div class="d-flex gap-2 flex-wrap w-100">
+        <button type="submit" class="btn btn-primary flex-grow-1">Filter</button>
+
+        <button type="submit"
+                class="btn btn-danger flex-grow-1"
+                formaction="/leads/export/pdf"
+                formmethod="get">
+          PDF
+        </button>
+
+        <button type="submit"
+                class="btn btn-success flex-grow-1"
+                formaction="/leads/export/excel"
+                formmethod="get">
+          Excel
+        </button>
+      </div>
     </div>
+
   </form>
 
-  <% if (user && user.role === 'admin') { %>
-  <!-- Sticky bulk actions (admins only) -->
-  <div class="sticky-actions d-flex align-items-center justify-content-between mb-2">
-    <div class="small text-muted">
-      Selected: <span id="selectedCount">0</span>
-    </div>
-    <div class="d-flex gap-2">
+  <!-- Sticky actions: per page (everyone) + bulk actions (admin only) -->
+  <div class="sticky-actions d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+
+    <!-- Left: Per-page form (visible to all) -->
+    <form 
+      id="limitForm" 
+      class="d-flex align-items-center gap-2 mb-0" 
+      method="get" 
+      action="/leads"
+    >
+      <span class="small mb-0">Per page</span>
+
+      <!-- Preserve current filters as hidden inputs -->
+      <input type="hidden" name="search"     value="<%= query.search || '' %>">
+      <input type="hidden" name="fromDate"   value="<%= query.fromDate || '' %>">
+      <input type="hidden" name="toDate"     value="<%= query.toDate || '' %>">
+      <input type="hidden" name="assignedTo" value="<%= query.assignedTo || '' %>">
+      <input type="hidden" name="status"     value="<%= query.status || '' %>">
+      <input type="hidden" name="sortField"  value="<%= query.sortField || 'createdAt' %>">
+      <input type="hidden" name="sortOrder"  value="<%= query.sortOrder || 'desc' %>">
+
+      <!-- When changing limit, usually makes sense to reset to page 1 -->
+      <input type="hidden" name="page" value="1">
+
+      <select 
+        name="limit" 
+        id="limitSelect" 
+        class="form-select form-select-sm" 
+        style="width:auto; min-width:80px;"
+        onchange="this.form.submit()"
+      >
+        <option value="10"  <%= +limit === 10  ? 'selected' : '' %>>10</option>
+        <option value="25"  <%= +limit === 25  ? 'selected' : '' %>>25</option>
+        <option value="50"  <%= +limit === 50  ? 'selected' : '' %>>50</option>
+        <option value="100" <%= +limit === 100 ? 'selected' : '' %>>100</option>
+      </select>
+    </form>
+
+    <% if (user && user.role === 'admin') { %>
+    <!-- Right: bulk selection info + buttons (admin only) -->
+    <div class="d-flex align-items-center gap-2 ms-md-auto">
+      <div class="small text-muted mb-0">
+        Selected: <span id="selectedCount">0</span>
+      </div>
       <button class="btn btn-outline-success btn-sm" id="openBulkAssignBtn" data-bs-toggle="modal" data-bs-target="#bulkAssignModal" disabled>
         Assign Selected
       </button>
+      <button class="btn btn-outline-danger btn-sm" id="openBulkDeleteBtn" data-bs-toggle="modal" data-bs-target="#bulkDeleteModal" disabled>
+        Delete Selected
+      </button>
     </div>
+    <% } %>
   </div>
-  <% } %>
 
   <!-- Leads Table -->
   <div class="card shadow-sm">
@@ -123,10 +239,8 @@
                 <th style="width: 100px;">Date</th>
                 <th style="max-width: 120px;">Name</th>
                 <th style="max-width: 120px;">Contact</th>
-                <th style="max-width: 180px;">Email</th>
                 <th style="max-width: 100px;">City</th>
                 <th style="max-width: 150px;">Requirement</th>
-                <th style="width: 120px;">Source</th>
                 <th class="text-nowrap" style="max-width: 150px;">Lead Source</th>
                 <th style="width: 110px;">Status</th>
                 <th style="max-width: 160px;">Assigned</th>
@@ -142,13 +256,11 @@
                     </td>
                   <% } %>
                   <td><%= (page-1)*limit + i + 1 %></td>
-                  <td class="text-nowrap"><%= l.date ? new Date(l.date).toLocaleDateString() : '-' %></td>
+                  <td class="text-nowrap"><%= formatDate(l.date) %></td>
                   <td class="text-truncate" style="max-width:120px;" title="<%= l.customer_name %>"><%= l.customer_name %></td>
                   <td class="text-truncate" style="max-width:120px;" title="<%= l.contact_number %>"><%= l.contact_number %></td>
-                  <td class="text-truncate" style="max-width:180px;" title="<%= l.email_id %>"><%= l.email_id %></td>
                   <td class="text-truncate" style="max-width:100px;" title="<%= l.city %>"><%= l.city || '-' %></td>
                   <td class="text-truncate" style="max-width:150px;" title="<%= l.requirement %>"><%= l.requirement %></td>
-                  <td><%= displaySource(l.source) %></td>
                   <td class="text-truncate" style="max-width:150px;" title="<%= l.leadSource %>"><%= l.leadSource || '-' %></td>
                   <td>
                     <span class="badge 
@@ -193,25 +305,47 @@
         </div>
 
         <!-- Pagination -->
-        <nav aria-label="pagination">
-          <ul class="pagination justify-content-center">
-            <li class="page-item <%= page === 1 ? 'disabled' : '' %>">
-              <a class="page-link" href="?page=<%= page-1 %>" aria-label="Previous">
-                <span aria-hidden="true">&laquo;</span>
-              </a>
-            </li>
-            <% for(let p=1; p<=totalPages; p++){ %>
-              <li class="page-item <%= p===page ? 'active' : '' %>">
-                <a class="page-link" href="?page=<%= p %>"><%= p %></a>
+        <div class="sticky-pagination mt-2">
+          <nav aria-label="pagination">
+            <ul class="pagination justify-content-center">
+              <% 
+                // helper to build query string preserving filters
+                function buildQuery(pageNum) {
+                  let qs = `?page=${pageNum}&limit=${limit}`;
+                  if (query.search)    qs += `&search=${encodeURIComponent(query.search)}`;
+                  if (query.status)    qs += `&status=${encodeURIComponent(query.status)}`;
+                  if (query.sortField) qs += `&sortField=${encodeURIComponent(query.sortField)}`;
+                  if (query.sortOrder) qs += `&sortOrder=${encodeURIComponent(query.sortOrder)}`;
+                  if (query.assignedTo)qs += `&assignedTo=${encodeURIComponent(query.assignedTo)}`;
+                  if (query.fromDate)  qs += `&fromDate=${encodeURIComponent(query.fromDate)}`;
+                  if (query.toDate)    qs += `&toDate=${encodeURIComponent(query.toDate)}`;
+                  return qs;
+                }
+              %>
+
+              <!-- Previous -->
+              <li class="page-item <%= page === 1 ? 'disabled' : '' %>">
+                <a class="page-link" href="<%= buildQuery(page - 1) %>" aria-label="Previous">
+                  <span aria-hidden="true">&laquo;</span>
+                </a>
               </li>
-            <% } %>
-            <li class="page-item <%= page === totalPages ? 'disabled' : '' %>">
-              <a class="page-link" href="?page=<%= page+1 %>" aria-label="Next">
-                <span aria-hidden="true">&raquo;</span>
-              </a>
-            </li>
-          </ul>
-        </nav>
+
+              <!-- Page numbers -->
+              <% for (let p = 1; p <= totalPages; p++) { %>
+                <li class="page-item <%= p === page ? 'active' : '' %>">
+                  <a class="page-link" href="<%= buildQuery(p) %>"><%= p %></a>
+                </li>
+              <% } %>
+
+              <!-- Next -->
+              <li class="page-item <%= page === totalPages ? 'disabled' : '' %>">
+                <a class="page-link" href="<%= buildQuery(page + 1) %>" aria-label="Next">
+                  <span aria-hidden="true">&raquo;</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
 
       <% } else { %>
         <p class="text-muted">No leads found.</p>
@@ -276,6 +410,34 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary">Assign</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Delete Modal (NEW) -->
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form id="bulkDeleteForm" method="POST" action="/leads/bulk-delete">
+        <div class="modal-header">
+          <h5 class="modal-title">Delete Selected Leads</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">
+            Are you sure you want to delete <strong id="bulkDeleteCount">0</strong> selected lead(s)?
+          </p>
+          <p class="text-danger small mb-3">
+            This action cannot be undone.
+          </p>
+          <!-- leadIds[] are injected here dynamically -->
+          <div id="bulkDeleteHiddenInputs"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">Delete</button>
         </div>
       </form>
     </div>
@@ -363,10 +525,15 @@
   const bulkHiddenInputs = document.getElementById('bulkHiddenInputs');
   const bulkCount = document.getElementById('bulkCount');
 
+  const bulkDeleteModal = document.getElementById('bulkDeleteModal');
+  const bulkDeleteHiddenInputs = document.getElementById('bulkDeleteHiddenInputs');
+  const bulkDeleteCount = document.getElementById('bulkDeleteCount');
+
   function updateSelectedState() {
     const selected = Array.from(checkboxes).filter(c => c.checked).map(c => c.value);
     selectedCountEl && (selectedCountEl.textContent = selected.length);
     if (openBulkAssignBtn) openBulkAssignBtn.disabled = selected.length === 0;
+    if (openBulkDeleteBtn) openBulkDeleteBtn.disabled = selected.length === 0;
     return selected;
   }
 
@@ -396,6 +563,19 @@
     });
   });
 
+  // Inject selected IDs into the bulk delete form when modal opens
+  bulkDeleteModal?.addEventListener('show.bs.modal', () => {
+    const ids = updateSelectedState();
+    bulkDeleteCount.textContent = ids.length;
+    bulkDeleteHiddenInputs.innerHTML = '';
+    ids.forEach(id => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'leadIds[]';
+      input.value = id;
+      bulkDeleteHiddenInputs.appendChild(input);
+    });
+  });
 
   document.getElementById("bulkAssignForm")?.addEventListener("submit", async function (e) {
     e.preventDefault();
@@ -474,6 +654,64 @@
     } catch (err) {
       console.error("Bulk assign error:", err);
       alert("Failed to assign leads. Please try again.");
+    }
+  });
+
+  document.getElementById("bulkDeleteForm")?.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const leadIds = Array.from(form.querySelectorAll("input[name='leadIds[]']")).map(i => i.value);
+
+    if (!leadIds.length) return;
+
+    try {
+      const res = await fetch("/leads/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadIds })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Bulk delete failed");
+
+      // Toast
+      const toastHtml = `
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+          <div class="toast border rounded shadow-sm" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+              <div class="toast-body">
+                <strong>Bulk Delete Completed.</strong><br>
+                ${data.deleted} lead(s) deleted successfully.
+              </div>
+              <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML("beforeend", toastHtml);
+      const toastEl = document.querySelector(".toast:last-child");
+      const toast = new bootstrap.Toast(toastEl, { delay: 6000 });
+      toast.show();
+
+      // Close modal
+      const modalEl = document.getElementById("bulkDeleteModal");
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      modal.hide();
+      form.reset();
+
+      // Remove deleted rows from table
+      data.deletedIds.forEach(id => {
+        const row = document.querySelector(`input[value="${id}"]`)?.closest("tr");
+        if (row) row.remove();
+      });
+
+      // Reset checkboxes/bulk UI
+      updateSelectedState();
+
+    } catch (err) {
+      console.error("Bulk delete error:", err);
+      alert("Failed to delete leads. Please try again.");
     }
   });
 </script>

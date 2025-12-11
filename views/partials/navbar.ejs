@@ -14,6 +14,17 @@
     white-space: nowrap;
   }
 
+  /* Back button styling */
+  .back-btn {
+    color: #6c757d;         /* Bootstrap secondary grey */
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+
+  .back-btn:hover {
+    color: #000000 !important; /* Turn black on hover */
+  }
+
   /* Adjust for mobile */
   @media (max-width: 992px) {
     .navbar-center {
@@ -22,12 +33,20 @@
   }
 </style>
 
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm position-relative">
-  <div class="container-fluid">
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+  <div class="container-fluid position-relative">
     <!-- Logo on the left -->
     <a class="navbar-brand" href="/">
       <img src="/images/logo.png" alt="Olive Chairs Logo">
     </a>
+
+    <!-- Back Button (only if showBack is true) -->
+    <% if (typeof showBack !== 'undefined' && showBack) { %>
+      <a href="/leads" id="navBackBtn"
+        class="back-btn ms-4 d-flex align-items-center text-decoration-none">
+        <span class="d-none d-md-inline">&larr; Back</span>
+      </a>
+    <% } %>
 
     <!-- Centered CRM text -->
     <div class="navbar-center fw-bold">
@@ -76,3 +95,44 @@
     </div>
   </div>
 </nav>
+
+<script>
+(function () {
+  const backBtn = document.getElementById("navBackBtn");
+  if (!backBtn) return;
+
+  function getSavedLeadsUrl() {
+    try { return sessionStorage.getItem("leadsLastUrl"); }
+    catch { return null; }
+  }
+
+  function pickFallback() {
+    try {
+      const ref = document.referrer;
+      if (ref && new URL(ref).origin === location.origin) return ref;
+    } catch {}
+
+    return getSavedLeadsUrl() || "/leads";
+  }
+
+  function smartBack() {
+    try {
+      if (history.length > 1 && document.referrer.includes(location.origin)) {
+        history.back();
+        return;
+      }
+      location.href = pickFallback();
+    } catch {
+      location.href = "/leads";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    backBtn.href = pickFallback(); // enables long-press open-in-new-tab
+    backBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      smartBack();
+    });
+  });
+})();
+</script>

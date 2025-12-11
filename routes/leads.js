@@ -30,6 +30,8 @@ router.post('/:id/assign', isAdmin, leadCtrl.assignLead);
 
 router.post('/bulk-assign', isAdmin, leadCtrl.bulkAssignLeads);
 
+router.post('/bulk-delete', isAdmin, leadCtrl.bulkDeleteLeads);
+
 // update status (assigned user or admin)
 router.post('/:id/status', isLoggedIn, leadCtrl.updateStatus);
 
@@ -55,5 +57,9 @@ router.post("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.saveRequirement
 
 // Add this new route
 router.post('/:id/alternate-number', isLoggedIn, leadCtrl.saveAlternateNumber);
+
+router.get('/export/pdf', isLoggedIn, leadCtrl.exportLeadsPdf);
+
+router.get('/export/excel', isLoggedIn, leadCtrl.exportLeadsExcel);
 
 module.exports = router;
