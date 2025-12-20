@@ -155,12 +155,10 @@ exports.listLeads = async (req, res) => {
 
     // Only admins need users for assignment dropdown/filter
     let users = [];
-    if (isAdmin) {
-      users = await User.find(
-        { role: { $in: ['user', 'admin'] } },
-        'fullName role'
-      ).lean();
-    }
+    users = await User.find(
+      { role: { $in: ['user', 'admin'] } },
+      'fullName role'
+    ).lean();
 
     res.render('leads/list', {
       leads,
