@@ -35,12 +35,24 @@ exports.create = async (req, res) => {
     const colors = [];
     const colorName = Array.isArray(req.body.colorName) ? req.body.colorName : (req.body.colorName ? [req.body.colorName] : []);
     const colorPrice = Array.isArray(req.body.colorPrice) ? req.body.colorPrice : (req.body.colorPrice ? [req.body.colorPrice] : []);
+    const colorGST = Array.isArray(req.body.colorGST) ? req.body.colorGST : (req.body.colorGST ? [req.body.colorGST] : []);
 
     for (let i = 0; i < colorName.length; i++) {
       const name = (colorName[i] || '').trim();
-      const price = Number(colorPrice[i]);
       if (!name) continue;
-      colors.push({ name, basePrice: isNaN(price) ? 0 : price });
+
+      const basePrice = Number(colorPrice[i]);
+      const gstApplicable = !!colorGST[i];
+
+      // Calculate Final Price (18% GST)
+      const finalPrice = gstApplicable ? basePrice * 1.18 : basePrice;
+
+      colors.push({
+        name,
+        basePrice: isNaN(basePrice) ? 0 : basePrice,
+        gstApplicable,
+        finalPrice: Math.round(finalPrice * 100) / 100
+      });
     }
 
     await Chair.create({ modelName, colors });
@@ -77,6 +89,7 @@ exports.update = async (req, res) => {
     const names = Array.isArray(req.body.colorName) ? req.body.colorName : (req.body.colorName ? [req.body.colorName] : []);
     const prices = Array.isArray(req.body.colorPrice) ? req.body.colorPrice : (req.body.colorPrice ? [req.body.colorPrice] : []);
     const ids    = Array.isArray(req.body.colorId) ? req.body.colorId : (req.body.colorId ? [req.body.colorId] : []);
+    const gstFlags = Array.isArray(req.body.colorGST) ? req.body.colorGST : (req.body.colorGST ? [req.body.colorGST] : []);
     const actives= Array.isArray(req.body.colorActive) ? req.body.colorActive : (req.body.colorActive ? [req.body.colorActive] : []);
 
     const colors = [];
@@ -85,8 +98,11 @@ exports.update = async (req, res) => {
       if (!name) continue;
       const basePrice = Number(prices[i]);
       const _id = ids[i] || undefined;
+      const gstApplicable = Array.isArray(gstFlags) ? !!gstFlags[i] : !!gstFlags;
+      // Calculate Final Price (18% GST)
+      const finalPrice = gstApplicable ? basePrice * 1.18 : basePrice;
       const isActiveRow = Array.isArray(actives) ? !!actives[i] : !!actives; // checkbox behavior
-      colors.push({ _id, name, basePrice: isNaN(basePrice) ? 0 : basePrice, isActive: isActiveRow });
+      colors.push({ _id, name, basePrice: isNaN(basePrice) ? 0 : basePrice, gstApplicable: gstApplicable, finalPrice: Math.round(finalPrice * 100) / 100, isActive: isActiveRow });
     }
 
     await Chair.findByIdAndUpdate(req.params.id, {

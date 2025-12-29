@@ -39,15 +39,35 @@
                       </td>
                       <td>
                         <% if (chair.colors && chair.colors.length) { %>
-                            <div class="d-flex flex-wrap gap-1">
+                          <div class="d-flex flex-wrap gap-2">
                             <% chair.colors.forEach(col => { %>
-                                <span class="badge bg-light text-dark border">
-                                <%= col.name %> <span class="text-muted">₹<%= col.basePrice %></span>
-                                </span>
+                              <div class="badge bg-white text-dark border p-2 shadow-sm" style="font-weight: normal; min-width: 140px;">
+                                <div class="fw-bold border-bottom mb-1 pb-1 d-flex justify-content-between align-items-center">
+                                  <span class="text-truncate" style="max-width: 80px;" title="<%= col.name %>">
+                                    <%= col.name %>
+                                  </span>
+                                  <% if (col.gstApplicable) { %>
+                                    <span class="badge bg-info text-dark ms-2" style="font-size: 0.65rem; padding: 0.35em 0.5em;">
+                                      18% GST
+                                    </span>
+                                  <% } %>
+                                </div>
+                                
+                                <div class="d-flex flex-column gap-0">
+                                  <div class="d-flex justify-content-between small">
+                                    <span class="text-muted">Base:</span>
+                                    <span>₹<%= col.basePrice %></span>
+                                  </div>
+                                  <div class="d-flex justify-content-between small fw-bold">
+                                    <span class="text-muted">Final:</span>
+                                    <span class="text-primary">₹<%= col.finalPrice ? col.finalPrice.toFixed(2) : col.basePrice.toFixed(2) %></span>
+                                  </div>
+                                </div>
+                              </div>
                             <% }) %>
-                            </div>
+                          </div>
                         <% } else { %>
-                            <span class="text-muted">—</span>
+                          <span class="text-muted">—</span>
                         <% } %>
                       </td>
                       <td>

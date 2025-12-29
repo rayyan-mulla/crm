@@ -60,7 +60,13 @@
             </div>
             <div class="col-md-3">
               <label class="form-label">Unit Price (₹)</label>
-              <input type="number" name="unitPrice" class="form-control unit" min="0" step="1" value="<%= requirement.unitPrice %>" required>
+              <div class="input-group">
+                <input type="number" name="unitPrice" class="form-control unit" min="0" step="1" value="<%= requirement.unitPrice %>" required>
+                <div class="input-group-text">
+                  <input class="form-check-input mt-0 gstCheck" type="checkbox" name="gstApplicable" value="true" <%= requirement.gstApplicable ? 'checked' : '' %>>
+                  <small class="ms-1">GST</small>
+                </div>
+              </div>
             </div>
             <div class="col-md-3">
               <label class="form-label">Shipping/Unit (₹)</label>
@@ -104,7 +110,13 @@
             </div>
             <div class="col-md-3">
               <label class="form-label">Unit Price (₹)</label>
-              <input type="number" name="requirements[0][unitPrice]" class="form-control unit" min="0" step="1" required>
+              <div class="input-group">
+                <input type="number" name="requirements[0][unitPrice]" class="form-control unit" min="0" step="1" required>
+                <div class="input-group-text">
+                  <input class="form-check-input mt-0 gstCheck" type="checkbox" name="requirements[0][gstApplicable]" value="true">
+                  <small class="ms-1">GST</small>
+                </div>
+              </div>
             </div>
             <div class="col-md-3">
               <label class="form-label">Shipping/Unit (₹)</label>
@@ -171,7 +183,13 @@
         </div>
         <div class="col-md-3">
           <label class="form-label">Unit Price (₹)</label>
-          <input type="number" name="requirements[${index}][unitPrice]" class="form-control unit" min="0" step="1" required>
+          <div class="input-group">
+            <input type="number" name="requirements[${index}][unitPrice]" class="form-control unit" min="0" step="1" required>
+            <div class="input-group-text">
+              <input class="form-check-input mt-0 gstCheck" type="checkbox" name="requirements[${index}][gstApplicable]" value="true">
+              <small class="ms-1">GST</small>
+            </div>
+          </div>
         </div>
         <div class="col-md-3">
           <label class="form-label">Shipping/Unit (₹)</label>
@@ -210,9 +228,15 @@
       const chair = chairs.find(c => c._id === chairId);
       if (chair) {
         chair.colors.forEach(col => {
+          const base = col.basePrice || 0;
+          const hasGst = col.gstApplicable === true;
+          const final = hasGst ? Math.round(base * 1.18) : base;
+
           const opt = document.createElement('option');
           opt.value = col._id;
-          opt.textContent = `${col.name} (₹${col.basePrice})`;
+          opt.textContent = hasGst
+          ? `${col.name} — ₹${base} + 18% GST = ₹${final}`
+          : `${col.name} — ₹${base} (No GST)`;
           colorSelect.appendChild(opt);
         });
       }
@@ -220,14 +244,31 @@
   });
 
   // Auto calculate total (qty * (unit + ship))
+  function calculateRow(row) {
+    const q = parseInt(row.querySelector('.qty').value) || 0;
+    const u = parseFloat(row.querySelector('.unit').value) || 0;
+    const s = parseFloat(row.querySelector('.ship').value) || 0;
+    const isGst = row.querySelector('.gstCheck').checked;
+
+    // Formula: ((Unit * 1.18 if GST) + Shipping) * Quantity
+    const unitWithGst = isGst ? (u * 1.18) : u;
+    
+    // Note: Added '+ s' back here so shipping is actually included in the total
+    const total = (unitWithGst + s) * q;
+
+    row.querySelector('.total').value = total.toFixed(2);
+  }
+
+  // 2. Listen for typing (numbers/text)
   container.addEventListener('input', e => {
-    if (e.target.classList.contains('qty') || e.target.classList.contains('unit') || e.target.classList.contains('ship')) {
-      const row = e.target.closest('.req-row');
-      const q = parseInt(row.querySelector('.qty').value) || 0;
-      const u = parseFloat(row.querySelector('.unit').value) || 0;
-      const s = parseFloat(row.querySelector('.ship').value) || 0;
-      row.querySelector('.total').value = u * q;
-    }
+    const row = e.target.closest('.req-row');
+    if (row) calculateRow(row);
+  });
+
+  // 3. Listen for toggles (checkboxes/select dropdowns)
+  container.addEventListener('change', e => {
+    const row = e.target.closest('.req-row');
+    if (row) calculateRow(row);
   });
 </script>
 

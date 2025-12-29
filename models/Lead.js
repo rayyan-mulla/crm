@@ -32,6 +32,7 @@ const RequirementItemSchema = new mongoose.Schema({
   quantity: { type: Number, default: 1 },
   unitPrice: { type: Number, required: true }, // agreed per-unit price
   shippingUnit: { type: Number, default: 0 },
+  gstApplicable: { type: Boolean, default: false },
   totalPrice: { type: Number, required: true }, // auto-calculated
   note: { type: String }
 }, { _id: true });
@@ -39,13 +40,14 @@ const RequirementItemSchema = new mongoose.Schema({
 const LeadSchema = new mongoose.Schema({
   date: { type: Date, required: true }, // from sheet/manual form
   customer_name: { type: String, required: true },
+  customerType: { type: String, enum: ['End User', 'Reseller'], default: 'End User' },
   contact_number: { type: String, required: true },
   alternate_number: { type: String, default: null },
   email_id: { type: String },
   city: { type: String },
   // original unstructured requirement (keep it for history / raw entry)
   requirement: { type: String, required: true },
-
+  quantity: { type: Number, default: 0 },
   // new structured requirement
   normalizedRequirements: { type: [RequirementItemSchema], default: [] },
   // lead status: New, In Progress, Closed, etc.

@@ -789,7 +789,6 @@ exports.requirementForm = async (req, res) => {
 };
 
 // Handle create or update in one place
-// Handle create or update in one place
 exports.saveRequirement = async (req, res) => {
   try {
     if (req.params.reqId) {
@@ -798,7 +797,11 @@ exports.saveRequirement = async (req, res) => {
       const qty = parseInt(quantity) || 1;
       const unit = parseFloat(unitPrice) || 0;
       const ship = parseFloat(shippingUnit) || 0;
-      const total = unit * qty;
+
+      const gstApplicable = req.body.gstApplicable === 'true';
+
+      const unitWithGst = gstApplicable ? unit * 1.18 : unit;
+      const total = unitWithGst * qty;
 
       await Lead.updateOne(
         { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
@@ -809,6 +812,7 @@ exports.saveRequirement = async (req, res) => {
             "normalizedRequirements.$.quantity": qty,
             "normalizedRequirements.$.unitPrice": unit,
             "normalizedRequirements.$.shippingUnit": ship,
+            "normalizedRequirements.$.gstApplicable": gstApplicable,
             "normalizedRequirements.$.totalPrice": total,
             "normalizedRequirements.$.note": note
           }
@@ -822,7 +826,11 @@ exports.saveRequirement = async (req, res) => {
         const qty = parseInt(r.quantity) || 1;
         const unit = parseFloat(r.unitPrice) || 0;
         const ship = parseFloat(r.shippingUnit) || 0;
-        const total = unit * qty;
+
+        const gstApplicable = r.gstApplicable === 'true';
+
+        const unitWithGst = gstApplicable ? unit * 1.18 : unit;
+        const total = (unitWithGst + ship) * qty;
 
         return {
           chair: r.chairId,
@@ -830,6 +838,7 @@ exports.saveRequirement = async (req, res) => {
           quantity: qty,
           unitPrice: unit,
           shippingUnit: ship,
+          gstApplicable,
           totalPrice: total,
           note: r.note || ""
         };
@@ -879,6 +888,30 @@ exports.saveAlternateNumber = async (req, res) => {
     res.redirect(`/leads/${id}`);
   } catch (err) {
     console.error('saveAlternateNumber error', err);
+    res.redirect(`/leads/${req.params.id}`);
+  }
+};
+
+exports.saveQuantity = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity } = req.body;
+    await Lead.findByIdAndUpdate(id, { quantity: parseInt(quantity) });
+    res.redirect(`/leads/${id}`);
+  } catch(err) {
+    console.error('saveQuantity error', err);
+    res.redirect(`/leads/${req.params.id}`);
+  }
+};
+
+exports.saveCustomerType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { customerType } = req.body;
+    await Lead.findByIdAndUpdate(id, { customerType });
+    res.redirect(`/leads/${id}`);
+  } catch (err) {
+    console.error('saveCustomerType error', err);
     res.redirect(`/leads/${req.params.id}`);
   }
 };

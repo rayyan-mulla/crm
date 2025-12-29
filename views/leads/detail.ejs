@@ -122,6 +122,11 @@
             <small class="text-muted d-block">Date</small>
             <span><%= lead.date ? new Date(lead.date).toLocaleDateString() : '-' %></span>
           </div>
+
+          <div class="mb-3">
+            <small class="text-muted d-block">Assigned To</small>
+            <span><%= lead.assignedTo ? lead.assignedTo.fullName : '—' %></span>
+          </div>
           
           <div class="mb-3">
             <small class="text-muted d-block">Phone</small>
@@ -139,15 +144,18 @@
           <div class="mb-3">
             <small class="text-muted d-block">Alternate Phone</small>
             <% if (lead.canEdit) { %>
-              <form action="/leads/<%= lead._id %>/alternate-number" method="post" class="d-flex">
-                <input
-                  type="text"
-                  name="alternate_number"
-                  class="form-control me-2"
-                  value="<%= lead.alternate_number || '' %>"
-                  placeholder="Enter alternate number"
-                >
-                <button class="btn btn-outline-primary btn-sm">Save</button>
+              <div id="display-alt-phone" class="<%= lead.alternate_number ? 'd-flex' : 'd-none' %> align-items-center">
+                <span class="me-3"><%= lead.alternate_number %></span>
+                <button class="btn btn-sm btn-outline-primary" onclick="toggleEdit('alt-phone')">Edit</button>
+              </div>
+              <form id="form-alt-phone" action="/leads/<%= lead._id %>/alternate-number" method="post" 
+                    class="<%= lead.alternate_number ? 'd-none' : 'd-flex' %> align-items-center">
+                <input type="text" name="alternate_number" class="form-control form-control-sm me-2" 
+                      style="max-width: 200px;" value="<%= lead.alternate_number || '' %>" placeholder="Enter number">
+                <button class="btn btn-success btn-sm me-1">Save</button>
+                <% if (lead.alternate_number) { %>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleEdit('alt-phone')">Cancel</button>
+                <% } %>
               </form>
             <% } else { %>
               <span><%= lead.alternate_number || '—' %></span>
@@ -157,7 +165,7 @@
           <div class="mb-3">
             <small class="text-muted d-block">Email</small>
             <div class="d-flex align-items-center">
-              <span class="me-3"><%= lead.email_id || '-' %></span>
+              <span class="me-3"><%= lead.email_id || '—' %></span>
               <% if (lead.email_id) { %>
                 <a href="mailto:<%= lead.email_id %>" class="btn btn-sm btn-outline-secondary">
                   <i class="bi bi-envelope"></i> Draft
@@ -200,6 +208,51 @@
               <%= lead.leadSource || '—' %>
             </span>
           </div>
+          
+          <div class="mb-3">
+            <small class="text-muted d-block">Customer Type</small>
+            <% if (lead.canEdit) { %>
+              <div id="display-cust-type" class="<%= lead.customerType ? 'd-flex' : 'd-none' %> align-items-center">
+                <span class="me-3"><%= lead.customerType %></span>
+                <button class="btn btn-sm btn-outline-primary" onclick="toggleEdit('cust-type')">Edit</button>
+              </div>
+              
+              <form id="form-cust-type" action="/leads/<%= lead._id %>/customer-type" method="post" 
+                    class="<%= lead.customerType ? 'd-none' : 'd-flex' %> align-items-center">
+                <select name="customerType" class="form-select form-select-sm me-2" style="max-width: 150px;">
+                  <option value="End User" <%= lead.customerType === 'End User' ? 'selected' : '' %>>End User</option>
+                  <option value="Reseller" <%= lead.customerType === 'Reseller' ? 'selected' : '' %>>Reseller</option>
+                </select>
+                <button class="btn btn-success btn-sm me-1">Save</button>
+                <% if (lead.customerType) { %>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleEdit('cust-type')">Cancel</button>
+                <% } %>
+              </form>
+            <% } else { %>
+              <span><%= lead.customerType || 'End User' %></span>
+            <% } %>
+          </div>
+
+          <div class="mb-3">
+            <small class="text-muted d-block">Total Quantity</small>
+            <% if (lead.canEdit) { %>
+              <div id="display-qty" class="<%= lead.quantity ? 'd-flex' : 'd-none' %> align-items-center">
+                <span class="me-3"><%= lead.quantity %> Units</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="toggleEdit('qty')">Edit</button>
+              </div>
+              <form id="form-qty" action="/leads/<%= lead._id %>/quantity" method="post" 
+                    class="<%= lead.quantity ? 'd-none' : 'd-flex' %> align-items-center">
+                <input type="number" name="quantity" class="form-control form-control-sm me-2" 
+                      style="max-width: 120px;" value="<%= lead.quantity || '' %>" placeholder="Qty" min="0">
+                <button class="btn btn-success btn-sm me-1">Save</button>
+                <% if (lead.quantity) { %>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleEdit('qty')">Cancel</button>
+                <% } %>
+              </form>
+            <% } else { %>
+              <span><%= lead.quantity || '—' %> Units</span>
+            <% } %>
+          </div>
 
           <div class="mb-3">
             <small class="text-muted d-block">Requirement</small>
@@ -207,91 +260,163 @@
               <%= lead.requirement || '—' %>
             </span>
           </div>
-
-          <div class="mb-3">
-            <small class="text-muted d-block">Assigned To</small>
-            <span><%= lead.assignedTo ? lead.assignedTo.fullName : '—' %></span>
-          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Structured Requirement (new section) -->
+  <!-- Structured Requirement -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <h5 class="mb-3">Structured Requirement</h5>
+        <%
+          let totalDiff = 0;
+        %>
 
-      <% if (lead.normalizedRequirements && lead.normalizedRequirements.length) { %>
+      <% if (lead.normalizedRequirements?.length) { %>
+
         <ul class="list-group mb-3">
-          <% lead.normalizedRequirements.forEach(req => { %>
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <div>
-                <% 
-                  const colorObj = req.chair && req.chair.colors.find(c => c._id.toString() === (req.colorId||'').toString());
-                  const basePrice = colorObj ? colorObj.basePrice : null;
-                  const unitPrice = req.unitPrice;
-                  const shipping = req.shippingUnit || 0;
-                  const priceDiff = basePrice !== null 
-                    ? Math.round( (unitPrice / 1.18) - (basePrice / 1.18) - shipping ) 
-                    : null;
-                %>
-                <strong><%= req.chair.modelName %></strong> – 
-                <%= colorObj ? colorObj.name : 'Unknown Color' %>
-                (x<%= req.quantity %>)
-                <br>
-                <small>Base Price: ₹<%= basePrice !== null ? basePrice : '-' %></small><br>
-                <small>Shipping/Unit: ₹<%= shipping %></small><br>
-                <small>
-                  Unit: ₹<%= unitPrice %>
-                  <% if (priceDiff !== null && priceDiff !== 0) { %>
-                    <span class="<%= priceDiff > 0 ? 'text-danger' : 'text-success' %>">
-                      (<%= priceDiff > 0 ? '+' : '' %><%= priceDiff %>)
-                    </span>
-                  <% } %>
-                  | Total: ₹<%= req.totalPrice %>
-                </small>
-                <% if (req.note) { %>
-                  <br><small class="text-muted">Note: <%= req.note %></small>
-                <% } %>
+
+          <% lead.normalizedRequirements.forEach(req => { 
+            const color = req.chair?.colors.find(
+              c => c._id.toString() === req.colorId.toString()
+            );
+            if (!color) return;
+
+            // ===== COST =====
+            const costFinal = color.finalPrice;
+            const costHasGst = color.gstApplicable === true;
+            const costBase = costHasGst ? costFinal / 1.18 : costFinal;
+            const shipping = req.shippingUnit || 0;
+            const costPerUnitExclGst = costBase + shipping;
+
+            // ===== SELLING =====
+            const sellFinal = req.totalPrice;
+            const sellHasGst = req.gstApplicable === true;
+            const sellBase = sellHasGst ? sellFinal / 1.18 : sellFinal;
+            const sellPerUnitExclGst = sellBase / req.quantity;
+
+            // ===== RESULT =====
+            const markupPerUnit = Math.round(
+              sellPerUnitExclGst - costPerUnitExclGst
+            );
+            const totalMarkup = markupPerUnit * req.quantity;
+
+            totalDiff += totalMarkup;
+          %>
+
+          <li class="list-group-item">
+
+            <!-- HEADER -->
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div class="fw-bold fs-5">
+                <%= req.chair.modelName %>
+                <span class="text-muted fs-6">— <%= color.name %></span>
+                <span class="badge bg-secondary ms-2">× <%= req.quantity %></span>
               </div>
+
               <% if (lead.canEdit) { %>
-                <a href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+                <div class="d-flex gap-2">
+                  <a
+                    href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit"
+                    class="btn btn-sm btn-outline-primary">
+                    Edit
+                  </a>
+                </div>
               <% } %>
-            </li>
+            </div>
+
+            <!-- DETAILS -->
+            <div class="small text-muted">
+
+              <!-- COST -->
+              <div>
+                <strong class="text-dark">Cost (per unit)</strong><br>
+                Base (excl GST): ₹<%= Math.round(costBase) %><br>
+                GST: <%= costHasGst ? '✓ 18%' : '—' %><br>
+                Final (incl GST): ₹<%= costFinal %><br>
+                Shipping: ₹<%= shipping %><br>
+                → Cost excl GST: ₹<%= Math.round(costPerUnitExclGst) %>
+              </div>
+
+              <hr class="my-2">
+
+              <!-- SELLING -->
+              <div>
+                <strong class="text-dark">Selling</strong><br>
+                GST: <%= sellHasGst ? '✓ 18%' : '—' %><br>
+                Invoice total (incl GST): ₹<%= sellFinal %><br>
+                → Selling excl GST: ₹<%= Math.round(sellBase) %><br>
+                → Per unit excl GST: ₹<%= Math.round(sellPerUnitExclGst) %>
+              </div>
+
+              <hr class="my-2">
+
+              <!-- RESULT -->
+              <div>
+                <strong class="text-dark">Result</strong><br>
+                Markup / unit:
+                <span class="<%= markupPerUnit >= 0 ? 'text-danger' : 'text-success' %>">
+                  ₹<%= markupPerUnit %>
+                </span><br>
+                Total Markup:
+                <strong class="<%= totalMarkup >= 0 ? 'text-danger' : 'text-success' %>">
+                  ₹<%= totalMarkup %>
+                </strong>
+              </div>
+
+              <% if (req.note) { %>
+                <div class="alert alert-warning py-2 mt-3">
+                  <strong>Note:</strong> <%= req.note %>
+                </div>
+              <% } %>
+            </div>
+          </li>
+
           <% }) %>
         </ul>
       <% } else { %>
         <p class="text-muted">No structured requirement set yet.</p>
       <% } %>
-      <%
-        let totalDiff = 0;
-        (lead.normalizedRequirements || []).forEach(r => {
-          const color = r.chair && r.chair.colors.find(c => c._id.toString() === (r.colorId||'').toString());
-          if (color) {
-            const unitBase = (r.unitPrice || 0) / 1.18;
-            const base = (color.basePrice || 0) / 1.18;
-            const shipping = r.shippingUnit || 0;
-            totalDiff += Math.round((unitBase - base - shipping) * r.quantity);
-          }
-        });
-      %>
+
+      <!-- OVERALL MARKUP -->
       <div class="alert 
         <%= totalDiff > 0 
-            ? 'alert-danger' 
-            : (totalDiff < 0 ? 'alert-success' : 'alert-secondary') %> 
-        d-flex justify-content-between align-items-center mt-2">
+          ? 'alert-danger' 
+          : (totalDiff < 0 ? 'alert-success' : 'alert-secondary') %>
+        d-flex justify-content-between align-items-center">
+
         <span>
-          Overall <%= totalDiff > 0 ? 'Markup' : (totalDiff < 0 ? 'Discount' : 'No markup/discount') %>
+          Overall <%= totalDiff > 0 
+            ? 'Markup' 
+            : (totalDiff < 0 ? 'Discount' : 'No markup / discount') %>
         </span>
-        <strong>
-          ₹<%= totalDiff %>
-        </strong>
+
+        <strong>₹<%= totalDiff %></strong>
       </div>
-      <% if (lead.canEdit) { %>
-        <a href="/leads/<%= lead._id %>/requirement/add" class="btn btn-sm btn-success">+ Add Requirement</a>
-      <% } else { %>
-        <p class="text-muted mb-0">You cannot add or edit requirements for this lead.</p>
+
+      <!-- ACTIONS -->
+      <div class="d-flex gap-2 mt-2">
+        <!-- Add Requirement -->
+        <a href="<%= lead.canEdit ? `/leads/${lead._id}/requirement/add` : 'javascript:void(0)' %>"
+          class="btn btn-sm btn-success <%= !lead.canEdit ? 'disabled' : '' %>"
+          <%= !lead.canEdit ? 'aria-disabled="true"' : '' %>>
+          + Add Requirement
+        </a>
+
+        <!-- Invoice always enabled -->
+        <a href="/leads/<%= lead._id %>/invoice"
+          class="btn btn-sm btn-danger">
+          Generate Invoice
+        </a>
+      </div>
+
+      <% if (!lead.canEdit) { %>
+        <div class="mt-2">
+          <small class="text-muted">
+            You can view this lead, but only the assigned user can add or edit requirements.
+          </small>
+        </div>
       <% } %>
     </div>
   </div>
@@ -602,6 +727,27 @@
     const selectedTo = selectedToEl.value;
     const hidden = form.querySelector('#hiddenToNumber');
     if (hidden) hidden.value = selectedTo;
+  }
+</script>
+
+<script>
+  function toggleEdit(field) {
+    const displayDiv = document.getElementById(`display-${field}`);
+    const formEl = document.getElementById(`form-${field}`);
+    
+    if (displayDiv.classList.contains('d-none')) {
+      // Switch to Display Mode
+      displayDiv.classList.remove('d-none');
+      displayDiv.classList.add('d-flex');
+      formEl.classList.add('d-none');
+      formEl.classList.remove('d-flex');
+    } else {
+      // Switch to Edit Mode
+      displayDiv.classList.add('d-none');
+      displayDiv.classList.remove('d-flex');
+      formEl.classList.remove('d-none');
+      formEl.classList.add('d-flex');
+    }
   }
 </script>
 

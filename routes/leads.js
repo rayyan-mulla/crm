@@ -58,6 +58,10 @@ router.post("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.saveRequirement
 // Add this new route
 router.post('/:id/alternate-number', isLoggedIn, leadCtrl.saveAlternateNumber);
 
+router.post('/:id/quantity', isLoggedIn, leadCtrl.saveQuantity);
+
+router.post('/:id/customer-type', isLoggedIn, leadCtrl.saveCustomerType);
+
 router.get('/export/pdf', isLoggedIn, leadCtrl.exportLeadsPdf);
 
 router.get('/export/excel', isLoggedIn, leadCtrl.exportLeadsExcel);

@@ -77,95 +77,139 @@
   </div>
 
   <!-- Filters -->
-  <form id="filterForm" class="row g-3 mb-4 align-items-end" method="get" action="/leads">
+  <form id="filterForm" class="mb-3" method="get" action="/leads">
 
-    <!-- Search -->
-    <div class="col-12 col-md-3">
-      <label class="form-label">Search</label>
-      <input name="search" class="form-control" placeholder="Search" 
-            value="<%= query.search || '' %>">
-    </div>
+    <!-- ROW 1 -->
+    <div class="row g-2">
 
-    <!-- From Date -->
-    <div class="col-6 col-md-3">
-      <label class="form-label">From Date</label>
-      <input type="date" name="fromDate" class="form-control" 
-            value="<%= query.fromDate || '' %>">
-    </div>
-
-    <!-- To Date -->
-    <div class="col-6 col-md-3">
-      <label class="form-label">To Date</label>
-      <input type="date" name="toDate" class="form-control" 
-            value="<%= query.toDate || '' %>">
-    </div>
-
-    <!-- Assigned To -->
-    <div class="col-12 col-md-3">
-      <label class="form-label">Assigned To</label>
-      <select name="assignedTo" class="form-select">
-        <option value="">All Assigned</option>
-        <% if (users) { users.forEach(u => { %>
-          <option value="<%= u._id %>" 
-                  <%= String(query.assignedTo)===String(u._id) ? 'selected' : '' %>>
-            <%= u.fullName %> (<%= u.role %>)
-          </option>
-        <% }) } %>
-      </select>
-    </div>
-
-    <!-- Status -->
-    <div class="col-6 col-md-3">
-      <label class="form-label">Status</label>
-      <select name="status" class="form-select">
-        <option value="">All Status</option>
-        <% ["New","In Progress","Closed","Assigned","Deal Drop","Other"].forEach(s => { %>
-          <option value="<%= s %>" <%= query.status===s ? 'selected' : '' %>>
-            <%= s %>
-          </option>
-        <% }) %>
-      </select>
-    </div>
-
-    <!-- Sort Field -->
-    <div class="col-6 col-md-3">
-      <label class="form-label">Sort By</label>
-      <select name="sortField" class="form-select">
-        <option value="createdAt" <%= query.sortField==="createdAt" ? "selected" : "" %>>Newest</option>
-        <option value="customer_name" <%= query.sortField==="customer_name" ? "selected" : "" %>>Name</option>
-      </select>
-    </div>
-
-    <!-- Sort Order -->
-    <div class="col-6 col-md-2">
-      <label class="form-label">Order</label>
-      <select name="sortOrder" class="form-select">
-        <option value="desc" <%= query.sortOrder==="desc" ? "selected" : "" %>>Desc</option>
-        <option value="asc"  <%= query.sortOrder==="asc" ? "selected" : "" %>>Asc</option>
-      </select>
-    </div>
-
-    <!-- Buttons Row -->
-    <div class="col-12 col-md-4">
-      <div class="d-flex gap-2 flex-wrap w-100">
-        <button type="submit" class="btn btn-primary flex-grow-1">Filter</button>
-
-        <button type="submit"
-                class="btn btn-danger flex-grow-1"
-                formaction="/leads/export/pdf"
-                formmethod="get">
-          PDF
-        </button>
-
-        <button type="submit"
-                class="btn btn-success flex-grow-1"
-                formaction="/leads/export/excel"
-                formmethod="get">
-          Excel
-        </button>
+      <!-- Search -->
+      <div class="col-12 col-md-3">
+        <input
+          name="search"
+          class="form-control form-control-sm"
+          placeholder="Search name / phone / email"
+          value="<%= query.search || '' %>">
       </div>
+
+      <!-- From Date -->
+      <div class="col-6 col-md-2">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text">From</span>
+          <input
+            type="date"
+            name="fromDate"
+            class="form-control"
+            value="<%= query.fromDate || '' %>">
+        </div>
+      </div>
+
+      <!-- To Date -->
+      <div class="col-6 col-md-2">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text">To</span>
+          <input
+            type="date"
+            name="toDate"
+            class="form-control"
+            value="<%= query.toDate || '' %>">
+        </div>
+      </div>
+
+      <!-- Assigned To -->
+      <div class="col-6 col-md-3">
+        <select name="assignedTo" class="form-select form-select-sm">
+          <option value="">Assigned To</option>
+          <% users?.forEach(u => { %>
+            <option value="<%= u._id %>"
+              <%= String(query.assignedTo) === String(u._id) ? 'selected' : '' %>>
+              <%= u.fullName %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Customer Type -->
+      <div class="col-6 col-md-2">
+        <select name="customerType" class="form-select form-select-sm">
+          <option value="">Customer Type</option>
+          <option value="End User" <%= query.customerType === 'End User' ? 'selected' : '' %>>
+            End User
+          </option>
+          <option value="Reseller" <%= query.customerType === 'Reseller' ? 'selected' : '' %>>
+            Reseller
+          </option>
+        </select>
+      </div>
+
     </div>
 
+    <!-- ROW 2 -->
+    <div class="row g-2 mt-1">
+
+      <!-- Status -->
+      <div class="col-4 col-md-3">
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Status</option>
+          <% ["New","In Progress","Closed","Assigned","Deal Drop","Other"].forEach(s => { %>
+            <option value="<%= s %>" <%= query.status === s ? 'selected' : '' %>>
+              <%= s %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Sort Field -->
+      <div class="col-4 col-md-3">
+        <select name="sortField" class="form-select form-select-sm">
+          <option value="">Sort By</option>
+          <option value="createdAt" <%= query.sortField === "createdAt" ? "selected" : "" %>>
+            Newest
+          </option>
+          <option value="customer_name" <%= query.sortField === "customer_name" ? "selected" : "" %>>
+            Name
+          </option>
+        </select>
+      </div>
+
+      <!-- Sort Order -->
+      <div class="col-4 col-md-2">
+        <select name="sortOrder" class="form-select form-select-sm">
+          <option value="">Order</option>
+          <option value="desc" <%= query.sortOrder === "desc" ? "selected" : "" %>>
+            Desc
+          </option>
+          <option value="asc" <%= query.sortOrder === "asc" ? "selected" : "" %>>
+            Asc
+          </option>
+        </select>
+      </div>
+
+      <!-- Buttons -->
+      <div class="col-12 col-md-4">
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-sm btn-primary flex-grow-1">
+            Filter
+          </button>
+
+          <button
+            type="submit"
+            class="btn btn-sm btn-danger flex-grow-1"
+            formaction="/leads/export/pdf"
+            formmethod="get">
+            PDF
+          </button>
+
+          <button
+            type="submit"
+            class="btn btn-sm btn-success flex-grow-1"
+            formaction="/leads/export/excel"
+            formmethod="get">
+            Excel
+          </button>
+        </div>
+      </div>
+
+    </div>
   </form>
 
   <!-- Sticky actions: per page (everyone) + bulk actions (admin only) -->
@@ -239,8 +283,8 @@
                 <th style="width: 100px;">Date</th>
                 <th style="max-width: 120px;">Name</th>
                 <th style="max-width: 120px;">Contact</th>
-                <th style="max-width: 100px;">City</th>
-                <th style="max-width: 150px;">Requirement</th>
+                <th style="max-width: 120px;">Customer Type</th>
+                <th style="max-width: 90px;">Quantity</th>
                 <th class="text-nowrap" style="max-width: 150px;">Lead Source</th>
                 <th style="width: 110px;">Status</th>
                 <th style="max-width: 160px;">Assigned</th>
@@ -259,8 +303,8 @@
                   <td class="text-nowrap"><%= formatDate(l.date) %></td>
                   <td class="text-truncate" style="max-width:120px;" title="<%= l.customer_name %>"><%= l.customer_name %></td>
                   <td class="text-truncate" style="max-width:120px;" title="<%= l.contact_number %>"><%= l.contact_number %></td>
-                  <td class="text-truncate" style="max-width:100px;" title="<%= l.city %>"><%= l.city || '-' %></td>
-                  <td class="text-truncate" style="max-width:150px;" title="<%= l.requirement %>"><%= l.requirement %></td>
+                  <td class="text-truncate" style="max-width:120px;" title="<%= l.customerType %>"><%= l.customerType || '-' %></td>
+                  <td class="text-nowrap"><%= l.quantity %></td>
                   <td class="text-truncate" style="max-width:150px;" title="<%= l.leadSource %>"><%= l.leadSource || '-' %></td>
                   <td>
                     <span class="badge 
@@ -307,7 +351,7 @@
         <!-- Pagination -->
         <div class="sticky-pagination mt-2">
           <nav aria-label="pagination">
-            <ul class="pagination justify-content-center">
+            <ul class="pagination justify-content-center flex-nowrap">
               <% 
                 // helper to build query string preserving filters
                 function buildQuery(pageNum) {
@@ -325,23 +369,61 @@
 
               <!-- Previous -->
               <li class="page-item <%= page === 1 ? 'disabled' : '' %>">
-                <a class="page-link" href="<%= buildQuery(page - 1) %>" aria-label="Previous">
-                  <span aria-hidden="true">&laquo;</span>
-                </a>
+                <a class="page-link" href="<%= buildQuery(Math.max(1, page - 1)) %>">&laquo;</a>
               </li>
 
-              <!-- Page numbers -->
-              <% for (let p = 1; p <= totalPages; p++) { %>
+              <!-- First -->
+              <li class="page-item <%= page === 1 ? 'active' : '' %>">
+                <a class="page-link" href="<%= buildQuery(1) %>">1</a>
+              </li>
+
+              <%
+                // FIXED WINDOW (always 3 center slots)
+                const slots = 3;
+                let centerStart = page - 1;
+                let centerEnd   = page + 1;
+
+                if (centerStart < 2) {
+                  centerStart = 2;
+                  centerEnd = centerStart + slots - 1;
+                }
+
+                if (centerEnd > totalPages - 1) {
+                  centerEnd = totalPages - 1;
+                  centerStart = centerEnd - slots + 1;
+                }
+
+                centerStart = Math.max(2, centerStart);
+                centerEnd   = Math.min(totalPages - 1, centerEnd);
+              %>
+
+              <!-- Left Ellipsis -->
+              <li class="page-item disabled">
+                <span class="page-link">…</span>
+              </li>
+
+              <!-- Center fixed slots -->
+              <% for (let p = centerStart; p <= centerEnd; p++) { %>
                 <li class="page-item <%= p === page ? 'active' : '' %>">
                   <a class="page-link" href="<%= buildQuery(p) %>"><%= p %></a>
                 </li>
               <% } %>
 
+              <!-- Right Ellipsis -->
+              <li class="page-item disabled">
+                <span class="page-link">…</span>
+              </li>
+
+              <!-- Last -->
+              <% if (totalPages > 1) { %>
+                <li class="page-item <%= page === totalPages ? 'active' : '' %>">
+                  <a class="page-link" href="<%= buildQuery(totalPages) %>"><%= totalPages %></a>
+                </li>
+              <% } %>
+
               <!-- Next -->
               <li class="page-item <%= page === totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="<%= buildQuery(page + 1) %>" aria-label="Next">
-                  <span aria-hidden="true">&raquo;</span>
-                </a>
+                <a class="page-link" href="<%= buildQuery(Math.min(totalPages, page + 1)) %>">&raquo;</a>
               </li>
             </ul>
           </nav>

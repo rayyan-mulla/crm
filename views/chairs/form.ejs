@@ -46,31 +46,52 @@
         <% (chair.colors || []).forEach(function(col){ %>
           <div class="color-row row g-2 align-items-center">
             <input type="hidden" name="colorId" value="<%= col._id %>"/>
-            <div class="col-md-5">
-              <input class="form-control" name="colorName" placeholder="Color name" required value="<%= col.name %>"/>
-            </div>
+
+            <!-- Color Name -->
             <div class="col-md-4">
-              <input class="form-control" name="colorPrice" type="number" step="1" min="0" placeholder="Base price" required value="<%= col.basePrice %>"/>
+              <input class="form-control" name="colorName" placeholder="Color Name" required value="<%= col.name %>" />
             </div>
-            <div class="col-md-2 form-check ps-5">
-              <input class="form-check-input" type="checkbox" name="colorActive" <%= col.isActive ? 'checked' : '' %> />
+
+            <!-- Base Price -->
+            <div class="col-md-3">
+              <div class="input-group">
+                <input class="form-control basePrice" name="colorPrice" placeholder="Base Price" type="number" min="0"
+                required value="<%= col.basePrice %>" />
+                <div class="input-group-text">
+                  <input class="form-check-input mt-0 gstCheck" type="checkbox" name="colorGST"
+                    <%= col.gstApplicable ? 'checked' : '' %> />
+                  <small class="ms-1">GST</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Final Price (readonly) -->
+            <div class="col-md-3">
+              <input class="form-control finalPrice" type="text" placeholder="Final Price" value="<%= col.finalPrice ? col.finalPrice.toFixed(2) : '' %>" readonly />
+            </div>
+
+            <!-- Active -->
+            <div class="col-6 col-md-1 d-flex align-items-md-center justify-content-md-center gap-1">
+              <input class="form-check-input" type="checkbox" name="colorActive"
+                <%= col.isActive ? 'checked' : '' %> />
               <label class="form-check-label">Active</label>
             </div>
-            <div class="col-md-1 text-end">
-                <% if (mode === 'edit') { %>
-                    <button 
-                    type="button" 
-                    class="btn btn-sm btn-outline-danger"
-                    data-bs-toggle="modal"
-                    data-bs-target="#deleteColorModal"
-                    data-chair-id="<%= chair._id %>"
-                    data-color-id="<%= col._id %>"
-                    data-color-name="<%= col.name %>">
-                    ✕
-                    </button>
-                <% } else { %>
-                    <button type="button" class="btn btn-sm btn-outline-danger removeColor">✕</button>
-                <% } %>
+
+            <!-- Delete -->
+            <div class="col-6 col-md-1 text-end">
+              <% if (mode === 'edit') { %>
+                <button type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  data-bs-toggle="modal"
+                  data-bs-target="#deleteColorModal"
+                  data-chair-id="<%= chair._id %>"
+                  data-color-id="<%= col._id %>"
+                  data-color-name="<%= col.name %>">
+                  ✕
+                </button>
+              <% } else { %>
+                <button type="button" class="btn btn-sm btn-outline-danger removeColor">✕</button>
+              <% } %>
             </div>
           </div>
         <% }); %>
@@ -131,19 +152,33 @@
       const row = document.createElement('div');
       row.className = 'color-row row g-2 align-items-center';
       row.innerHTML = `
-        <div class="col-md-5">
-          <input class="form-control" name="colorName" placeholder="Color name" required />
-        </div>
         <div class="col-md-4">
-          <input class="form-control" name="colorPrice" type="number" step="1" min="0" placeholder="Base price" required />
+          <input class="form-control" name="colorName" placeholder="Color Name" required />
         </div>
-        <div class="col-md-2 form-check ps-5">
+
+        <div class="col-md-3">
+          <div class="input-group">
+            <input class="form-control basePrice" name="colorPrice" placeholder="Base Price" type="number" min="0" required />
+            <div class="input-group-text">
+              <input class="form-check-input mt-0 gstCheck" type="checkbox" name="colorGST" value="true" />
+              <small class="ms-1">GST</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <input class="form-control finalPrice" type="text" placeholder="Final Price" readonly />
+        </div>
+
+        <div class="col-6 col-md-1 d-flex align-items-md-center justify-content-md-center gap-1">
           <input class="form-check-input" type="checkbox" name="colorActive" checked />
           <label class="form-check-label">Active</label>
         </div>
-        <div class="col-md-1 text-end">
+
+        <div class="col-6 col-md-1 text-end">
           <button type="button" class="btn btn-sm btn-outline-danger removeColor">✕</button>
-        </div>`;
+        </div>
+      `;
       container.appendChild(row);
     });
 
@@ -153,6 +188,30 @@
       }
     });
   })();
+</script>
+
+<script>
+  function updateFinalPrice(row) {
+    const base = Number(row.querySelector('.basePrice')?.value || 0);
+    const gst = row.querySelector('.gstCheck')?.checked;
+    const final = gst ? base * 1.18 : base;
+
+    const finalInput = row.querySelector('.finalPrice');
+    if (finalInput) finalInput.value = final.toFixed(2);
+  }
+
+  document.addEventListener('input', e => {
+    const row = e.target.closest('.color-row');
+    if (row) updateFinalPrice(row);
+  });
+
+  document.addEventListener('change', e => {
+    const row = e.target.closest('.color-row');
+    if (row) updateFinalPrice(row);
+  });
+
+  // Init on page load
+  document.querySelectorAll('.color-row').forEach(updateFinalPrice);
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
