@@ -13,35 +13,41 @@ const {
 const fs = require('fs');
 const FormData = require('form-data');
 
-async function uploadWhatsappMedia(phoneNumberId, filePath, mimeType) {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`File does not exist: ${filePath}`);
-  }
-
-  const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/media`;
+async function uploadWhatsappMedia(wabaNumberId, filePath, mimeType) {
+  const url = `https://graph.facebook.com/v23.0/${wabaNumberId}/media`;
 
   const form = new FormData();
   form.append('messaging_product', 'whatsapp');
   form.append('file', fs.createReadStream(filePath), {
-    contentType: mimeType || 'application/octet-stream'
+    contentType: mimeType
   });
 
-  const headers = {
-    ...form.getHeaders(),
-    Authorization: `Bearer ${getUserToken()}`
-  };
+  let token = getUserToken();
 
   try {
     const res = await axios.post(url, form, {
-      headers,
-      maxBodyLength: Infinity,
+      headers: {
+        ...form.getHeaders(),      // ✅ KEEP THIS
+        Authorization: `Bearer ${token}`,
+      },
+      maxBodyLength: Infinity
     });
 
     return res.data.id;
   } catch (err) {
-    console.error("❌ WhatsApp upload failed");
-    console.error("Status:", err.response?.status);
-    console.error("Data:", JSON.stringify(err.response?.data, null, 2));
+    if (err.response?.status === 401) {
+      token = await refreshUserToken();
+
+      const res = await axios.post(url, form, {
+        headers: {
+          ...form.getHeaders(),    // ✅ KEEP THIS
+          Authorization: `Bearer ${token}`,
+        },
+        maxBodyLength: Infinity
+      });
+
+      return res.data.id;
+    }
     throw err;
   }
 }
