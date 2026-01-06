@@ -6,6 +6,7 @@ const whatsappCtrl = require('../controllers/whatsappWebhookController');
 const piController = require('../controllers/piController');
 const { isLoggedIn, isAdmin } = require('../middlewares/auth');
 const Lead = require('../models/Lead')
+const upload = require('../middlewares/upload');
 
 // list leads (server-side filtering/pagination/sort)
 router.get('/', isLoggedIn, leadCtrl.listLeads);
@@ -46,7 +47,7 @@ router.post('/:id/whatsapp-number', isLoggedIn, async (req, res) => {
   res.redirect(`/leads/${id}`);
 });
 
-router.post('/:id/whatsapp/send-text', isLoggedIn, whatsappCtrl.sendText);
+router.post('/:id/whatsapp/send-text', isLoggedIn, upload.array('mediaFile', 10), whatsappCtrl.sendText);
 
 // Add new
 router.get("/:id/requirement/add", isLoggedIn, leadCtrl.requirementForm);

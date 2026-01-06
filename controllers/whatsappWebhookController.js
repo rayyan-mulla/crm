@@ -10,6 +10,39 @@ const {
   refreshUserToken,
 } = require('../utils/metaTokenManager');
 
+const fs = require('fs');
+const FormData = require('form-data');
+
+async function uploadWhatsappMedia(wabaNumberId, filePath, mimeType) {
+  const url = `https://graph.facebook.com/v23.0/${wabaNumberId}/media`;
+
+  async function buildForm() {
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('file', fs.createReadStream(filePath), { contentType: mimeType });
+    return form;
+  }
+
+  let token = getUserToken();
+  try {
+    const form = await buildForm();
+    const res = await axios.post(url, form, {
+      headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() }
+    });
+    return res.data.id;
+  } catch (err) {
+    if (err.response?.status === 401) {
+      token = await refreshUserToken();
+      const form = await buildForm();
+      const res = await axios.post(url, form, {
+        headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() }
+      });
+      return res.data.id;
+    }
+    throw err;
+  }
+}
+
 async function sendWhatsappMessage(leadId, to, text) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
@@ -62,18 +95,31 @@ async function sendWhatsappMessage(leadId, to, text) {
   console.log(`✅ Sent WhatsApp message via ${lead.whatsappNumberId} to ${to}`);
 }
 
-async function sendWhatsappImage(leadId, to, imageUrl, caption) {
+async function sendWhatsappImage(leadId, to, filePath, mimeType, caption = "") {
   const lead = await Lead.findById(leadId).lean();
-  if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
+  if (!lead || !lead.whatsappNumberId)
+    throw new Error("Lead not linked to a WhatsApp number");
 
   const formattedTo = formatPhoneE164(to);
+
+  // 1️⃣ Upload image
+  const mediaId = await uploadWhatsappMedia(
+    lead.whatsappNumberId,
+    filePath,
+    mimeType
+  );
+
+  // 2️⃣ Send message
   const url = `https://graph.facebook.com/v23.0/${lead.whatsappNumberId}/messages`;
 
   const payload = {
     messaging_product: "whatsapp",
     to: formattedTo,
     type: "image",
-    image: { link: imageUrl, caption }
+    image: {
+      id: mediaId,
+      caption
+    }
   };
 
   let token = getUserToken();
@@ -83,7 +129,6 @@ async function sendWhatsappImage(leadId, to, imageUrl, caption) {
     });
   } catch (err) {
     if (err.response?.status === 401) {
-      console.warn("⚠️ WhatsApp token expired, refreshing...");
       token = await refreshUserToken();
       await axios.post(url, payload, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
@@ -93,26 +138,23 @@ async function sendWhatsappImage(leadId, to, imageUrl, caption) {
     }
   }
 
+  // 3️⃣ Save chat
   const chat = await Chat.create({
     lead: lead._id,
-    direction: 'outbound',
+    direction: "outbound",
     from: lead.whatsappNumberId,
     to,
-    type: 'image',
-    content: imageUrl,
+    type: "image",
+    mediaId,
     caption,
     timestamp: new Date()
   });
 
-  // 👇 emit to that lead’s room
   try {
-    const io = getIO();
-    io.to(leadId.toString()).emit('newMessage', chat);
-  } catch (e) {
-    console.warn("⚠️ Socket emit failed:", e.message);
-  }
+    getIO().to(leadId.toString()).emit("newMessage", chat);
+  } catch {}
 
-  console.log(`✅ Sent WhatsApp image via ${lead.whatsappNumberId} to ${to}`);
+  console.log(`✅ Sent WhatsApp image to ${to}`);
 }
 
 async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en_US', components = []) {
@@ -168,13 +210,28 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
   console.log(`✅ Sent WhatsApp template '${templateName}' via ${lead.whatsappNumberId} to ${to}`);
 }
 
-async function sendWhatsappDocument(leadId, to, documentUrl, filename, caption = "") {
+async function sendWhatsappDocument(
+  leadId,
+  to,
+  filePath,
+  filename,
+  mimeType,
+  caption = ""
+) {
   const lead = await Lead.findById(leadId).lean();
-  if (!lead || !lead.whatsappNumberId) {
+  if (!lead || !lead.whatsappNumberId)
     throw new Error("Lead not linked to a WhatsApp number");
-  }
 
   const formattedTo = formatPhoneE164(to);
+
+  // 1️⃣ Upload document
+  const mediaId = await uploadWhatsappMedia(
+    lead.whatsappNumberId,
+    filePath,
+    mimeType
+  );
+
+  // 2️⃣ Send message
   const url = `https://graph.facebook.com/v23.0/${lead.whatsappNumberId}/messages`;
 
   const payload = {
@@ -182,57 +239,46 @@ async function sendWhatsappDocument(leadId, to, documentUrl, filename, caption =
     to: formattedTo,
     type: "document",
     document: {
-      link: documentUrl,
+      id: mediaId,
       filename,
       caption
     }
   };
 
   let token = getUserToken();
-
   try {
     await axios.post(url, payload, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
     });
   } catch (err) {
     if (err.response?.status === 401) {
-      console.warn("⚠️ WhatsApp token expired, refreshing...");
       token = await refreshUserToken();
       await axios.post(url, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
       });
     } else {
       throw err;
     }
   }
 
+  // 3️⃣ Save chat
   const chat = await Chat.create({
     lead: lead._id,
     direction: "outbound",
     from: lead.whatsappNumberId,
     to,
     type: "document",
-    content: documentUrl,
-    caption,
+    mediaId,
     filename,
+    caption,
     timestamp: new Date()
   });
 
-  // Emit to socket room
   try {
-    const io = getIO();
-    io.to(leadId.toString()).emit("newMessage", chat);
-  } catch (e) {
-    console.warn("⚠️ Socket emit failed:", e.message);
-  }
+    getIO().to(leadId.toString()).emit("newMessage", chat);
+  } catch {}
 
-  console.log(`✅ Sent WhatsApp document via ${lead.whatsappNumberId} to ${to}`);
+  console.log(`✅ Sent WhatsApp document to ${to}`);
 }
 
 async function findOrCreateLeadByPhone(phone, wabaNumberId) {
@@ -399,11 +445,11 @@ exports.sendText = async (req, res) => {
       to,
       body,
       templateName,
-      mediaType,   // 'text' | 'image' | 'document'
-      mediaUrl,
-      caption,
-      filename
+      mediaType, // text | image | document
+      caption
     } = req.body;
+
+    const files = req.files || [];
 
     const lead = await Lead.findById(id).lean();
     if (!lead) {
@@ -420,25 +466,46 @@ exports.sendText = async (req, res) => {
     // ============================
     if (sessionActive) {
 
-      // TEXT
+      // ---------- TEXT ----------
       if (mediaType === 'text' && body) {
         await sendWhatsappMessage(id, to, body);
       }
 
-      // IMAGE
-      else if (mediaType === 'image' && mediaUrl) {
-        await sendWhatsappImage(id, to, mediaUrl, caption || '');
+      // ---------- IMAGE (MULTIPLE) ----------
+      else if (mediaType === 'image' && files.length) {
+        for (const file of files) {
+          try {
+            await sendWhatsappImage(
+              id,
+              to,
+              file.path,
+              file.mimetype,
+              caption || ''
+            );
+            fs.unlink(file.path, () => {});
+          } catch (error) {
+            console.error(error);
+          }
+        }
       }
 
-      // DOCUMENT
-      else if (mediaType === 'document' && mediaUrl && filename) {
-        await sendWhatsappDocument(
-          id,
-          to,
-          mediaUrl,
-          filename,
-          caption || ''
-        );
+      // ---------- DOCUMENT (MULTIPLE) ----------
+      else if (mediaType === 'document' && files.length) {
+        for (const file of files) {
+          try {
+            await sendWhatsappDocument(
+              id,
+              to,
+              file.path,
+              file.originalname,
+              file.mimetype,
+              caption || ''
+            );
+            fs.unlink(file.path, () => {});
+          } catch (error) {
+            console.error(error);
+          }
+        }
       }
 
       else {
