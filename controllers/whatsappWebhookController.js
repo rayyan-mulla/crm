@@ -16,27 +16,49 @@ const FormData = require('form-data');
 async function uploadWhatsappMedia(wabaNumberId, filePath, mimeType) {
   const url = `https://graph.facebook.com/v23.0/${wabaNumberId}/media`;
 
-  async function buildForm() {
+  const buildForm = () => {
     const form = new FormData();
     form.append('messaging_product', 'whatsapp');
-    form.append('file', fs.createReadStream(filePath), { contentType: mimeType });
+    form.append('file', fs.createReadStream(filePath), {
+      contentType: mimeType
+    });
     return form;
-  }
+  };
 
   let token = getUserToken();
+
   try {
-    const form = await buildForm();
+    const form = buildForm();
+    const headers = {
+      ...form.getHeaders(),
+      Authorization: `Bearer ${token}`,
+    };
+
+    delete headers['Content-Type'];
+
     const res = await axios.post(url, form, {
-      headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() }
+      headers,
+      maxBodyLength: Infinity
     });
+
     return res.data.id;
   } catch (err) {
     if (err.response?.status === 401) {
       token = await refreshUserToken();
-      const form = await buildForm();
+
+      const form = buildForm();
+      const headers = {
+        ...form.getHeaders(),
+        Authorization: `Bearer ${token}`,
+      };
+
+      delete headers['Content-Type'];
+
       const res = await axios.post(url, form, {
-        headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() }
+        headers,
+        maxBodyLength: Infinity
       });
+
       return res.data.id;
     }
     throw err;
@@ -477,7 +499,7 @@ exports.sendText = async (req, res) => {
           if (!file.path) {
             throw new Error('Uploaded file path missing');
           }
-          
+
           try {
             await sendWhatsappImage(
               id,
