@@ -1,0 +1,254 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title><%= pi.piNumber %></title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: #000;
+    line-height: 1.40;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    border: 1px solid #000;
+    padding: 6px 7px;
+    vertical-align: top;
+  }
+
+  th {
+    background: #f2f2f2;
+    font-weight: bold;
+  }
+
+  .section {
+    margin-top: 8px;
+  }
+
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .text-bold { font-weight: bold; }
+
+  .no-border td {
+    border: none;
+    padding: 4px 0;
+  }
+
+  .sub-heading {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 4px;
+    text-decoration: underline;
+  }
+
+  .compact-text {
+    line-height: 1.55;
+  }
+
+  .signature {
+    height: 60px;
+    max-width: 180px;
+    object-fit: contain;
+  }
+
+  /* ================= WATERMARK ================= */
+  .watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-35deg);
+    font-size: 90px;
+    font-weight: bold;
+    color: rgba(200, 0, 0, 0.15);
+    z-index: 9999;
+    white-space: nowrap;
+    pointer-events: none;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- ================= WATERMARK (ONLY IF DELETED) ================= -->
+<% if (pi.status === 'DELETED') { %>
+  <div class="watermark">DELETED</div>
+<% } %>
+
+<!-- ================= HEADER ================= -->
+<table class="section">
+  <tr>
+    <td width="50%">
+      <span class="sub-heading">Sold By</span>
+      Marziya Innovations Pvt. Ltd.<br>
+      Shop No.17, Ground Floor, Sarvoday Mall, Opposite APMC<br>
+      Bail Bazar Road, Kalyan (West), Maharashtra - 421301<br>
+      <strong>GSTIN:</strong> 27AASCM1392C1ZB
+    </td>
+    <td width="50%">
+      <strong>PI No:</strong> <%= pi.piNumber %><br>
+      <strong>Date:</strong>
+      <%= new Date(pi.createdAt).toLocaleDateString('en-IN') %>
+
+      <% if (pi.status === 'DELETED') { %>
+        <div style="margin-top:6px; color:#b30000; font-size:11px;">
+          <strong>Status:</strong> Deleted<br>
+          <strong>Deleted On:</strong>
+          <%= new Date(pi.deletedAt).toLocaleDateString('en-IN') %>
+        </div>
+      <% } %>
+    </td>
+  </tr>
+</table>
+
+<!-- ================= BILL TO / SHIP TO ================= -->
+<table class="section">
+  <tr>
+    <td width="50%">
+      <span class="sub-heading">Bill To</span>
+      <%= pi.billingAddress.name %><br>
+      <%= pi.billingAddress.line1 %><br>
+      <%= pi.billingAddress.city %>, <%= pi.billingAddress.state %> -
+      <%= pi.billingAddress.pincode %><br>
+      <strong>Phone:</strong> <%= pi.billingAddress.phone || '-' %><br>
+      <strong>GSTIN:</strong> <%= pi.billingAddress.gstin || 'N/A' %>
+    </td>
+
+    <td width="50%">
+      <span class="sub-heading">Ship To</span>
+      <%= pi.shippingAddress.name %><br>
+      <%= pi.shippingAddress.line1 %><br>
+      <%= pi.shippingAddress.city %>, <%= pi.shippingAddress.state %> -
+      <%= pi.shippingAddress.pincode %><br>
+      <strong>Phone:</strong> <%= pi.shippingAddress.phone || '-' %>
+    </td>
+  </tr>
+</table>
+
+<!-- ================= ITEMS ================= -->
+<table class="section">
+  <thead>
+    <tr>
+      <th width="5%">#</th>
+      <th>Description</th>
+      <th class="text-right" width="15%">Unit Price</th>
+      <th class="text-center" width="10%">Qty</th>
+      <th class="text-right" width="15%">Amount</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% pi.items.forEach((item, idx) => { %>
+      <tr>
+        <td class="text-center"><%= idx + 1 %></td>
+        <td><%= item.chairModel %> - <%= item.colorName %></td>
+        <td class="text-right">₹<%= item.unitPrice.toFixed(2) %></td>
+        <td class="text-center"><%= item.quantity %></td>
+        <td class="text-right">
+          ₹<%= ((item.unitPrice + item.shippingUnit) * item.quantity).toFixed(2) %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<!-- ================= TOTALS ================= -->
+<table class="section">
+  <tr>
+    <td class="text-right text-bold">Sub Total</td>
+    <td class="text-right">₹<%= pi.taxableAmount.toFixed(2) %></td>
+  </tr>
+
+  <% if (pi.gstType === 'IGST') { %>
+    <tr>
+      <td class="text-right">IGST @18%</td>
+      <td class="text-right">₹<%= pi.gstBreakup.igst.toFixed(2) %></td>
+    </tr>
+  <% } %>
+
+  <% if (pi.gstType === 'CGST_SGST') { %>
+    <tr>
+      <td class="text-right">CGST @9%</td>
+      <td class="text-right">₹<%= pi.gstBreakup.cgst.toFixed(2) %></td>
+    </tr>
+    <tr>
+      <td class="text-right">SGST @9%</td>
+      <td class="text-right">₹<%= pi.gstBreakup.sgst.toFixed(2) %></td>
+    </tr>
+  <% } %>
+
+  <tr>
+    <th class="text-right">Grand Total</th>
+    <th class="text-right">₹<%= pi.grandTotal.toFixed(2) %></th>
+  </tr>
+</table>
+
+<!-- ================= NOTES ================= -->
+<% if (pi.notes) { %>
+<table class="section">
+  <tr>
+    <td class="compact-text">
+      <strong>Notes:</strong> <%= pi.notes %>
+    </td>
+  </tr>
+</table>
+<% } %>
+
+<!-- ================= BANK + TERMS ================= -->
+<table class="section">
+  <tr>
+    <td width="50%" class="compact-text">
+      <span class="sub-heading">Bank Details</span>
+      <strong>Beneficiary Name:</strong> Marziya Innovations Pvt. Ltd.<br>
+      <strong>Bank Name:</strong> INDUSIND Bank<br>
+      <strong>Account Number:</strong> 259922996392<br>
+      <strong>IFSC Code:</strong> INDB0001867<br>
+      <strong>Branch:</strong> Kalyan (West), Maharashtra
+    </td>
+
+    <td width="50%" class="compact-text">
+      <span class="sub-heading">Commercial Terms</span>
+      <strong>Warranty:</strong> As per company policy.<br>
+      <strong>Estimated Delivery:</strong>
+      <%= pi.estimatedDelivery || '5 to 6 Working Days' %><br>
+      <span class="sub-heading">Payment Terms</span>
+      Advance Payment Only<br>
+      <strong>Payment Mode:</strong> <%= pi.paymentMode || '-' %>
+    </td>
+  </tr>
+</table>
+
+<!-- ================= DECLARATION ================= -->
+<table class="section">
+  <tr>
+    <td class="compact-text">
+      <span class="sub-heading">Declaration</span>
+      1. We declare that this Proforma Invoice shows the actual price of the goods and/or services described and that all particulars are true and correct.<br>
+      2. Errors and omissions excepted.<br>
+      3. Subject to Kalyan Jurisdiction only.<br>
+      4. All claims, if any, must be reported on the day of delivery.<br>
+      5. Shipping charges are non-refundable in case of returns.
+    </td>
+  </tr>
+</table>
+
+<!-- ================= SIGNATURE ================= -->
+<table class="no-border section">
+  <tr>
+    <td width="70%"></td>
+    <td width="30%" class="text-center">
+      <img src="<%= signBase64 %>" class="signature"><br>
+      <strong>Authorised Signatory</strong><br>
+      Marziya Innovations Pvt. Ltd.
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

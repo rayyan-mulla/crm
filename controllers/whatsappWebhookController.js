@@ -168,6 +168,73 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
   console.log(`✅ Sent WhatsApp template '${templateName}' via ${lead.whatsappNumberId} to ${to}`);
 }
 
+async function sendWhatsappDocument(leadId, to, documentUrl, filename, caption = "") {
+  const lead = await Lead.findById(leadId).lean();
+  if (!lead || !lead.whatsappNumberId) {
+    throw new Error("Lead not linked to a WhatsApp number");
+  }
+
+  const formattedTo = formatPhoneE164(to);
+  const url = `https://graph.facebook.com/v23.0/${lead.whatsappNumberId}/messages`;
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to: formattedTo,
+    type: "document",
+    document: {
+      link: documentUrl,
+      filename,
+      caption
+    }
+  };
+
+  let token = getUserToken();
+
+  try {
+    await axios.post(url, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+  } catch (err) {
+    if (err.response?.status === 401) {
+      console.warn("⚠️ WhatsApp token expired, refreshing...");
+      token = await refreshUserToken();
+      await axios.post(url, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } else {
+      throw err;
+    }
+  }
+
+  const chat = await Chat.create({
+    lead: lead._id,
+    direction: "outbound",
+    from: lead.whatsappNumberId,
+    to,
+    type: "document",
+    content: documentUrl,
+    caption,
+    filename,
+    timestamp: new Date()
+  });
+
+  // Emit to socket room
+  try {
+    const io = getIO();
+    io.to(leadId.toString()).emit("newMessage", chat);
+  } catch (e) {
+    console.warn("⚠️ Socket emit failed:", e.message);
+  }
+
+  console.log(`✅ Sent WhatsApp document via ${lead.whatsappNumberId} to ${to}`);
+}
+
 async function findOrCreateLeadByPhone(phone, wabaNumberId) {
   // Always normalize input to E.164 for storage
   const formattedPhone = formatPhoneE164(phone);
@@ -327,7 +394,16 @@ exports.handleWebhook = async (req, res) => {
 exports.sendText = async (req, res) => {
   try {
     const { id } = req.params;
-    const { to, body, templateName } = req.body;
+
+    const {
+      to,
+      body,
+      templateName,
+      mediaType,   // 'text' | 'image' | 'document'
+      mediaUrl,
+      caption,
+      filename
+    } = req.body;
 
     const lead = await Lead.findById(id).lean();
     if (!lead) {
@@ -335,21 +411,59 @@ exports.sendText = async (req, res) => {
     }
 
     const now = Date.now();
-    const sessionActive = lead.lastInboundAt &&
+    const sessionActive =
+      lead.lastInboundAt &&
       (now - new Date(lead.lastInboundAt).getTime()) < 24 * 60 * 60 * 1000;
 
-    if (sessionActive && body) {
-      await sendWhatsappMessage(id, to, body);
-      console.log(`✅ Sent text to ${to} (active session)`);
-    } else {
-      if (!templateName) {
-        return res.status(400).send("Template required when session is expired.");
+    // ============================
+    // 🟢 ACTIVE SESSION
+    // ============================
+    if (sessionActive) {
+
+      // TEXT
+      if (mediaType === 'text' && body) {
+        await sendWhatsappMessage(id, to, body);
       }
 
-      // unpack template name + language
-      const [name, lang] = templateName.split("||");
+      // IMAGE
+      else if (mediaType === 'image' && mediaUrl) {
+        await sendWhatsappImage(id, to, mediaUrl, caption || '');
+      }
 
-      console.log(`⚠️ No active session. Sending template '${name}' (${lang}) to ${to}.`);
+      // DOCUMENT
+      else if (mediaType === 'document' && mediaUrl && filename) {
+        await sendWhatsappDocument(
+          id,
+          to,
+          mediaUrl,
+          filename,
+          caption || ''
+        );
+      }
+
+      else {
+        return res.status(400).send('Invalid message payload');
+      }
+
+      console.log(`✅ Sent ${mediaType} to ${to} (active session)`);
+    }
+
+    // ============================
+    // 🔴 SESSION EXPIRED → TEMPLATE
+    // ============================
+    else {
+      if (!templateName) {
+        return res
+          .status(400)
+          .send('Template required when session is expired.');
+      }
+
+      const [name, lang] = templateName.split('||');
+
+      console.log(
+        `⚠️ No active session. Sending template '${name}' (${lang}) to ${to}`
+      );
+
       await sendWhatsappTemplate(id, to, name, lang);
     }
 

@@ -1,0 +1,258 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generate Proforma Invoice - Olive Chairs CRM</title>
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <style>
+    .pi-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+    }
+  </style>
+</head>
+
+<body>
+<%- include('../partials/navbar', { user, activePage }) %>
+
+<div class="container py-4">
+
+  <h3 class="mb-3">
+    Generate Proforma Invoice
+    <small class="text-muted fs-6">for <%= lead.customer_name %></small>
+  </h3>
+
+  <form
+    action="/leads/<%= lead._id %>/pi/create"
+    method="post"
+    class="card shadow-sm p-4"
+  >
+
+    <!-- ================= BILLING ADDRESS ================= -->
+    <div class="pi-section mb-4">
+      <h5 class="mb-3">Billing Address</h5>
+
+      <div class="row g-3">
+
+        <!-- Name -->
+        <div class="col-md-4">
+          <label class="form-label">Billing Name</label>
+          <input class="form-control" name="billing[name]" required>
+        </div>
+
+        <!-- Phone -->
+        <div class="col-md-4">
+          <label class="form-label">Phone Number</label>
+          <input
+            class="form-control"
+            name="billing[phone]"
+            placeholder="10-digit mobile number"
+            pattern="[0-9]{10}"
+          >
+        </div>
+
+        <!-- GSTIN -->
+        <div class="col-md-4">
+          <label class="form-label">GSTIN</label>
+          <input
+            class="form-control"
+            name="billing[gstin]"
+            placeholder="Optional"
+          >
+        </div>
+
+        <!-- Address -->
+        <div class="col-12">
+          <label class="form-label">Address Line</label>
+          <input class="form-control" name="billing[line1]" required>
+        </div>
+
+        <!-- City -->
+        <div class="col-md-4">
+          <label class="form-label">City</label>
+          <input class="form-control" name="billing[city]" required>
+        </div>
+
+        <!-- State -->
+        <div class="col-md-4">
+          <label class="form-label">State</label>
+          <input class="form-control" name="billing[state]" required>
+        </div>
+
+        <!-- Pincode -->
+        <div class="col-md-4">
+          <label class="form-label">Pincode</label>
+          <input class="form-control" name="billing[pincode]">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= SAME AS BILLING ================= -->
+    <div class="form-check mb-4">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="sameAsBilling"
+        name="sameAsBilling"
+        value="true"
+      >
+      <label class="form-check-label">
+        Shipping address same as billing
+      </label>
+    </div>
+
+    <!-- ================= SHIPPING ADDRESS ================= -->
+    <div class="pi-section mb-4" id="shippingSection">
+      <h5 class="mb-3">Shipping Address</h5>
+
+      <div class="row g-3">
+
+        <!-- Name -->
+        <div class="col-md-6">
+          <label class="form-label">Shipping Name</label>
+          <input class="form-control" name="shipping[name]" required>
+        </div>
+
+        <!-- Phone -->
+        <div class="col-md-6">
+          <label class="form-label">Phone Number</label>
+          <input
+            class="form-control"
+            name="shipping[phone]"
+            placeholder="10-digit mobile number"
+            pattern="[0-9]{10}"
+          >
+        </div>
+
+        <!-- Address -->
+        <div class="col-12">
+          <label class="form-label">Address Line</label>
+          <input class="form-control" name="shipping[line1]" required>
+        </div>
+
+        <!-- City -->
+        <div class="col-md-4">
+          <label class="form-label">City</label>
+          <input class="form-control" name="shipping[city]" required>
+        </div>
+
+        <!-- State -->
+        <div class="col-md-4">
+          <label class="form-label">State</label>
+          <input class="form-control" name="shipping[state]" required>
+        </div>
+
+        <!-- Pincode -->
+        <div class="col-md-4">
+          <label class="form-label">Pincode</label>
+          <input class="form-control" name="shipping[pincode]">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= GST & OPTIONS ================= -->
+    <div class="pi-section mb-4">
+      <h5 class="mb-3">GST & Invoice Options</h5>
+
+      <div class="form-check mb-3">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          name="gstEnabled"
+          value="true"
+          checked
+        >
+        <label class="form-check-label">
+          GST Applicable
+        </label>
+      </div>
+
+      <div class="row g-3">
+
+        <!-- Payment Mode -->
+        <div class="col-md-6">
+          <label class="form-label">Payment Mode</label>
+          <select name="paymentMode" class="form-select">
+            <option value="">-- Select --</option>
+            <option>NEFT / RTGS</option>
+            <option>Cheque</option>
+            <option>UPI</option>
+            <option>Cash</option>
+          </select>
+        </div>
+
+        <!-- Estimated Delivery -->
+        <div class="col-md-6">
+          <label class="form-label">Estimated Delivery</label>
+          <input
+            class="form-control"
+            name="estimatedDelivery"
+            placeholder="e.g. 5–6 Working Days"
+          >
+        </div>
+
+      </div>
+
+      <!-- Notes -->
+      <div class="mt-3">
+        <label class="form-label">Notes (shown on PI)</label>
+        <textarea
+          name="notes"
+          class="form-control"
+          rows="3"
+          placeholder="Terms, validity, delivery conditions etc."
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- ================= ACTIONS ================= -->
+    <div class="d-flex justify-content-end mt-3">
+      <a href="/leads/<%= lead._id %>" class="btn btn-secondary me-2">
+        Cancel
+      </a>
+      <button class="btn btn-danger">
+        Generate Proforma Invoice
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  const sameChk = document.getElementById('sameAsBilling');
+  const shippingSection = document.getElementById('shippingSection');
+
+  function toggleShipping() {
+    const inputs = shippingSection.querySelectorAll('input');
+
+    if (sameChk.checked) {
+      shippingSection.style.display = 'none';
+      inputs.forEach(i => {
+        i.disabled = true;
+        i.removeAttribute('required');
+      });
+    } else {
+      shippingSection.style.display = 'block';
+      inputs.forEach(i => {
+        i.disabled = false;
+        i.setAttribute('required', 'required');
+      });
+    }
+  }
+
+  sameChk.addEventListener('change', toggleShipping);
+  toggleShipping(); // on load
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

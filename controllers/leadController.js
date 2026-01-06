@@ -780,7 +780,8 @@ exports.requirementForm = async (req, res) => {
       chairs,
       mode,
       user: req.session.user,
-      activePage: 'leadsDetail'
+      activePage: 'leadsDetail',
+      showBack: true
     });
   } catch (err) {
     console.error("requirementForm error", err);
@@ -801,7 +802,7 @@ exports.saveRequirement = async (req, res) => {
       const gstApplicable = req.body.gstApplicable === 'true';
 
       const unitWithGst = gstApplicable ? unit * 1.18 : unit;
-      const total = unitWithGst * qty;
+      const total = Math.round((unitWithGst + ship) * qty);
 
       await Lead.updateOne(
         { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
@@ -830,7 +831,7 @@ exports.saveRequirement = async (req, res) => {
         const gstApplicable = r.gstApplicable === 'true';
 
         const unitWithGst = gstApplicable ? unit * 1.18 : unit;
-        const total = (unitWithGst + ship) * qty;
+        const total = Math.round((unitWithGst + ship) * qty);
 
         return {
           chair: r.chairId,
@@ -868,6 +869,26 @@ exports.deleteLead = async (req, res) => {
   } catch (error) {
     console.error('Error deleting lead:', error);
     res.redirect('/leads');
+  }
+};
+
+exports.deleteRequirement = async (req, res) => {
+  try {
+    const { id, reqId } = req.params;
+
+    await Lead.updateOne(
+      { _id: id },
+      {
+        $pull: {
+          normalizedRequirements: { _id: reqId }
+        }
+      }
+    );
+
+    res.redirect(`/leads/${id}`);
+  } catch (err) {
+    console.error("deleteRequirement error", err);
+    res.status(500).send("Server error");
   }
 };
 

@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const leadCtrl = require('../controllers/leadController');
 const whatsappCtrl = require('../controllers/whatsappWebhookController');
+const piController = require('../controllers/piController');
 const { isLoggedIn, isAdmin } = require('../middlewares/auth');
 const Lead = require('../models/Lead')
 
@@ -55,6 +56,9 @@ router.post("/:id/requirement/add", isLoggedIn, leadCtrl.saveRequirement);
 router.get("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.requirementForm);
 router.post("/:id/requirement/:reqId/edit", isLoggedIn, leadCtrl.saveRequirement);
 
+// Delete
+router.post("/:id/requirement/:reqId/delete", isLoggedIn, leadCtrl.deleteRequirement);
+
 // Add this new route
 router.post('/:id/alternate-number', isLoggedIn, leadCtrl.saveAlternateNumber);
 
@@ -65,5 +69,19 @@ router.post('/:id/customer-type', isLoggedIn, leadCtrl.saveCustomerType);
 router.get('/export/pdf', isLoggedIn, leadCtrl.exportLeadsPdf);
 
 router.get('/export/excel', isLoggedIn, leadCtrl.exportLeadsExcel);
+
+router.get('/:id/pi', isLoggedIn, piController.history);
+
+router.get('/:id/pi/create', isLoggedIn, piController.createForm);
+
+router.post('/:id/pi/create', isLoggedIn, piController.create);
+
+router.get('/:id/pi/:piId/pdf', isLoggedIn, piController.downloadPdf);
+
+router.get('/:leadId/pi/:piId/edit', isAdmin, piController.editForm);
+
+router.post('/:leadId/pi/:piId/edit', isAdmin, piController.update);
+
+router.post('/:leadId/pi/:piId/delete', isAdmin, piController.delete);
 
 module.exports = router;
