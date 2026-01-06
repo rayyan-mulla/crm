@@ -474,6 +474,10 @@ exports.sendText = async (req, res) => {
       // ---------- IMAGE (MULTIPLE) ----------
       else if (mediaType === 'image' && files.length) {
         for (const file of files) {
+          if (!file.path) {
+            throw new Error('Uploaded file path missing');
+          }
+          
           try {
             await sendWhatsappImage(
               id,
