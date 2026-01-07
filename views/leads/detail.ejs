@@ -62,6 +62,27 @@
       flex-direction: column;
     }
 
+    #mediaPreviewWrapper {
+      position: absolute;
+      bottom: 100%; /* Sits exactly above the input bar */
+      left: 10px;
+      right: 10px;
+      z-index: 10;
+      background: #ffffff;
+      border: 1px solid #dee2e6;
+      border-radius: 8px 8px 0 0; /* Rounded top corners */
+      box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+      transition: all 0.2s ease-in-out;
+    }
+
+    /* Container for the form to keep the preview relative to it */
+    .whatsapp-input-container {
+      position: relative; 
+      background: white;
+      padding: 10px;
+      border-top: 1px solid #eee;
+    }
+
     .chat-msg {
       margin-bottom: 10px;
       padding: 8px 12px;
@@ -672,76 +693,68 @@
 
             <% if (lead.canEdit) { %>
               <% if (canFreeChat) { %>
-                <form action="/leads/<%= lead._id %>/whatsapp/send-text"
-                      method="post"
-                      enctype="multipart/form-data"
-                      class="mt-2"
-                      onsubmit="syncToNumber(this)">
+                <div class="whatsapp-input-container">
+                  <form action="/leads/<%= lead._id %>/whatsapp/send-text"
+                        method="post"
+                        enctype="multipart/form-data"
+                        onsubmit="syncToNumber(this)">
 
-                  <!-- REQUIRED -->
-                  <input type="hidden" name="to" id="hiddenToNumber">
-                  <input type="hidden" name="mediaType" id="mediaTypeInput" value="text">
+                      <div id="mediaPreviewWrapper" class="d-none p-2">
+                          <div class="d-flex align-items-center justify-content-between">
+                              <div class="d-flex align-items-center">
+                                  <img id="imagePreview" src="#" class="d-none" style="height: 50px; width: 50px; object-fit: cover; border-radius: 4px;">
+                                  <div id="docPreview" class="d-none align-items-center">
+                                      <i class="bi bi-file-earmark-text fs-3 text-primary"></i>
+                                  </div>
+                                  <div class="ms-2">
+                                      <div id="fileNameDisplay" class="small fw-bold"></div>
+                                      <small class="text-muted">Ready to send</small>
+                                  </div>
+                              </div>
+                              <button type="button" 
+                                class="btn-close" 
+                                onclick="clearAttachment()" 
+                                style="position: absolute; top: 8px; right: 8px; width: 0.5rem; height: 0.5rem; font-size: 0.6rem; box-shadow: none;"
+                              >
+                              </button>
+                          </div>
+                      </div>
 
-                  <!-- MAIN ROW -->
-                  <div class="d-flex align-items-center gap-2">
-                    
-                    <!-- ATTACHMENT -->
-                    <div class="dropdown">
-                      <button class="btn btn-outline-secondary"
-                              type="button"
-                              data-bs-toggle="dropdown"
-                              title="Attach">
-                        <i class="bi bi-paperclip"></i>
-                      </button>
-                      <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" onclick="switchMediaType('text')">💬 Text Message</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" onclick="switchMediaType('image')">🖼 Image</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="switchMediaType('document')">📄 Document</a></li>
-                      </ul>
-                    </div>
+                      <input type="hidden" name="to" id="hiddenToNumber">
+                      <input type="hidden" name="mediaType" id="mediaTypeInput" value="text">
 
-                    <!-- TEXT INPUT -->
-                    <input type="text"
-                          name="body"
-                          id="textInput"
-                          class="form-control"
-                          placeholder="Type a message…">
+                      <div class="d-flex align-items-center gap-2">
+                          <div class="dropdown">
+                              <button class="btn btn-light rounded-circle" type="button" data-bs-toggle="dropdown">
+                                  <i class="bi bi-plus-lg" style="-webkit-text-stroke: 0.8px; font-size: 1.1rem;"></i>
+                              </button>
+                              <ul class="dropdown-menu">
+                                  <li>
+                                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerFilePicker('image')">
+                                      <i class="bi bi-images text-primary me-2"></i>
+                                      <span style="font-size: 0.85rem;">Image</span>
+                                    </a>
+                                  </li>
+                                  <li>
+                                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerFilePicker('document')">
+                                      <i class="bi bi-file-earmark-text text-danger me-2"></i>
+                                      <span style="font-size: 0.85rem;">Document</span>
+                                    </a>
+                                  </li>
+                              </ul>
+                          </div>
 
-                    <!-- SEND -->
-                    <button class="btn btn-success">
-                      <i class="bi bi-send"></i>
-                    </button>
-                  </div>
+                          <input type="text" name="body" id="textInput" class="form-control rounded-pill" placeholder="Type a message…">
 
-                  <!-- IMAGE UPLOAD (MULTIPLE) -->
-                  <div id="imageInputs" class="mt-2 d-none">
-                    <input type="file"
-                          name="mediaFile"
-                          multiple
-                          accept="image/*"
-                          class="form-control"
-                          required>
-                    <input type="text"
-                          name="caption"
-                          class="form-control mt-2"
-                          placeholder="Caption (optional)">
-                  </div>
+                          <button class="btn btn-success rounded-circle">
+                              <i class="bi bi-send-fill"></i>
+                          </button>
+                      </div>
 
-                  <!-- DOCUMENT UPLOAD (MULTIPLE) -->
-                  <div id="documentInputs" class="mt-2 d-none">
-                    <input type="file"
-                          name="mediaFile"
-                          multiple
-                          accept=".pdf,.doc,.docx,.xls,.xlsx"
-                          class="form-control"
-                          required>
-                    <input type="text"
-                          name="caption"
-                          class="form-control mt-2"
-                          placeholder="Caption (optional)">
-                  </div>
-                </form>
+                      <input type="file" name="mediaFile" id="imageInput" accept="image/*" class="d-none" onchange="handleFileSelect(this, 'image')">
+                      <input type="file" name="mediaFile" id="documentInput" accept=".pdf,.doc,.docx,.xls,.xlsx" class="d-none" onchange="handleFileSelect(this, 'document')">
+                  </form>
+                </div>
               <% } else { %>
                 <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
                   <input type="hidden" name="to" id="hiddenToNumber">
@@ -947,34 +960,53 @@
 </script>
 
 <script>
-  function switchMediaType(type) {
-    const textInput = document.getElementById('textInput');
-    const imageBox = document.getElementById('imageInputs');
-    const docBox = document.getElementById('documentInputs');
-    const mediaTypeInput = document.getElementById('mediaTypeInput');
+  function triggerFilePicker(type) {
+    if (type === 'image') document.getElementById('imageInput').click();
+    else if (type === 'document') document.getElementById('documentInput').click();
+  }
 
-    // Hide all
-    imageBox.classList.add('d-none');
-    docBox.classList.add('d-none');
-    textInput.classList.add('d-none');
+  function handleFileSelect(input, type) {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+      
+      // Show the wrapper
+      document.getElementById('mediaPreviewWrapper').classList.remove('d-none');
+      document.getElementById('mediaTypeInput').value = type;
+      document.getElementById('textInput').placeholder = "Add a caption…";
 
-    // Reset requirements
-    imageBox.querySelector('input[type="file"]').required = false;
-    docBox.querySelector('input[type="file"]').required = false;
-    textInput.required = false;
-
-    if (type === 'text') {
-      textInput.classList.remove('d-none');
-      mediaTypeInput.value = 'text';
-    } else if (type === 'image') {
-      imageBox.classList.remove('d-none');
-      mediaTypeInput.value = 'image';
-      imageBox.querySelector('input[type="file"]').required = true;
-    } else if (type === 'document') {
-      docBox.classList.remove('d-none');
-      mediaTypeInput.value = 'document';
-      docBox.querySelector('input[type="file"]').required = true;
+      if (type === 'image') {
+        reader.onload = function(e) {
+            const img = document.getElementById('imagePreview');
+            img.src = e.target.result;
+            img.classList.remove('d-none');
+            document.getElementById('docPreview').classList.add('d-none');
+            document.getElementById('fileNameDisplay').innerText = file.name;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // For Documents
+        document.getElementById('imagePreview').classList.add('d-none');
+        const docPrev = document.getElementById('docPreview');
+        docPrev.classList.remove('d-none');
+        docPrev.classList.add('d-flex');
+        document.getElementById('fileNameDisplay').innerText = file.name;
+      }
+      
+      // Scroll chat to bottom so the new preview is visible
+      const chatBox = document.querySelector('.chat-box');
+      if(chatBox) chatBox.scrollTop = chatBox.scrollHeight;
     }
+  }
+
+  function clearAttachment() {
+    document.getElementById('imageInput').value = "";
+    document.getElementById('documentInput').value = "";
+    document.getElementById('mediaTypeInput').value = "text";
+    
+    document.getElementById('mediaPreviewWrapper').classList.add('d-none');
+    document.getElementById('imagePreview').src = "#";
+    document.getElementById('textInput').placeholder = "Type a message…";
   }
 </script>
 

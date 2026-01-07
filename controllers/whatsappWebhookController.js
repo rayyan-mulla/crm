@@ -373,10 +373,12 @@ exports.sendText = async (req, res) => {
       body,
       templateName,
       mediaType, // text | image | document
-      caption
     } = req.body;
 
     const files = req.files || [];
+
+    // If it's an image/doc, the 'body' from the form is actually the 'caption'
+    const caption = (mediaType === 'image' || mediaType === 'document') ? body : "";
 
     const lead = await Lead.findById(id).lean();
     if (!lead) {
