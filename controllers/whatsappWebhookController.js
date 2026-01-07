@@ -44,6 +44,8 @@ async function sendWhatsappMessage(leadId, to, text) {
     }
   }
 
+  const istDate = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
+
   const chat = await Chat.create({
     lead: lead._id,
     direction: 'outbound',
@@ -51,7 +53,7 @@ async function sendWhatsappMessage(leadId, to, text) {
     to,
     type: 'text',
     content: text,
-    timestamp: new Date()
+    timestamp: new Date(istDate)
   });
 
   // 👇 emit to that lead’s room
@@ -97,9 +99,11 @@ async function sendWhatsappImage(leadId, to, mediaUrl, caption = "") {
     }
   }
 
+  const istDate = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
+
   return await Chat.create({
     lead: lead._id, direction: "outbound", from: lead.whatsappNumberId,
-    to, type: "image", content: mediaUrl, caption, timestamp: new Date()
+    to, type: "image", content: mediaUrl, caption, timestamp: new Date(istDate)
   });
 }
 
@@ -134,6 +138,8 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
     }
   }
 
+  const istDate = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
+
   const chat = await Chat.create({
     lead: lead._id,
     direction: 'outbound',
@@ -142,7 +148,7 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
     type: 'template',
     content: templateName,
     raw: { language: languageCode, components },
-    timestamp: new Date()
+    timestamp: new Date(istDate)
   });
 
   // 👇 emit to that lead’s room
@@ -187,9 +193,11 @@ async function sendWhatsappDocument(leadId, to, mediaUrl, filename, caption = ""
     }
   }
 
+  const istDate = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
+
   return await Chat.create({
     lead: lead._id, direction: "outbound", from: lead.whatsappNumberId,
-    to, type: "document", content: mediaUrl, filename, caption, timestamp: new Date()
+    to, type: "document", content: mediaUrl, filename, caption, timestamp: new Date(istDate)
   });
 }
 
@@ -297,6 +305,14 @@ exports.handleWebhook = async (req, res) => {
 
             const leadId = await findOrCreateLeadByPhone(from, wabaNumberId);
 
+            // 1. Convert Meta's UTC timestamp to an IST Date object
+            const unixTimestamp = parseInt(msg.timestamp) * 1000;
+            const messageDateUTC = new Date(unixTimestamp);
+
+            // Convert to IST string and back to date object to "force" the offset
+            const istString = messageDateUTC.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+            const istDate = new Date(istString);
+
             const chat = await Chat.create({
               lead: leadId,
               direction: 'inbound',
@@ -308,15 +324,14 @@ exports.handleWebhook = async (req, res) => {
               mediaId,
               caption,
               raw: msg,
-              timestamp: new Date(parseInt(msg.timestamp) * 1000)
+              timestamp: istDate
             });
             
             console.log("➡️ Updating lead:", leadId);
 
             // update lead lastInboundAt for session tracking
-            const messageDate = new Date(parseInt(msg.timestamp) * 1000);
-            console.log("Message Date:", messageDate);
-            const update = { lastInboundAt: messageDate, hasReplied: true };
+            console.log("Message Date:", istDate);
+            const update = { lastInboundAt: istDate, hasReplied: true };
             const result = await Lead.findByIdAndUpdate(leadId, update, { new: true });
 
             if (!result) {
