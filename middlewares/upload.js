@@ -2,9 +2,10 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
-const uploadDir = path.join(__dirname, '../uploads/whatsapp');
+// ✅ Absolute path from the root of your project
+// This ensures it works reliably across different GCP Cloud Run instances
+const uploadDir = path.join(process.cwd(), 'uploads/whatsapp');
 
-// ✅ Ensure directory exists
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -14,16 +15,16 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const unique =
-      Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname));
+    // Keep filenames short and URL-friendly for Meta
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e4);
+    cb(null, 'wa-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024 // 20MB
+    fileSize: 20 * 1024 * 1024 // 20MB is Meta's limit for most media
   }
 });
 

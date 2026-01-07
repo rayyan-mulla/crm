@@ -694,16 +694,10 @@
                         <i class="bi bi-paperclip"></i>
                       </button>
                       <ul class="dropdown-menu">
-                        <li>
-                          <a class="dropdown-item" href="#" onclick="switchMediaType('image')">
-                            🖼 Image
-                          </a>
-                        </li>
-                        <li>
-                          <a class="dropdown-item" href="#" onclick="switchMediaType('document')">
-                            📄 Document
-                          </a>
-                        </li>
+                        <li><a class="dropdown-item" href="#" onclick="switchMediaType('text')">💬 Text Message</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="switchMediaType('image')">🖼 Image</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="switchMediaType('document')">📄 Document</a></li>
                       </ul>
                     </div>
 
@@ -855,47 +849,44 @@
 
     // ✅ TEXT
     if (msg.type === 'text') {
-      contentHtml = msg.content;
+      contentHtml = `<div>${msg.content}</div>`;
     }
 
-    // 🖼 IMAGE
-    else if (msg.type === 'image' && msg.mediaId) {
+    // 🖼 IMAGE (Backend now saves the URL in 'content')
+    else if (msg.type === 'image') {
+      const imageUrl = msg.content; // This is now the URL: https://.../temp-media/wa-xxx.jpg
       contentHtml = `
-        <a href="/whatsapp/media/${msg.mediaId}" target="_blank">
-          <img src="/whatsapp/media/${msg.mediaId}"
-               style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
+        <a href="${imageUrl}" target="_blank">
+          <img src="${imageUrl}"
+              style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;"
+              onerror="this.src='/img/placeholder-error.png'; this.parentElement.innerText='Image Expired';">
         </a>
-        ${msg.caption ? `<div>${msg.caption}</div>` : ''}
+        ${msg.caption ? `<div class="mt-1">${msg.caption}</div>` : ''}
       `;
     }
 
     // 📄 DOCUMENT
-    else if (msg.type === 'document' && msg.mediaId) {
+    else if (msg.type === 'document') {
+      const docUrl = msg.content;
       contentHtml = `
-        <a href="/whatsapp/media/${msg.mediaId}" target="_blank">
-          📄 Download Document
-        </a>
-        ${msg.caption ? `<div>${msg.caption}</div>` : ''}
-      `;
-    }
-
-    // 🎧 AUDIO
-    else if (msg.type === 'audio' && msg.mediaId) {
-      contentHtml = `
-        <audio controls style="width:100%;">
-          <source src="/whatsapp/media/${msg.mediaId}">
-        </audio>
+        <div class="d-flex align-items-center border p-2 rounded bg-light">
+          <i class="bi bi-file-earmark-arrow-down fs-4 me-2"></i>
+          <a href="${docUrl}" target="_blank" class="text-decoration-none">
+            ${msg.filename || 'Download Document'}
+          </a>
+        </div>
+        ${msg.caption ? `<div class="mt-1 small">${msg.caption}</div>` : ''}
       `;
     }
 
     // fallback
     else {
-      contentHtml = `[${msg.type}]`;
+      contentHtml = `<div>[${msg.type}]</div>`;
     }
 
     div.innerHTML = `
       ${contentHtml}
-      <div class="small text-muted mt-1">
+      <div class="small text-muted mt-1" style="font-size: 0.75rem;">
         ${new Date(msg.timestamp).toLocaleString()}
       </div>
     `;
@@ -962,27 +953,26 @@
     const docBox = document.getElementById('documentInputs');
     const mediaTypeInput = document.getElementById('mediaTypeInput');
 
-    // Reset everything
+    // Hide all
     imageBox.classList.add('d-none');
     docBox.classList.add('d-none');
-    textInput.classList.remove('d-none');
+    textInput.classList.add('d-none');
+
+    // Reset requirements
+    imageBox.querySelector('input[type="file"]').required = false;
+    docBox.querySelector('input[type="file"]').required = false;
     textInput.required = false;
 
-    // Reset required on file inputs
-    imageBox.querySelectorAll('input').forEach(i => i.required = false);
-    docBox.querySelectorAll('input').forEach(i => i.required = false);
-
-    if (type === 'image') {
+    if (type === 'text') {
+      textInput.classList.remove('d-none');
+      mediaTypeInput.value = 'text';
+    } else if (type === 'image') {
       imageBox.classList.remove('d-none');
       mediaTypeInput.value = 'image';
-      textInput.classList.add('d-none');
       imageBox.querySelector('input[type="file"]').required = true;
-    }
-
-    if (type === 'document') {
+    } else if (type === 'document') {
       docBox.classList.remove('d-none');
       mediaTypeInput.value = 'document';
-      textInput.classList.add('d-none');
       docBox.querySelector('input[type="file"]').required = true;
     }
   }
