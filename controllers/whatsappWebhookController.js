@@ -74,7 +74,10 @@ async function sendWhatsappImage(leadId, to, mediaUrl, caption = "") {
     messaging_product: "whatsapp",
     to: formatPhoneE164(to),
     type: "image",
-    image: { link: mediaUrl, caption }
+    image: { 
+      link: mediaUrl, 
+      caption: String(caption || "") 
+    }
   };
 
   let token = getUserToken();
@@ -161,7 +164,11 @@ async function sendWhatsappDocument(leadId, to, mediaUrl, filename, caption = ""
     messaging_product: "whatsapp",
     to: formatPhoneE164(to),
     type: "document",
-    document: { link: mediaUrl, filename, caption }
+    document: { 
+      link: mediaUrl, 
+      filename, 
+      caption: String(caption || "")
+    }
   };
 
   let token = getUserToken();
@@ -382,11 +389,13 @@ exports.sendText = async (req, res) => {
           const mediaUrl = `${BASE_URL}/temp-media/${file.filename}`;
           console.log(`📤 Attempting to send ${mediaType} from URL: ${mediaUrl}`);
 
+          const safeCaption = typeof caption === 'string' ? caption : ""; 
+
           if (mediaType === 'image') {
-            const chat = await sendWhatsappImage(id, to, mediaUrl, caption);
+            const chat = await sendWhatsappImage(id, to, mediaUrl, safeCaption);
             getIO().to(id.toString()).emit('newMessage', chat);
           } else {
-            const chat = await sendWhatsappDocument(id, to, mediaUrl, file.originalname, caption);
+            const chat = await sendWhatsappDocument(id, to, mediaUrl, file.originalname, safeCaption);
             getIO().to(id.toString()).emit('newMessage', chat);
           }
 
