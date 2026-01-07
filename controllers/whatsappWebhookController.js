@@ -10,6 +10,9 @@ const {
   refreshUserToken,
 } = require('../utils/metaTokenManager');
 
+const fs = require('fs');
+const path = require('path');
+
 async function sendWhatsappMessage(leadId, to, text) {
   const lead = await Lead.findById(leadId).lean();
   if (!lead || !lead.whatsappNumberId) throw new Error("Lead not linked to a WhatsApp number");
