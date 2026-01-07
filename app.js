@@ -11,6 +11,8 @@ const seedAdmin = require('./seedAdmin');
 const seedWhatsappNumbers = require('./seedWhatsappNumbers');
 
 const app = express();
+app.set('trust proxy', true);
+
 const server = http.createServer(app); // 👈 wrap express with http server
 const io = init(server);
 

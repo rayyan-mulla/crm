@@ -374,6 +374,7 @@ exports.sendText = async (req, res) => {
       }
 
       else if ((mediaType === 'image' || mediaType === 'document') && files.length) {
+        const BASE_URL = 'https://crm.olivechairs.in';
         for (const file of files) {
           const mediaUrl = `${BASE_URL}/temp-media/${file.filename}`;
           console.log(`📤 Attempting to send ${mediaType} from URL: ${mediaUrl}`);
