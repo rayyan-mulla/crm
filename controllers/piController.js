@@ -179,7 +179,7 @@ exports.downloadPdf = async (req, res) => {
     const browser = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--font-render-hinting=none', '--disable-font-subpixel-positioning']
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-zygote', '--single-process', '--font-render-hinting=none', '--disable-font-subpixel-positioning']
     });
 
     const page = await browser.newPage();
