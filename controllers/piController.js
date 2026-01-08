@@ -179,7 +179,7 @@ exports.downloadPdf = async (req, res) => {
     const browser = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--font-render-hinting=none', '--disable-font-subpixel-positioning']
     });
 
     const page = await browser.newPage();
@@ -212,6 +212,7 @@ exports.downloadPdf = async (req, res) => {
           display:flex;
           align-items:center;
           justify-content:space-between;
+          font-family: 'Liberation Sans', sans-serif;
         ">
           <!-- LEFT: LOGO -->
           <div style="width:30%; text-align:left;">
@@ -242,6 +243,7 @@ exports.downloadPdf = async (req, res) => {
           color:#666;
           box-sizing:border-box;
           text-align:center;
+          font-family: 'Liberation Sans', sans-serif;
         ">
           Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
