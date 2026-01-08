@@ -6,10 +6,6 @@ FROM node:20-slim
 # rm -rf /var/lib/apt/lists/*: Cleans up temporary installer files to reduce image size.
 RUN apt-get update && apt-get install -y \
     chromium \
-    fonts-liberation \
-    fonts-freefont-ttf \
-    fonts-ipafont-gothic \
-    fonts-wqy-zenhei \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 

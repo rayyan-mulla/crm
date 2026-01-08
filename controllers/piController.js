@@ -179,7 +179,12 @@ exports.downloadPdf = async (req, res) => {
     const browser = await puppeteer.launch({
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-zygote', '--single-process', '--font-render-hinting=none', '--disable-font-subpixel-positioning']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--allow-file-access-from-files'
+      ]
     });
 
     const page = await browser.newPage();
@@ -198,6 +203,8 @@ exports.downloadPdf = async (req, res) => {
       waitUntil: ['load', 'domcontentloaded']
     });
 
+    await page.evaluateHandle('document.fonts.ready');
+
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -205,6 +212,22 @@ exports.downloadPdf = async (req, res) => {
       displayHeaderFooter: true,
 
       headerTemplate: `
+        <style>
+          @font-face {
+            font-family: 'Liberation Sans';
+            src: url('file:///app/public/fonts/LiberationSans-Regular.ttf') format('truetype');
+            font-weight: 400;
+          }
+          @font-face {
+            font-family: 'Liberation Sans';
+            src: url('file:///app/public/fonts/LiberationSans-Bold.ttf') format('truetype');
+            font-weight: 700;
+          }
+          * {
+            font-family: 'Liberation Sans';
+          }
+        </style>
+
         <div style="
           width:100%;
           padding:8px 15mm;
@@ -212,7 +235,7 @@ exports.downloadPdf = async (req, res) => {
           display:flex;
           align-items:center;
           justify-content:space-between;
-          font-family: 'Liberation Sans', sans-serif;
+          font-family: 'Liberation Sans';
         ">
           <!-- LEFT: LOGO -->
           <div style="width:30%; text-align:left;">
@@ -236,6 +259,22 @@ exports.downloadPdf = async (req, res) => {
       `,
 
       footerTemplate: `
+        <style>
+          @font-face {
+            font-family: 'Liberation Sans';
+            src: url('file:///app/public/fonts/LiberationSans-Regular.ttf') format('truetype');
+            font-weight: 400;
+          }
+          @font-face {
+            font-family: 'Liberation Sans';
+            src: url('file:///app/public/fonts/LiberationSans-Bold.ttf') format('truetype');
+            font-weight: 700;
+          }
+          * {
+            font-family: 'Liberation Sans';
+          }
+        </style>
+
         <div style="
           width:100%;
           padding:6px 15mm;
@@ -243,7 +282,7 @@ exports.downloadPdf = async (req, res) => {
           color:#666;
           box-sizing:border-box;
           text-align:center;
-          font-family: 'Liberation Sans', sans-serif;
+          font-family: 'Liberation Sans';
         ">
           Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
