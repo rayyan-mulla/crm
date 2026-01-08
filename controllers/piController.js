@@ -205,6 +205,33 @@ exports.downloadPdf = async (req, res) => {
 
     await page.evaluateHandle('document.fonts.ready');
 
+    const fs = require('fs');
+
+    // 1️⃣ Check font files exist in container
+    try {
+    const fontsPath = '/app/public/fonts';
+    console.log(
+      '[PDF DEBUG] fonts folder exists:',
+      fs.existsSync(fontsPath)
+    );
+
+    if (fs.existsSync(fontsPath)) {
+      console.log(
+        '[PDF DEBUG] fonts found:',
+        fs.readdirSync(fontsPath)
+      );
+    }
+    } catch (e) {
+    console.error('[PDF DEBUG] font folder error:', e);
+    }
+
+    // 2️⃣ Check which font Chromium actually used
+    const usedFont = await page.evaluate(() => {
+    return window.getComputedStyle(document.body).fontFamily;
+    });
+
+    console.log('[PDF DEBUG] font used by Chromium:', usedFont);
+
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
