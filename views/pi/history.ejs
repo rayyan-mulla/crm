@@ -54,7 +54,8 @@
                 const isDeleted = pi.status === 'DELETED';
                 const isAdmin = user.role === 'admin';
                 const isAssigned =
-                  lead.assignedTo &&
+                  lead.assignedTo && 
+                  user._id &&
                   lead.assignedTo.toString() === user._id.toString();
               %>
 

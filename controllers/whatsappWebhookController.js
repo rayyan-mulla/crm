@@ -279,8 +279,11 @@ exports.handleWebhook = async (req, res) => {
           const wabaNumberId = value.metadata?.phone_number_id;
           const displayNumber = value.metadata?.display_phone_number;
 
+          const to = formatPhoneE164(displayNumber)
+
           for (const msg of value.messages || []) {
-            const from = msg.from;
+            const rawFrom = msg.from;
+            const from = formatPhoneE164(rawFrom);
             const type = msg.type;
             let content = '';
             let mediaId = null;
@@ -316,8 +319,8 @@ exports.handleWebhook = async (req, res) => {
             const chat = await Chat.create({
               lead: leadId,
               direction: 'inbound',
-              from,
-              to: displayNumber,
+              from: from,
+              to: to,
               wabaNumberId,
               type,
               content,
