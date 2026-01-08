@@ -214,17 +214,20 @@ exports.downloadPdf = async (req, res) => {
       headerTemplate: `
         <style>
           @font-face {
-            font-family: 'Liberation Sans';
-            src: url('file:///app/public/fonts/LiberationSans-Regular.ttf') format('truetype');
+            font-family: 'Roboto';
+            src: url('file:///app/public/fonts/Roboto-Regular.ttf') format('truetype');
             font-weight: 400;
+            font-style: normal;
           }
+
           @font-face {
-            font-family: 'Liberation Sans';
-            src: url('file:///app/public/fonts/LiberationSans-Bold.ttf') format('truetype');
+            font-family: 'Roboto';
+            src: url('file:///app/public/fonts/Roboto-Bold.ttf') format('truetype');
             font-weight: 700;
+            font-style: normal;
           }
           * {
-            font-family: 'Liberation Sans';
+            font-family: 'Roboto';
           }
         </style>
 
@@ -261,17 +264,20 @@ exports.downloadPdf = async (req, res) => {
       footerTemplate: `
         <style>
           @font-face {
-            font-family: 'Liberation Sans';
-            src: url('file:///app/public/fonts/LiberationSans-Regular.ttf') format('truetype');
+            font-family: 'Roboto';
+            src: url('file:///app/public/fonts/Roboto-Regular.ttf') format('truetype');
             font-weight: 400;
+            font-style: normal;
           }
+
           @font-face {
-            font-family: 'Liberation Sans';
-            src: url('file:///app/public/fonts/LiberationSans-Bold.ttf') format('truetype');
+            font-family: 'Roboto';
+            src: url('file:///app/public/fonts/Roboto-Bold.ttf') format('truetype');
             font-weight: 700;
+            font-style: normal;
           }
           * {
-            font-family: 'Liberation Sans';
+            font-family: 'Roboto';
           }
         </style>
 
