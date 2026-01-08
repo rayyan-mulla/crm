@@ -144,7 +144,7 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
     lead: lead._id,
     direction: 'outbound',
     from: lead.whatsappNumberId,
-    to,
+    to: formattedTo,
     type: 'template',
     content: templateName,
     raw: { language: languageCode, components },

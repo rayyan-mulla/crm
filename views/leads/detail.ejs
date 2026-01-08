@@ -586,7 +586,7 @@
       </div>
     </div>
 
-      <!-- WhatsApp -->
+    <!-- WhatsApp -->
     <div class="col-md-6 lead-right d-flex flex-column">
       <div class="card shadow-sm h-100 d-flex flex-column">
         <div class="card-body d-flex flex-column">
@@ -863,6 +863,11 @@
     // ✅ TEXT
     if (msg.type === 'text') {
       contentHtml = `<div>${msg.content}</div>`;
+    }
+
+    // TEMPLATE
+    else if (msg.type === 'template') {
+      contentHtml = `<div>📑 Sent template: <strong>${msg.content}</strong></div>`;
     }
 
     // 🖼 IMAGE (Backend now saves the URL in 'content')

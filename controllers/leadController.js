@@ -299,14 +299,28 @@ exports.getLead = async (req, res) => {
     const selectedFrom = req.query.from || lead.whatsappNumberId || null;
     const selectedTo = req.query.to || lead.contact_number || lead.alternate_number || null;
 
+    // 1. Take whatever number we have (+91986... or 986...)
+    // 2. Remove everything except digits
+    // 3. Take only the last 10 digits
+    const searchDigits = selectedTo ? selectedTo.toString().replace(/\D/g, '').slice(-10) : null;
+
     // ✅ filter chats by lead + from + to if provided
     const chatFilter = { lead: lead._id };
-    if (selectedFrom) chatFilter.from = selectedFrom;   // your WABA number id
-    if (selectedTo) chatFilter.to = selectedTo;         // customer number
 
-    const chats = await Chat.find(chatFilter)
-      .sort({ timestamp: 1 })
-      .lean();
+    if (searchDigits) {
+      // ✅ This matches "9867549772" OR "+919867549772" OR "09867549772"
+      // The "$" means "ends with these 10 digits"
+      const phoneRegex = new RegExp(searchDigits + "$");
+
+      chatFilter.$or = [
+        { to: { $regex: phoneRegex } },
+        { from: { $regex: phoneRegex } }
+      ];
+    }
+
+const chats = await Chat.find(chatFilter)
+  .sort({ timestamp: 1 }) 
+  .lean();
 
     // ensure requirements is always array
     lead.normalizedRequirements = lead.normalizedRequirements || [];
