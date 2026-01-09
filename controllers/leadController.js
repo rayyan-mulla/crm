@@ -244,9 +244,22 @@ async function fetchTemplates(businessAccountId, accessToken) {
 
 function isWithin24Hours(lastInboundAt) {
   if (!lastInboundAt) return false;
-  const now = Date.now();
-  const diff = now - new Date(lastInboundAt).getTime();
-  return diff < 24 * 60 * 60 * 1000; // 24 hours in ms
+
+  // 1. Get current time and force it to an IST string
+  const nowISTString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const nowIST = new Date(nowISTString);
+
+  // 2. Your stored time (which is already IST)
+  const lastInbound = new Date(lastInboundAt);
+
+  // 3. Now the subtraction is accurate (IST - IST)
+  const diff = nowIST.getTime() - lastInbound.getTime();
+  const twentyFourHours = 24 * 60 * 60 * 1000;
+
+  console.log(`DEBUG: Comparing IST Now (${nowIST}) with IST LastMsg (${lastInbound})`);
+  console.log(`DEBUG: Hours passed: ${(diff / (1000 * 60 * 60)).toFixed(2)}`);
+
+  return diff < twentyFourHours;
 }
 
 exports.getLead = async (req, res) => {
@@ -318,9 +331,9 @@ exports.getLead = async (req, res) => {
       ];
     }
 
-const chats = await Chat.find(chatFilter)
-  .sort({ timestamp: 1 }) 
-  .lean();
+    const chats = await Chat.find(chatFilter)
+      .sort({ timestamp: 1 }) 
+      .lean();
 
     // ensure requirements is always array
     lead.normalizedRequirements = lead.normalizedRequirements || [];
@@ -352,6 +365,7 @@ const chats = await Chat.find(chatFilter)
       whatsappTemplates,
       within24h,
       canFreeChat,
+      lastInboundAt: lead.lastInboundAt,
       selectedFrom,
       selectedTo,
       user: req.session.user,

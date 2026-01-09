@@ -656,33 +656,54 @@
             <div class="chat-box">
               <% if (chats.length) { %>
                 <% chats.forEach(c => { %>
-                  <div class="chat-msg <%= c.direction === 'outbound' ? 'sent' : 'received' %>">
+                  <div class="chat-msg <%= (c.direction === 'outbound' || c.type === 'template') ? 'sent' : 'received' %>">
+                    
                     <% if (c.type === 'text') { %>
                       <%= c.content %>
+
                     <% } else if (c.type === 'template') { %>
                       📑 Sent template: <strong><%= c.content %></strong>
-                    <% } else if (c.type === 'image' && c.mediaId) { %>
-                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
-                        <img src="/whatsapp/media/<%= c.mediaId %>" 
-                            alt="Image" 
-                            style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
-                      </a>
+
+                    <% } else if (c.type === 'image') { %>
+                      <% 
+                        // Determine the source: use content (URL) if available, otherwise use media endpoint
+                        const imgSrc = (c.content && c.content.startsWith('http')) ? c.content : `/whatsapp/media/${c.mediaId}`;
+                      %>
+                      <a href="<%= imgSrc %>" target="_blank">
+                        <img src="<%= imgSrc %>" alt="Image" style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;">
                       <% if (c.caption) { %><div><%= c.caption %></div><% } %>
-                    <% } else if (c.type === 'document' && c.mediaId) { %>
-                      <a href="/whatsapp/media/<%= c.mediaId %>" target="_blank">
-                        📄 Download Document
                       </a>
-                      <% if (c.caption) { %><div><%= c.caption %></div><% } %>
-                    <% } else if (c.type === 'audio' && c.mediaId) { %>
+
+                    <% } else if (c.type === 'document') { %>
+                      <% 
+                        const docLink = (c.content && c.content.startsWith('http')) ? c.content : `/whatsapp/media/${c.mediaId}`;
+                      %>
+                      <div class="d-flex align-items-center border p-2 rounded bg-light">
+                        <i class="bi bi-file-earmark-arrow-down fs-4 me-2"></i>
+                        <a href="<%= docLink %>" target="_blank" class="text-decoration-none">
+                          <%= c.filename || 'Download Document' %>
+                        </a>
+                      </div>
+                      <% if (c.caption) { %><div class="mt-1 small"><%= c.caption %></div><% } %>
+
+                    <% } else if (c.type === 'audio') { %>
                       <audio controls style="width:100%;">
-                        <source src="/whatsapp/media/<%= c.mediaId %>" type="audio/mpeg">
-                        Your browser does not support the audio element.
+                        <source src="<%= (c.content && c.content.startsWith('http')) ? c.content : `/whatsapp/media/${c.mediaId}` %>" type="audio/mpeg">
                       </audio>
+
                     <% } else { %>
                       [<%= c.type %>]
                     <% } %>
-                    <div class="small text-muted mt-1">
-                      <%= new Date(c.timestamp).toLocaleString() %>
+
+                    <div class="small text-muted mt-1" style="font-size: 0.7rem;">
+                      <%= new Date(c.timestamp).toLocaleString('en-IN', { 
+                          day: '2-digit', 
+                          month: '2-digit', 
+                          year: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit', 
+                          hour12: true 
+                      }) %>
                     </div>
                   </div>
                 <% }) %>
@@ -694,83 +715,105 @@
             <% if (lead.canEdit) { %>
               <% if (canFreeChat) { %>
                 <div class="whatsapp-input-container">
-                  <form action="/leads/<%= lead._id %>/whatsapp/send-text"
-                        method="post"
-                        enctype="multipart/form-data"
-                        onsubmit="syncToNumber(this)">
+                  <div id="chat-timer-badge" class="mb-2 <%= canFreeChat ? '' : 'd-none' %>">
+                    <span class="badge rounded-pill bg-warning text-dark">
+                      <i class="bi bi-clock-history me-1"></i>
+                      Window expires in: <span id="countdown-timer">24:00:00</span>
+                    </span>
+                  </div>
+                  <div id="free-chat-area" class="<%= canFreeChat ? '' : 'd-none' %>"></div>
+                    <form action="/leads/<%= lead._id %>/whatsapp/send-text"
+                          method="post"
+                          enctype="multipart/form-data"
+                          onsubmit="syncToNumber(this)">
 
-                      <div id="mediaPreviewWrapper" class="d-none p-2">
-                          <div class="d-flex align-items-center justify-content-between">
-                              <div class="d-flex align-items-center">
-                                  <img id="imagePreview" src="#" class="d-none" style="height: 50px; width: 50px; object-fit: cover; border-radius: 4px;">
-                                  <div id="docPreview" class="d-none align-items-center">
-                                      <i class="bi bi-file-earmark-text fs-3 text-primary"></i>
-                                  </div>
-                                  <div class="ms-2">
-                                      <div id="fileNameDisplay" class="small fw-bold"></div>
-                                      <small class="text-muted">Ready to send</small>
-                                  </div>
-                              </div>
-                              <button type="button" 
-                                class="btn-close" 
-                                onclick="clearAttachment()" 
-                                style="position: absolute; top: 8px; right: 8px; width: 0.5rem; height: 0.5rem; font-size: 0.6rem; box-shadow: none;"
-                              >
-                              </button>
-                          </div>
-                      </div>
+                        <div id="mediaPreviewWrapper" class="d-none p-2">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <img id="imagePreview" src="#" class="d-none" style="height: 50px; width: 50px; object-fit: cover; border-radius: 4px;">
+                                    <div id="docPreview" class="d-none align-items-center">
+                                        <i class="bi bi-file-earmark-text fs-3 text-primary"></i>
+                                    </div>
+                                    <div class="ms-2">
+                                        <div id="fileNameDisplay" class="small fw-bold"></div>
+                                        <small class="text-muted">Ready to send</small>
+                                    </div>
+                                </div>
+                                <button type="button" 
+                                  class="btn-close" 
+                                  onclick="clearAttachment()" 
+                                  style="position: absolute; top: 8px; right: 8px; width: 0.5rem; height: 0.5rem; font-size: 0.6rem; box-shadow: none;"
+                                >
+                                </button>
+                            </div>
+                        </div>
 
-                      <input type="hidden" name="to" id="hiddenToNumber">
-                      <input type="hidden" name="mediaType" id="mediaTypeInput" value="text">
+                        <input type="hidden" name="to" id="hiddenToNumber">
+                        <input type="hidden" name="mediaType" id="mediaTypeInput" value="text">
 
-                      <div class="d-flex align-items-center gap-2">
-                          <div class="dropdown">
-                              <button class="btn btn-light rounded-circle" type="button" data-bs-toggle="dropdown">
-                                  <i class="bi bi-plus-lg" style="-webkit-text-stroke: 0.8px; font-size: 1.1rem;"></i>
-                              </button>
-                              <ul class="dropdown-menu">
-                                  <li>
-                                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerFilePicker('image')">
-                                      <i class="bi bi-images text-primary me-2"></i>
-                                      <span style="font-size: 0.85rem;">Image</span>
-                                    </a>
-                                  </li>
-                                  <li>
-                                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerFilePicker('document')">
-                                      <i class="bi bi-file-earmark-text text-danger me-2"></i>
-                                      <span style="font-size: 0.85rem;">Document</span>
-                                    </a>
-                                  </li>
-                              </ul>
-                          </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="dropdown">
+                                <button class="btn btn-light rounded-circle" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-plus-lg" style="-webkit-text-stroke: 0.8px; font-size: 1.1rem;"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                      <a class="dropdown-item" href="javascript:void(0)" onclick="triggerFilePicker('image')">
+                                        <i class="bi bi-images text-primary me-2"></i>
+                                        <span style="font-size: 0.85rem;">Image</span>
+                                      </a>
+                                    </li>
+                                    <li>
+                                      <a class="dropdown-item" href="javascript:void(0)" onclick="triggerFilePicker('document')">
+                                        <i class="bi bi-file-earmark-text text-danger me-2"></i>
+                                        <span style="font-size: 0.85rem;">Document</span>
+                                      </a>
+                                    </li>
+                                </ul>
+                            </div>
 
-                          <input type="text" name="body" id="textInput" class="form-control rounded-pill" placeholder="Type a message…">
+                            <input type="text" name="body" id="textInput" class="form-control rounded-pill" placeholder="Type a message…">
 
-                          <button class="btn btn-success rounded-circle">
-                              <i class="bi bi-send-fill"></i>
-                          </button>
-                      </div>
+                            <button class="btn btn-success rounded-circle">
+                                <i class="bi bi-send-fill"></i>
+                            </button>
+                        </div>
 
-                      <input type="file" name="mediaFile" id="imageInput" accept="image/*" class="d-none" onchange="handleFileSelect(this, 'image')">
-                      <input type="file" name="mediaFile" id="documentInput" accept=".pdf,.doc,.docx,.xls,.xlsx" class="d-none" onchange="handleFileSelect(this, 'document')">
-                  </form>
+                        <input type="file" name="mediaFile" id="imageInput" accept="image/*" class="d-none" onchange="handleFileSelect(this, 'image')">
+                        <input type="file" name="mediaFile" id="documentInput" accept=".pdf,.doc,.docx,.xls,.xlsx" class="d-none" onchange="handleFileSelect(this, 'document')">
+                    </form>
+                  </div>
                 </div>
               <% } else { %>
-                <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" class="d-flex mt-2" onsubmit="syncToNumber(this)">
-                  <input type="hidden" name="to" id="hiddenToNumber">
-                  <select name="templateName" class="form-select me-2" required>
-                    <option value="">-- Select Template --</option>
-                    <% whatsappTemplates.forEach(t => { %>
-                      <option value="<%= t.name %>||<%= t.language %>"><%= t.name %> (<%= t.language %>)</option>
-                    <% }) %>
-                  </select>
-                  <button class="btn btn-primary">
-                    <i class="bi bi-chat-left-text"></i>
-                  </button>
-                </form>
-                <p class="text-muted small mt-1">
-                  💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
-                </p>
+                <div class="whatsapp-input-container">
+                  <div id="template-area" class="<%= canFreeChat ? 'd-none' : '' %>">
+                    <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" onsubmit="syncToNumber(this)">
+                      <input type="hidden" name="to" class="hiddenToNumber">
+                      
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="btn btn-light rounded-circle disabled" style="opacity: 1;">
+                          <i class="bi bi-chat-quote-fill text-primary"></i>
+                        </div>
+
+                        <select name="templateName" class="form-select rounded-pill shadow-none" required style="border: 1px solid #dee2e6;">
+                          <option value="">-- Select Template --</option>
+                          <% whatsappTemplates.forEach(t => { %>
+                              <option value="<%= t.name %>||<%= t.language %>">
+                                  <%= t.name %> (<%= t.language %>)
+                              </option>
+                          <% }) %>
+                        </select>
+
+                        <button class="btn btn-success rounded-circle">
+                          <i class="bi bi-send-fill"></i>
+                        </button>
+                      </div>
+                    </form>
+                    <p class="text-muted small mt-1 mb-0">
+                      💡 A template message must be sent first. Once the user replies, you can chat freely for 24h.
+                    </p>
+                  </div>
+                </div>
               <% } %>
             <% } else { %>
               <p class="text-muted">You can view WhatsApp messages, but only the assigned user or admin can reply.</p>
@@ -843,17 +886,90 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
+  let countdownInterval;
 
   // join this lead’s room
   if ("<%= lead._id %>") {
     socket.emit('joinLeadRoom', "<%= lead._id %>");
   }
 
+  // 24h Timer Logic
+  function start24hTimer(lastInboundTime) {
+    if (!lastInboundTime || lastInboundTime === "null") return;
+    
+    const timerDisplay = document.getElementById('countdown-timer');
+    const timerBadge = document.getElementById('chat-timer-badge');
+    const freeArea = document.getElementById('free-chat-area');
+    const tempArea = document.getElementById('template-area');
+
+    if (countdownInterval) clearInterval(countdownInterval);
+
+    // ✅ FIX: Force the browser to treat the stored string as a local Date
+    // We parse the string and ensure it represents the actual hours saved
+    const lastInboundDate = new Date(lastInboundTime);
+    
+    // We calculate the expiry based on the raw milliseconds of the stored IST time
+    const expiryTime = lastInboundDate.getTime() + (24 * 60 * 60 * 1000);
+
+    countdownInterval = setInterval(() => {
+      // ✅ FIX: Get the current time in the same local context (IST)
+      const now = new Date().getTime();
+      const distance = expiryTime - now;
+
+      if (distance < 0) {
+        clearInterval(countdownInterval);
+        if (timerBadge) timerBadge.classList.add('d-none');
+        if (freeArea) freeArea.classList.add('d-none');
+        if (tempArea) tempArea.classList.remove('d-none');
+        return;
+      }
+
+      const h = Math.floor((distance % 86400000) / 3600000);
+      const m = Math.floor((distance % 3600000) / 60000);
+      const s = Math.floor((distance % 60000) / 1000);
+      
+      if (timerDisplay) {
+        timerDisplay.innerHTML = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+    }, 1000);
+  }
+
+  // Initial Timer Check
+  const lastInboundAt = "<%= lead.lastInboundAt %>";
+  const canFreeChatServer = "<%= canFreeChat %>" === "true";
+
+  if (canFreeChatServer && lastInboundAt && lastInboundAt !== "null") {
+    const lastInboundDate = new Date(lastInboundAt);
+    const now = new Date();
+    
+    // If more than 24 hours have passed in real IST time
+    if ((now - lastInboundDate) > (24 * 60 * 60 * 1000)) {
+        document.getElementById('free-chat-area').classList.add('d-none');
+        document.getElementById('template-area').classList.remove('d-none');
+        document.getElementById('chat-timer-badge').classList.add('d-none');
+    } else {
+        start24hTimer(lastInboundAt);
+    }
+  }
+  
   socket.on('newMessage', (msg) => {
     console.log("📩 New message arrived", msg);
 
     const chatBox = document.querySelector('.chat-box');
     if (!chatBox) return;
+
+    // If message is inbound, UNLOCK the free chat UI instantly
+    if (msg.direction === 'inbound') {
+      const freeArea = document.getElementById('free-chat-area');
+      const tempArea = document.getElementById('template-area');
+      const timerBadge = document.getElementById('chat-timer-badge'); // Add this
+      if (freeArea && tempArea) {
+        freeArea.classList.remove('d-none');
+        tempArea.classList.add('d-none');
+        if (timerBadge) timerBadge.classList.remove('d-none'); // Show badge
+        start24hTimer(msg.timestamp); // Restart the clock with the new message time
+      }
+    }
 
     const div = document.createElement('div');
     div.className = 'chat-msg ' + (msg.direction === 'outbound' ? 'sent' : 'received');
@@ -904,8 +1020,15 @@
 
     div.innerHTML = `
       ${contentHtml}
-      <div class="small text-muted mt-1" style="font-size: 0.75rem;">
-        ${new Date(msg.timestamp).toLocaleString()}
+      <div class="small text-muted mt-1" style="font-size: 0.7rem;">
+        ${new Date(msg.timestamp).toLocaleString('en-IN', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            hour12: true 
+        })}
       </div>
     `;
 

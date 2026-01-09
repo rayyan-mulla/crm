@@ -388,10 +388,12 @@ exports.sendText = async (req, res) => {
       return res.status(404).send('Lead not found');
     }
 
-    const now = Date.now();
+    const nowISTString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const nowIST = new Date(nowISTString);
+
     const sessionActive =
       lead.lastInboundAt &&
-      (now - new Date(lead.lastInboundAt).getTime()) < 24 * 60 * 60 * 1000;
+      (nowIST.getTime() - new Date(lead.lastInboundAt).getTime()) < 24 * 60 * 60 * 1000;
 
     // ============================
     // 🟢 ACTIVE SESSION
