@@ -748,7 +748,7 @@
                             </div>
                         </div>
 
-                        <input type="hidden" name="to" id="hiddenToNumber">
+                        <input type="hidden" name="to" class="hiddenToNumber">
                         <input type="hidden" name="mediaType" id="mediaTypeInput" value="text">
 
                         <div class="d-flex align-items-center gap-2">
@@ -1042,7 +1042,7 @@
     const selectedToEl = document.getElementById('toNumberSelect');
     if (!selectedToEl || !form) return;
     const selectedTo = selectedToEl.value;
-    const hidden = form.querySelector('#hiddenToNumber');
+    const hidden = form.querySelector('.hiddenToNumber');
     if (hidden) hidden.value = selectedTo;
   }
 </script>
