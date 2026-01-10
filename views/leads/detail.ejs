@@ -908,23 +908,29 @@
 
     if (countdownInterval) clearInterval(countdownInterval);
 
-    // ✅ FIX: Use simple integer subtraction to avoid timezone jumps
-    let timeLeft = parseInt(secondsLeft);
+    // ✅ Target is set relative to the browser's CURRENT clock
+    // This makes the timer immune to timezone settings
+    const endTime = Date.now() + (parseInt(secondsLeft) * 1000);
 
     countdownInterval = setInterval(() => {
-      timeLeft--;
+      const now = Date.now();
+      const distance = endTime - now;
+      const timeLeftSeconds = Math.floor(distance / 1000);
 
-      if (timeLeft <= 0) {
+      if (timeLeftSeconds <= 0) {
         clearInterval(countdownInterval);
+        // Clear UI and show templates
         if (timerBadge) timerBadge.classList.add('d-none');
         if (freeArea) freeArea.classList.add('d-none');
         if (tempArea) tempArea.classList.remove('d-none');
+        if (timerDisplay) timerDisplay.innerHTML = "00:00:00";
         return;
       }
 
-      const h = Math.floor(timeLeft / 3600);
-      const m = Math.floor((timeLeft % 3600) / 60);
-      const s = Math.floor(timeLeft % 60);
+      // Standard formatting
+      const h = Math.floor(timeLeftSeconds / 3600);
+      const m = Math.floor((timeLeftSeconds % 3600) / 60);
+      const s = Math.floor(timeLeftSeconds % 60);
       
       if (timerDisplay) {
         timerDisplay.innerHTML = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
