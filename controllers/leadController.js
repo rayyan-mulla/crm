@@ -342,6 +342,19 @@ exports.getLead = async (req, res) => {
     const within24h = isWithin24Hours(lead.lastInboundAt);
     const canFreeChat = lead.hasReplied && within24h;
 
+    let remainingSeconds = 0;
+    if (canFreeChat && lead.lastInboundAt) {
+      const nowISTString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+      const nowIST = new Date(nowISTString);
+      const lastInbound = new Date(lead.lastInboundAt);
+
+      const diffMs = nowIST.getTime() - lastInbound.getTime();
+      const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+      
+      // Math.max(0, ...) ensures we never send a negative countdown to the user
+      remainingSeconds = Math.max(0, Math.floor((twentyFourHoursMs - diffMs) / 1000));
+    }
+
     // ✅ Add canEdit flag
     const sessionUser = req.session.user;
     const sessionId = sessionUser ? (sessionUser.id || sessionUser._id || sessionUser.uid) : null;
@@ -353,6 +366,7 @@ exports.getLead = async (req, res) => {
     console.log("DEBUG session check:", {
       hasReplied: lead.hasReplied,
       lastInboundAt: lead.lastInboundAt,
+      remainingSeconds: remainingSeconds,
       within24h,
       canFreeChat
     });
@@ -366,6 +380,7 @@ exports.getLead = async (req, res) => {
       within24h,
       canFreeChat,
       lastInboundAt: lead.lastInboundAt,
+      remainingSeconds: remainingSeconds,
       selectedFrom,
       selectedTo,
       user: req.session.user,

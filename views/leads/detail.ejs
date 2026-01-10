@@ -893,9 +893,13 @@
     socket.emit('joinLeadRoom', "<%= lead._id %>");
   }
 
+  // ✅ NEW: Log the raw data received from the backend for debugging
+  console.log("DEBUG: Initial Seconds from Server:", "<%= remainingSeconds %>");
+
   // 24h Timer Logic
-  function start24hTimer(lastInboundTime) {
-    if (!lastInboundTime || lastInboundTime === "null") return;
+  // ✅ MODIFIED: Now accepts raw seconds instead of a date string
+  function start24hTimer(secondsLeft) {
+    if (secondsLeft <= 0) return;
     
     const timerDisplay = document.getElementById('countdown-timer');
     const timerBadge = document.getElementById('chat-timer-badge');
@@ -904,24 +908,13 @@
 
     if (countdownInterval) clearInterval(countdownInterval);
 
-    // ✅ FIX: Neutralizing the 5:30 Jump
-    // We parse the date and then subtract the local timezone offset.
-    // This turns a "Local IST" string into a "True Neutral" timestamp.
-    const dateObj = new Date(lastInboundTime);
-    const browserOffsetMs = dateObj.getTimezoneOffset() * 60000; 
-    const neutralTimestamp = dateObj.getTime() + browserOffsetMs;
-
-    // We calculate expiry based on the neutral time
-    const expiryTime = neutralTimestamp + (24 * 60 * 60 * 1000);
+    // ✅ FIX: Use simple integer subtraction to avoid timezone jumps
+    let timeLeft = parseInt(secondsLeft);
 
     countdownInterval = setInterval(() => {
-      // ✅ FIX: Get "Now" in the same neutral context
-      const nowObj = new Date();
-      const nowNeutral = nowObj.getTime() + (nowObj.getTimezoneOffset() * 60000);
-      
-      const distance = expiryTime - nowNeutral;
+      timeLeft--;
 
-      if (distance < 0) {
+      if (timeLeft <= 0) {
         clearInterval(countdownInterval);
         if (timerBadge) timerBadge.classList.add('d-none');
         if (freeArea) freeArea.classList.add('d-none');
@@ -929,9 +922,9 @@
         return;
       }
 
-      const h = Math.floor(distance / 3600000);
-      const m = Math.floor((distance % 3600000) / 60000);
-      const s = Math.floor((distance % 60000) / 1000);
+      const h = Math.floor(timeLeft / 3600);
+      const m = Math.floor((timeLeft % 3600) / 60);
+      const s = Math.floor(timeLeft % 60);
       
       if (timerDisplay) {
         timerDisplay.innerHTML = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
@@ -940,24 +933,18 @@
   }
 
   // Initial Timer Check
-  const lastInboundAt = "<%= lead.lastInboundAt %>";
+  // ✅ MODIFIED: Using the pre-calculated remainingSeconds from backend
+  const initialSeconds = parseInt("<%= remainingSeconds %>") || 0;
   const canFreeChatServer = "<%= canFreeChat %>" === "true";
 
-  if (canFreeChatServer && lastInboundAt && lastInboundAt !== "null") {
-      // Use the same neutral math for the initial check
-      const d = new Date(lastInboundAt);
-      const neutralLastInbound = d.getTime() + (d.getTimezoneOffset() * 60000);
-      const n = new Date();
-      const neutralNow = n.getTime() + (n.getTimezoneOffset() * 60000);
-    
-    // If more than 24 hours have passed
-    if ((neutralNow - neutralLastInbound) > (24 * 60 * 60 * 1000)) {
-        document.getElementById('free-chat-area').classList.add('d-none');
-        document.getElementById('template-area').classList.remove('d-none');
-        document.getElementById('chat-timer-badge').classList.add('d-none');
-    } else {
-        start24hTimer(lastInboundAt);
-    }
+  if (canFreeChatServer && initialSeconds > 0) {
+      // Start timer using the accurate backend calculation
+      start24hTimer(initialSeconds);
+  } else if (canFreeChatServer && initialSeconds <= 0) {
+      // If server logic says window is open but seconds are 0, force lock the UI
+      if (document.getElementById('free-chat-area')) document.getElementById('free-chat-area').classList.add('d-none');
+      if (document.getElementById('template-area')) document.getElementById('template-area').classList.remove('d-none');
+      if (document.getElementById('chat-timer-badge')) document.getElementById('chat-timer-badge').classList.add('d-none');
   }
   
   socket.on('newMessage', (msg) => {
@@ -975,7 +962,8 @@
         freeArea.classList.remove('d-none');
         tempArea.classList.add('d-none');
         if (timerBadge) timerBadge.classList.remove('d-none'); 
-        start24hTimer(msg.timestamp); 
+        // ✅ Reset timer to a fresh 24 hours (86400 seconds)
+        start24hTimer(86400); 
       }
     }
 
