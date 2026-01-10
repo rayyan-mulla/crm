@@ -888,14 +888,21 @@
   const socket = io();
   let countdownInterval;
 
-  // join this lead’s room
   if ("<%= lead._id %>") {
     socket.emit('joinLeadRoom', "<%= lead._id %>");
   }
 
-  // 24h Timer Logic
+  // ✅ FIX 1: Helper to force any date string to be treated as IST
+  function parseToIST(dateStr) {
+    if (!dateStr || dateStr === "null") return null;
+    // Append +05:30 to tell the browser this is India time, preventing auto-conversion
+    const fixedStr = dateStr.includes('+') || dateStr.includes('Z') ? dateStr : dateStr + "+05:30";
+    return new Date(fixedStr);
+  }
+
   function start24hTimer(lastInboundTime) {
-    if (!lastInboundTime || lastInboundTime === "null") return;
+    const lastInboundDate = parseToIST(lastInboundTime);
+    if (!lastInboundDate) return;
     
     const timerDisplay = document.getElementById('countdown-timer');
     const timerBadge = document.getElementById('chat-timer-badge');
@@ -904,19 +911,13 @@
 
     if (countdownInterval) clearInterval(countdownInterval);
 
-    // ✅ FIX: Force the browser to treat the stored string as a local Date
-    // We parse the string and ensure it represents the actual hours saved
-    const lastInboundDate = new Date(lastInboundTime);
-    
-    // We calculate the expiry based on the raw milliseconds of the stored IST time
     const expiryTime = lastInboundDate.getTime() + (24 * 60 * 60 * 1000);
 
     countdownInterval = setInterval(() => {
-      // ✅ FIX: Get the current time in the same local context (IST)
       const now = new Date().getTime();
       const distance = expiryTime - now;
 
-      if (distance < 0) {
+      if (distance <= 0) {
         clearInterval(countdownInterval);
         if (timerBadge) timerBadge.classList.add('d-none');
         if (freeArea) freeArea.classList.add('d-none');
@@ -924,7 +925,7 @@
         return;
       }
 
-      const h = Math.floor((distance % 86400000) / 3600000);
+      const h = Math.floor(distance / 3600000);
       const m = Math.floor((distance % 3600000) / 60000);
       const s = Math.floor((distance % 60000) / 1000);
       
@@ -939,35 +940,35 @@
   const canFreeChatServer = "<%= canFreeChat %>" === "true";
 
   if (canFreeChatServer && lastInboundAt && lastInboundAt !== "null") {
-    const lastInboundDate = new Date(lastInboundAt);
+    const lastInboundDate = parseToIST(lastInboundAt);
     const now = new Date();
     
-    // If more than 24 hours have passed in real IST time
     if ((now - lastInboundDate) > (24 * 60 * 60 * 1000)) {
-        document.getElementById('free-chat-area').classList.add('d-none');
-        document.getElementById('template-area').classList.remove('d-none');
-        document.getElementById('chat-timer-badge').classList.add('d-none');
+        document.getElementById('free-chat-area')?.classList.add('d-none');
+        document.getElementById('template-area')?.classList.remove('d-none');
+        document.getElementById('chat-timer-badge')?.classList.add('d-none');
     } else {
         start24hTimer(lastInboundAt);
     }
   }
   
   socket.on('newMessage', (msg) => {
-    console.log("📩 New message arrived", msg);
-
     const chatBox = document.querySelector('.chat-box');
     if (!chatBox) return;
 
-    // If message is inbound, UNLOCK the free chat UI instantly
+    // ✅ FIX 2: UI SWAP LOGIC (Unlock instantly on inbound)
     if (msg.direction === 'inbound') {
       const freeArea = document.getElementById('free-chat-area');
       const tempArea = document.getElementById('template-area');
-      const timerBadge = document.getElementById('chat-timer-badge'); // Add this
+      const timerBadge = document.getElementById('chat-timer-badge');
+      
       if (freeArea && tempArea) {
         freeArea.classList.remove('d-none');
         tempArea.classList.add('d-none');
-        if (timerBadge) timerBadge.classList.remove('d-none'); // Show badge
-        start24hTimer(msg.timestamp); // Restart the clock with the new message time
+        if (timerBadge) {
+          timerBadge.classList.remove('d-none');
+          start24hTimer(msg.timestamp); // Restart timer with new reply time
+        }
       }
     }
 
@@ -976,59 +977,46 @@
 
     let contentHtml = '';
 
-    // ✅ TEXT
     if (msg.type === 'text') {
       contentHtml = `<div>${msg.content}</div>`;
     }
-
-    // TEMPLATE
     else if (msg.type === 'template') {
       contentHtml = `<div>📑 Sent template: <strong>${msg.content}</strong></div>`;
     }
-
-    // 🖼 IMAGE (Backend now saves the URL in 'content')
     else if (msg.type === 'image') {
-      const imageUrl = msg.content; // This is now the URL: https://.../temp-media/wa-xxx.jpg
       contentHtml = `
-        <a href="${imageUrl}" target="_blank">
-          <img src="${imageUrl}"
-              style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;"
-              onerror="this.src='/img/placeholder-error.png'; this.parentElement.innerText='Image Expired';">
+        <a href="${msg.content}" target="_blank">
+          <img src="${msg.content}" style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;" onerror="this.src='/img/placeholder-error.png';">
         </a>
         ${msg.caption ? `<div class="mt-1">${msg.caption}</div>` : ''}
       `;
     }
-
-    // 📄 DOCUMENT
     else if (msg.type === 'document') {
-      const docUrl = msg.content;
       contentHtml = `
         <div class="d-flex align-items-center border p-2 rounded bg-light">
           <i class="bi bi-file-earmark-arrow-down fs-4 me-2"></i>
-          <a href="${docUrl}" target="_blank" class="text-decoration-none">
+          <a href="${msg.content}" target="_blank" class="text-decoration-none">
             ${msg.filename || 'Download Document'}
           </a>
         </div>
         ${msg.caption ? `<div class="mt-1 small">${msg.caption}</div>` : ''}
       `;
     }
-
-    // fallback
     else {
       contentHtml = `<div>[${msg.type}]</div>`;
     }
 
+    // ✅ FIX 3: Force IST for the message timestamp display
+    const istDisplayTime = new Date(msg.timestamp).toLocaleString('en-IN', { 
+        timeZone: 'Asia/Kolkata', 
+        day: '2-digit', month: '2-digit', year: 'numeric', 
+        hour: '2-digit', minute: '2-digit', hour12: true 
+    });
+
     div.innerHTML = `
       ${contentHtml}
       <div class="small text-muted mt-1" style="font-size: 0.7rem;">
-        ${new Date(msg.timestamp).toLocaleString('en-IN', { 
-            day: '2-digit', 
-            month: '2-digit', 
-            year: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            hour12: true 
-        })}
+        ${istDisplayTime}
       </div>
     `;
 
