@@ -888,21 +888,30 @@
   const socket = io();
   let countdownInterval;
 
+  // Join this lead’s room
   if ("<%= lead._id %>") {
     socket.emit('joinLeadRoom', "<%= lead._id %>");
   }
 
-  // ✅ FIX 1: Helper to force any date string to be treated as IST
+  /**
+   * ✅ FIX: Timezone Normalization
+   * This function ensures that the date string from the database (which is IST)
+   * is treated correctly by the browser without adding an extra 5:30.
+   */
   function parseToIST(dateStr) {
     if (!dateStr || dateStr === "null") return null;
-    // Append +05:30 to tell the browser this is India time, preventing auto-conversion
-    const fixedStr = dateStr.includes('+') || dateStr.includes('Z') ? dateStr : dateStr + "+05:30";
+    
+    // If the string doesn't have a timezone indicator, we append +05:30
+    // This tells the browser: "This time is already IST, do not add more hours."
+    const fixedStr = (dateStr.includes('+') || dateStr.includes('Z')) 
+                     ? dateStr 
+                     : dateStr.replace(' ', 'T') + "+05:30";
     return new Date(fixedStr);
   }
 
   function start24hTimer(lastInboundTime) {
     const lastInboundDate = parseToIST(lastInboundTime);
-    if (!lastInboundDate) return;
+    if (!lastInboundDate || isNaN(lastInboundDate.getTime())) return;
     
     const timerDisplay = document.getElementById('countdown-timer');
     const timerBadge = document.getElementById('chat-timer-badge');
@@ -911,12 +920,14 @@
 
     if (countdownInterval) clearInterval(countdownInterval);
 
+    // Expiry is exactly 24 hours after the inbound message
     const expiryTime = lastInboundDate.getTime() + (24 * 60 * 60 * 1000);
 
     countdownInterval = setInterval(() => {
       const now = new Date().getTime();
       const distance = expiryTime - now;
 
+      // If timer hits zero
       if (distance <= 0) {
         clearInterval(countdownInterval);
         if (timerBadge) timerBadge.classList.add('d-none');
@@ -925,6 +936,7 @@
         return;
       }
 
+      // Time calculations for hours, minutes and seconds
       const h = Math.floor(distance / 3600000);
       const m = Math.floor((distance % 3600000) / 60000);
       const s = Math.floor((distance % 60000) / 1000);
@@ -935,7 +947,7 @@
     }, 1000);
   }
 
-  // Initial Timer Check
+  // --- Initial Page Load Timer Check ---
   const lastInboundAt = "<%= lead.lastInboundAt %>";
   const canFreeChatServer = "<%= canFreeChat %>" === "true";
 
@@ -943,7 +955,8 @@
     const lastInboundDate = parseToIST(lastInboundAt);
     const now = new Date();
     
-    if ((now - lastInboundDate) > (24 * 60 * 60 * 1000)) {
+    // If current time is beyond 24 hours from last inbound
+    if ((now.getTime() - lastInboundDate.getTime()) > (24 * 60 * 60 * 1000)) {
         document.getElementById('free-chat-area')?.classList.add('d-none');
         document.getElementById('template-area')?.classList.remove('d-none');
         document.getElementById('chat-timer-badge')?.classList.add('d-none');
@@ -952,11 +965,14 @@
     }
   }
   
+  // --- Socket.io Message Handler ---
   socket.on('newMessage', (msg) => {
+    console.log("📩 New message arrived", msg);
+
     const chatBox = document.querySelector('.chat-box');
     if (!chatBox) return;
 
-    // ✅ FIX 2: UI SWAP LOGIC (Unlock instantly on inbound)
+    // ✅ FIX: Instant UI Swap logic
     if (msg.direction === 'inbound') {
       const freeArea = document.getElementById('free-chat-area');
       const tempArea = document.getElementById('template-area');
@@ -967,7 +983,8 @@
         tempArea.classList.add('d-none');
         if (timerBadge) {
           timerBadge.classList.remove('d-none');
-          start24hTimer(msg.timestamp); // Restart timer with new reply time
+          // Restart timer with the exact timestamp from the socket message
+          start24hTimer(msg.timestamp); 
         }
       }
     }
@@ -977,20 +994,26 @@
 
     let contentHtml = '';
 
+    // TEXT
     if (msg.type === 'text') {
       contentHtml = `<div>${msg.content}</div>`;
     }
+    // TEMPLATE
     else if (msg.type === 'template') {
       contentHtml = `<div>📑 Sent template: <strong>${msg.content}</strong></div>`;
     }
+    // IMAGE
     else if (msg.type === 'image') {
       contentHtml = `
         <a href="${msg.content}" target="_blank">
-          <img src="${msg.content}" style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;" onerror="this.src='/img/placeholder-error.png';">
+          <img src="${msg.content}" 
+               style="max-width:200px; border-radius:8px; display:block; margin-bottom:5px;" 
+               onerror="this.src='/img/placeholder-error.png';">
         </a>
         ${msg.caption ? `<div class="mt-1">${msg.caption}</div>` : ''}
       `;
     }
+    // DOCUMENT
     else if (msg.type === 'document') {
       contentHtml = `
         <div class="d-flex align-items-center border p-2 rounded bg-light">
@@ -1006,7 +1029,7 @@
       contentHtml = `<div>[${msg.type}]</div>`;
     }
 
-    // ✅ FIX 3: Force IST for the message timestamp display
+    // ✅ FIX: Force IST for the displayed timestamp in the bubble
     const istDisplayTime = new Date(msg.timestamp).toLocaleString('en-IN', { 
         timeZone: 'Asia/Kolkata', 
         day: '2-digit', month: '2-digit', year: 'numeric', 
