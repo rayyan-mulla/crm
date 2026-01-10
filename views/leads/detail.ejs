@@ -893,13 +893,13 @@
     socket.emit('joinLeadRoom', "<%= lead._id %>");
   }
 
-  // ✅ UPDATED: Log the absolute expiry time for debugging
-  console.log("DEBUG: Expiry Timestamp from Server:", "<%= expiryTimestamp %>");
+  // ✅ NEW: Log the raw data received from the backend for debugging
+  console.log("DEBUG: Initial Seconds from Server:", "<%= remainingSeconds %>");
 
   // 24h Timer Logic
-  // ✅ MODIFIED: Now accepts an absolute Target Time (milliseconds)
-  function start24hTimer(targetTimeMs) {
-    if (!targetTimeMs || targetTimeMs <= 0) return;
+  // ✅ MODIFIED: Now accepts raw seconds instead of a date string
+  function start24hTimer(secondsLeft) {
+    if (secondsLeft <= 0) return;
     
     const timerDisplay = document.getElementById('countdown-timer');
     const timerBadge = document.getElementById('chat-timer-badge');
@@ -908,11 +908,13 @@
 
     if (countdownInterval) clearInterval(countdownInterval);
 
+    // ✅ Target is set relative to the browser's CURRENT clock
+    // This makes the timer immune to timezone settings
+    const endTime = Date.now() + (parseInt(secondsLeft) * 1000);
+
     countdownInterval = setInterval(() => {
-      // ✅ THE FIX: Always compare "Now" against the fixed "Target Time"
-      // This eliminates network lag and execution drift
       const now = Date.now();
-      const distance = targetTimeMs - now;
+      const distance = endTime - now;
       const timeLeftSeconds = Math.floor(distance / 1000);
 
       if (timeLeftSeconds <= 0) {
@@ -937,14 +939,15 @@
   }
 
   // Initial Timer Check
-  // ✅ MODIFIED: Using absolute timestamp comparison
-  const serverExpiryTime = parseInt("<%= expiryTimestamp %>") || 0;
+  // ✅ MODIFIED: Using the pre-calculated remainingSeconds from backend
+  const initialSeconds = parseInt("<%= remainingSeconds %>") || 0;
   const canFreeChatServer = "<%= canFreeChat %>" === "true";
 
-  if (canFreeChatServer && serverExpiryTime > Date.now()) {
-      start24hTimer(serverExpiryTime);
-  } else if (canFreeChatServer && serverExpiryTime <= Date.now() && serverExpiryTime !== 0) {
-      // If time is already up, lock UI
+  if (canFreeChatServer && initialSeconds > 0) {
+      // Start timer using the accurate backend calculation
+      start24hTimer(initialSeconds);
+  } else if (canFreeChatServer && initialSeconds <= 0) {
+      // If server logic says window is open but seconds are 0, force lock the UI
       if (document.getElementById('free-chat-area')) document.getElementById('free-chat-area').classList.add('d-none');
       if (document.getElementById('template-area')) document.getElementById('template-area').classList.remove('d-none');
       if (document.getElementById('chat-timer-badge')) document.getElementById('chat-timer-badge').classList.add('d-none');
@@ -965,10 +968,8 @@
         freeArea.classList.remove('d-none');
         tempArea.classList.add('d-none');
         if (timerBadge) timerBadge.classList.remove('d-none'); 
-        
-        // ✅ Reset: New expiry is exactly 24 hours from "Now"
-        const newExpiry = Date.now() + (24 * 60 * 60 * 1000);
-        start24hTimer(newExpiry); 
+        // ✅ Reset timer to a fresh 24 hours (86400 seconds)
+        start24hTimer(86400); 
       }
     }
 
