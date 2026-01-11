@@ -221,21 +221,16 @@ async function findOrCreateLeadByPhone(phone, wabaNumberId) {
   }
 
   // Try to find an existing lead by any variant
-  let lead = await Lead.findOne({ contact_number: { $in: Array.from(variants) } }).exec();
+  let lead = await Lead.findOne({ 
+    $or: [
+      { contact_number: { $in: Array.from(variants) } },
+      { alternate_number: { $in: Array.from(variants) } }
+    ] 
+  }).exec();
 
   if (!lead) {
-    // Create new lead if none exists
-    lead = await Lead.create({
-      date: new Date(),
-      customer_name: 'WhatsApp User',
-      contact_number: formattedPhone,  // ✅ always save in E.164
-      email_id: '',
-      requirement: 'WhatsApp Lead',
-      status: 'New',
-      source: 'manual',
-      whatsappNumberId: wabaNumberId
-    });
-    console.log(`🆕 Created new lead for WhatsApp number ${formattedPhone}`);
+    console.log(`❌ Phone Number: ${formattedPhone} not associated with any Lead`);
+    return null;
   } else {
     // If found but stored in a non-E.164 format → update it
     if (lead.contact_number !== formattedPhone) {
@@ -308,54 +303,58 @@ exports.handleWebhook = async (req, res) => {
 
             const leadId = await findOrCreateLeadByPhone(from, wabaNumberId);
 
-            // 1. Convert Meta's UTC timestamp to an IST Date object
-            const unixTimestamp = parseInt(msg.timestamp) * 1000;
-            const messageDateUTC = new Date(unixTimestamp);
-
-            // Convert to IST string and back to date object to "force" the offset
-            const istString = messageDateUTC.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-            const istDate = new Date(istString);
-
-            const chat = await Chat.create({
-              lead: leadId,
-              direction: 'inbound',
-              from: from,
-              to: to,
-              wabaNumberId,
-              type,
-              content,
-              mediaId,
-              caption,
-              raw: msg,
-              timestamp: istDate
-            });
-            
-            console.log("➡️ Updating lead:", leadId);
-
-            // update lead lastInboundAt for session tracking
-            console.log("Message Date:", istDate);
-            const update = { lastInboundAt: istDate, hasReplied: true };
-            const result = await Lead.findByIdAndUpdate(leadId, update, { new: true });
-
-            if (!result) {
-              console.warn("⚠️ Lead not found for ID:", leadId);
+            if(!leadId){
+              console.log(`ℹ️ Ignored message from unknown number: ${from}`)
             } else {
-              console.log("✅ Lead updated:", {
-                id: result._id,
-                hasReplied: result.hasReplied,
-                lastInboundAt: result.lastInboundAt
+              // 1. Convert Meta's UTC timestamp to an IST Date object
+              const unixTimestamp = parseInt(msg.timestamp) * 1000;
+              const messageDateUTC = new Date(unixTimestamp);
+
+              // Convert to IST string and back to date object to "force" the offset
+              const istString = messageDateUTC.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+              const istDate = new Date(istString);
+
+              const chat = await Chat.create({
+                lead: leadId,
+                direction: 'inbound',
+                from: from,
+                to: to,
+                wabaNumberId,
+                type,
+                content,
+                mediaId,
+                caption,
+                raw: msg,
+                timestamp: istDate
               });
-            }
+              
+              console.log("➡️ Updating lead:", leadId);
 
-            // 👇 emit to that lead’s room
-            try {
-              const io = getIO();
-              io.to(leadId.toString()).emit('newMessage', chat);
-            } catch (e) {
-              console.warn("⚠️ Socket emit failed:", e.message);
-            }
+              // update lead lastInboundAt for session tracking
+              console.log("Message Date:", istDate);
+              const update = { lastInboundAt: istDate, hasReplied: true };
+              const result = await Lead.findByIdAndUpdate(leadId, update, { new: true });
 
-            console.log(`💾 Saved inbound WhatsApp msg via ${displayNumber} from ${from}`);
+              if (!result) {
+                console.warn("⚠️ Lead not found for ID:", leadId);
+              } else {
+                console.log("✅ Lead updated:", {
+                  id: result._id,
+                  hasReplied: result.hasReplied,
+                  lastInboundAt: result.lastInboundAt
+                });
+              }
+
+              // 👇 emit to that lead’s room
+              try {
+                const io = getIO();
+                io.to(leadId.toString()).emit('newMessage', chat);
+              } catch (e) {
+                console.warn("⚠️ Socket emit failed:", e.message);
+              }
+
+              console.log(`💾 Saved inbound WhatsApp msg via ${displayNumber} from ${from}`);
+            }
           }
         }
       }
