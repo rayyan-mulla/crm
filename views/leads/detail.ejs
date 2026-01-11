@@ -735,7 +735,7 @@
             <% if (lead.canEdit) { %>
               <% if (canFreeChat) { %>
                 <div class="whatsapp-input-container">
-                  <div id="free-chat-area" class="<%= canFreeChat ? '' : 'd-none' %>"></div>
+                  <div id="free-chat-area" class="<%= canFreeChat ? '' : 'd-none' %>">
                     <form action="/leads/<%= lead._id %>/whatsapp/send-text"
                           method="post"
                           enctype="multipart/form-data"
