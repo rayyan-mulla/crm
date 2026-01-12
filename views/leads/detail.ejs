@@ -733,7 +733,7 @@
             </div>
 
             <% if (lead.canEdit) { %>
-              <% if (canFreeChat) { %>
+              
                 <div class="whatsapp-input-container">
                   <div id="free-chat-area" class="<%= canFreeChat ? '' : 'd-none' %>">
                     <form action="/leads/<%= lead._id %>/whatsapp/send-text"
@@ -798,7 +798,7 @@
                     </form>
                   </div>
                 </div>
-              <% } else { %>
+              
                 <div class="whatsapp-input-container">
                   <div id="template-area" class="<%= canFreeChat ? 'd-none' : '' %>">
                     <form action="/leads/<%= lead._id %>/whatsapp/send-text" method="post" onsubmit="syncToNumber(this)">
@@ -828,7 +828,6 @@
                     </p>
                   </div>
                 </div>
-              <% } %>
             <% } else { %>
               <p class="text-muted">You can view WhatsApp messages, but only the assigned user or admin can reply.</p>
             <% } %>
