@@ -114,6 +114,24 @@ async function sendWhatsappTemplate(leadId, to, templateName, languageCode = 'en
   const formattedTo = formatPhoneE164(to);
   const url = `https://graph.facebook.com/v23.0/${lead.whatsappNumberId}/messages`;
 
+  const templatesRequiringName = [
+    'hello_olive_chairs',
+    'inquiry_status_check',
+    'thank_you_for_response'
+  ];
+
+  if (templatesRequiringName.includes(templateName)) {
+    components.push({
+      type: "body",
+      parameters: [
+        {
+          type: "text",
+          text: lead.customer_name || 'there' 
+        }
+      ]
+    });
+  }
+
   const payload = {
     messaging_product: "whatsapp",
     to: formattedTo,
