@@ -46,7 +46,7 @@ function buildLeadFilterAndSort(query) {
   // Status filter (with "Other" special case)
   if (status) {
     if (status === 'Other') {
-      filter.status = { $nin: ["New", "In Progress", "Assigned", "Deal Drop", "Closed"] };
+      filter.status = { $nin: ["New", "In Progress", "Assigned", "Deal Drop", "Deal Making", "Deal Done"] };
     } else {
       filter.status = status;
     }
@@ -448,7 +448,7 @@ exports.bulkAssignLeads = async (req, res) => {
     const skipped = [];
 
     for (const lead of leads) {
-      if (!lead.assignedTo && lead.status !== 'Closed' && lead.status !== 'Deal Drop') {
+      if (!lead.assignedTo && lead.status !== 'Deal Drop' && lead.status !== 'Deal Done') {
         assignable.push(lead._id);
       } else {
         skipped.push(lead._id);

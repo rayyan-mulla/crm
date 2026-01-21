@@ -21,27 +21,51 @@
       align-items: center;
     }
     .small-card .card-body {
-    padding: 0.5rem 0.25rem; /* reduce height */
-  }
-  .small-card h6 {
-    font-size: 0.8rem;
-    margin-bottom: 0.25rem;
-  }
-  .small-card .fs-6 {
-    font-size: 1rem !important;
-  }
+      padding: 0.5rem 0.25rem; /* reduce height */
+    }
+    .small-card h6 {
+      font-size: 0.8rem;
+      margin-bottom: 0.25rem;
+    }
+    .small-card .fs-6 {
+      font-size: 1rem !important;
+    }
 
-  /* Custom 7-column flex for large screens */
-  @media (min-width: 992px) {
-    .small-cards {
-      display: flex;
-      flex-wrap: nowrap;
+    @media (min-width: 992px) {
+      .small-cards {
+        flex-wrap: nowrap;
+      }
+
+      .small-cards .card-body h5,
+      .small-cards .card-body h3 {
+        white-space: nowrap;
+      }
     }
-    .small-cards .card-wrapper {
-      flex: 1 0 0;
-      max-width: calc(100% / 7);
+
+    @media (min-width: 992px) {
+      .small-cards .card-body {
+        padding: 0.5rem 0.25rem;
+      }
+
+      .small-cards h5 {
+        font-size: 1.00rem;
+      }
+
+      .small-cards h3 {
+        font-size: 1.35rem;
+      }
     }
-  }
+
+    .bg-deal-making {
+      background-color: #6f42c1 !important;
+    }
+    .bg-deal-done {
+      background-color: #198754 !important;
+    }
+    .bg-assigned {
+      background-color: #0dcaf0 !important;
+    }
+
   </style>
 </head>
 <body>
@@ -53,7 +77,7 @@
 
   <!-- Summary Cards -->
   <div class="row g-3 mb-4 small-cards">
-    <div class="col-4 col-lg card-wrapper">
+    <div class="col-4 col-md-3 col-lg card-wrapper">
       <a href="/leads" class="card shadow-sm text-center bg-light text-dark border text-decoration-none">
         <div class="card-body">
           <h5>Total Leads</h5>
@@ -61,7 +85,7 @@
         </div>
       </a>
     </div>
-    <div class="col-4 col-lg card-wrapper">
+    <div class="col-4 col-md-3 col-lg card-wrapper">
       <a href="/leads?status=New" class="card shadow-sm text-center bg-primary text-white border text-decoration-none">
         <div class="card-body">
           <h5>New Leads</h5>
@@ -69,7 +93,7 @@
         </div>
       </a>
     </div>
-    <div class="col-4 col-lg card-wrapper">
+    <div class="col-4 col-md-3 col-lg card-wrapper">
       <a href="/leads?status=In%20Progress" class="card shadow-sm text-center bg-warning text-white border text-decoration-none">
         <div class="card-body">
           <h5>In Progress</h5>
@@ -77,15 +101,15 @@
         </div>
       </a>
     </div>
-    <div class="col-4 col-lg card-wrapper">
-      <a href="/leads?status=Assigned" class="card shadow-sm text-center bg-info text-white border text-decoration-none">
+    <div class="col-4 col-md-3 col-lg card-wrapper">
+      <a href="/leads?status=Assigned" class="card shadow-sm text-center bg-assigned text-white border text-decoration-none">
         <div class="card-body">
           <h5>Assigned</h5>
           <h3><%= summary.assignedLeads || 0 %></h3>
         </div>
       </a>
     </div>
-    <div class="col-4 col-lg card-wrapper">
+    <div class="col-4 col-md-3 col-lg card-wrapper">
       <a href="/leads?status=Deal%20Drop" class="card shadow-sm text-center bg-danger text-white border text-decoration-none">
         <div class="card-body">
           <h5>Deal Drop</h5>
@@ -93,15 +117,23 @@
         </div>
       </a>
     </div>
-    <div class="col-4 col-lg card-wrapper">
-      <a href="/leads?status=Closed" class="card shadow-sm text-center bg-success text-white border text-decoration-none">
+    <div class="col-4 col-md-3 col-lg card-wrapper">
+      <a href="/leads?status=Deal%20Making" class="card shadow-sm text-center bg-deal-making text-white border text-decoration-none">
         <div class="card-body">
-          <h5>Closed</h5>
-          <h3><%= summary.closedLeads || 0 %></h3>
+          <h5>Deal Making</h5>
+          <h3><%= summary.dealMakingLeads || 0 %></h3>
         </div>
       </a>
     </div>
-    <div class="col-4 col-lg card-wrapper">
+    <div class="col-4 col-md-3 col-lg card-wrapper">
+      <a href="/leads?status=Deal%20Done" class="card shadow-sm text-center bg-success text-white border text-decoration-none">
+        <div class="card-body">
+          <h5>Deal Done</h5>
+          <h3><%= summary.dealDoneLeads || 0 %></h3>
+        </div>
+      </a>
+    </div>
+    <div class="col-4 col-md-3 col-lg card-wrapper">
       <a href="/leads?status=Other" class="card shadow-sm text-center bg-secondary text-white border text-decoration-none">
         <div class="card-body">
           <h5>Other</h5>
@@ -217,9 +249,9 @@
                 <th class="text-primary">New</th>
                 <th class="text-warning">In Progress</th>
                 <th class="text-info">Assigned</th>
+                <th style="color:#6f42c1">Deal Making</th>
+                <th class="text-success">Deal Done</th>
                 <th class="text-danger">Deal Drop</th>
-                <th class="text-secondary">Other</th>
-                <th class="text-success">Closed</th>
                 <th>Conversion %</th>
               </tr>
             </thead>
@@ -232,9 +264,9 @@
                   <td class="text-primary"><%= u.newLeads || 0 %></td>
                   <td class="text-warning"><%= u.inProgressLeads || 0 %></td>
                   <td class="text-info"><%= u.assignedLeads || 0 %></td>
+                  <td style="color:#6f42c1"><%= u.dealMakingLeads || 0 %></td>
+                  <td class="text-success"><%= u.dealDoneLeads || 0 %></td>
                   <td class="text-danger"><%= u.dealDropLeads || 0 %></td>
-                  <td class="text-secondary"><%= u.otherLeads || 0 %></td>
-                  <td class="text-success"><%= u.closedLeads || 0 %></td>
                   <td><%= u.conversionRate || 0 %>%</td>
                 </tr>
               <% }) %>
@@ -257,8 +289,8 @@
             <div class="text-muted small">Total Leads</div>
           </div>
           <div class="col-4">
-            <div class="fw-bold"><%= users[0].closedLeads || 0 %></div>
-            <div class="text-muted small">Closed Leads</div>
+            <div class="fw-bold"><%= users[0].dealDoneLeads || 0 %></div>
+            <div class="text-muted small">Deal Done</div>
           </div>
           <div class="col-4">
             <div class="fw-bold"><%= users[0].conversionRate || 0 %>%</div>
@@ -293,28 +325,70 @@
 <!-- Scripts for Charts -->
 <script>
   <% if (summary.totalLeads) { %>
+
+    const rawLabels = <%- JSON.stringify(charts.status.labels) %>;
+    const rawData   = <%- JSON.stringify(charts.status.data) %>;
+
+    const STATUS_COLOR_MAP = {
+      'new': '#0d6efd',
+      'in progress': '#ffc107',
+      'assigned': '#0dcaf0',
+      'deal making': '#6f42c1',
+      'deal done': '#198754',
+      'deal drop': '#dc3545',
+      'other': '#6c757d'
+    };
+
+    const normalize = (label) =>
+      String(label || 'other').trim().toLowerCase();
+
+    const finalLabels = [];
+    const finalData = [];
+    const finalColors = [];
+
+    rawLabels.forEach((label, index) => {
+      const value = rawData[index];
+      if (value > 0) {
+        const key = normalize(label);
+
+        finalLabels.push(label);
+        finalData.push(value);
+        finalColors.push(
+          STATUS_COLOR_MAP[key] || '#adb5bd' // fallback grey
+        );
+      }
+    });
+
     new Chart(document.getElementById('statusChart'), {
       type: 'doughnut',
       data: {
-        labels: <%- JSON.stringify(charts.status.labels) %>,
+        labels: finalLabels,
         datasets: [{
-          data: <%- JSON.stringify(charts.status.data) %>,
-          backgroundColor: <%- JSON.stringify(charts.status.colors) %>
+          data: finalData,
+          backgroundColor: finalColors,
+          borderWidth: 1
         }]
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom' },
+          legend: {
+            position: 'bottom'
+          },
           tooltip: {
             callbacks: {
-              label: function(ctx) {
-                return ctx.label + ': ' + ctx.raw;
+              label: function (context) {
+                const label = context.chart.data.labels[context.dataIndex];
+                const value = context.raw;
+                return `${label}: ${value}`;
               }
             }
           }
         }
       }
     });
+
   <% } %>
 
   <% if (charts.source.data.length) { %>

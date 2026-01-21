@@ -50,7 +50,7 @@ const LeadSchema = new mongoose.Schema({
   quantity: { type: Number, default: 0 },
   // new structured requirement
   normalizedRequirements: { type: [RequirementItemSchema], default: [] },
-  // lead status: New, In Progress, Closed, etc.
+  // lead status: New, In Progress, Assigned, Deal Done, Deal Making, Deal Drop, etc.
   status: { type: String, default: 'New' },
   // source of the lead
   source: {

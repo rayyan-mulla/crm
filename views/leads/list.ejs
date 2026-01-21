@@ -19,6 +19,18 @@
      return `${day}/${month}/${year}`;
 } %>
 
+<%
+  const STATUS_COLOR_MAP = {
+    'New': '#0d6efd',
+    'In Progress': '#ffc107',
+    'Assigned': '#0dcaf0',
+    'Deal Making': '#6f42c1',
+    'Deal Done': '#198754',
+    'Deal Drop': '#dc3545',
+    'Other': '#6c757d'
+  };
+%>
+
 <!doctype html>
 <html>
 <head>
@@ -150,7 +162,7 @@
       <div class="col-4 col-md-3">
         <select name="status" class="form-select form-select-sm">
           <option value="">Status</option>
-          <% ["New","In Progress","Closed","Assigned","Deal Drop","Other"].forEach(s => { %>
+          <% ["New","In Progress","Assigned","Deal Drop", "Deal Making", "Deal Done", "Other"].forEach(s => { %>
             <option value="<%= s %>" <%= query.status === s ? 'selected' : '' %>>
               <%= s %>
             </option>
@@ -307,14 +319,15 @@
                   <td class="text-nowrap"><%= l.quantity %></td>
                   <td class="text-truncate" style="max-width:150px;" title="<%= l.leadSource %>"><%= l.leadSource || '-' %></td>
                   <td>
-                    <span class="badge 
-                      <%= l.status==='New' ? 'bg-primary' : 
-                          l.status==='In Progress' ? 'bg-warning' :
-                          l.status==='Assigned' ? 'bg-info' :
-                          l.status==='Deal Drop' ? 'bg-danger' :
-                          l.status==='Closed' ? 'bg-success' :
-                          'bg-secondary' %>">
-                      <%= l.status %>
+                    <%
+                      const statusText = l.status || 'Other';
+                      const statusColor = STATUS_COLOR_MAP[statusText] || '#6c757d';
+                    %>
+                    <span
+                      class="badge"
+                      style="background-color:<%= statusColor %>; color:#fff;"
+                    >
+                      <%= statusText %>
                     </span>
                   </td>
                   <td class="text-truncate" style="max-width:160px;" title="<%= l.assignedTo ? (l.assignedTo.fullName || l.assignedTo.username) : '-' %>">
@@ -684,7 +697,7 @@
               <div class="toast-body">
                 <strong>Bulk Assign Completed.</strong><br>
                 ${data.assigned} lead(s) assigned successfully.
-                ${data.skipped > 0 ? `<br>${data.skipped} skipped (already assigned, closed, or deal drop).` : ""}
+                ${data.skipped > 0 ? `<br>${data.skipped} skipped (already assigned, deal done, or deal drop).` : ""}
               </div>
               <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>

@@ -4,7 +4,14 @@ const User = require('../models/User');
 const Chair = require('../models/Chair');
 const mongoose = require('mongoose');
 
-const FIXED_STATUSES = ['New', 'In Progress', 'Assigned', 'Deal Drop', 'Closed'];
+const FIXED_STATUSES = [
+  'New',
+  'In Progress',
+  'Assigned',
+  'Deal Making',
+  'Deal Done',
+  'Deal Drop'
+];
 
 exports.getDashboard = async (req, res) => {
   try {
@@ -15,8 +22,9 @@ exports.getDashboard = async (req, res) => {
       newLeads: 0,
       inProgressLeads: 0,
       assignedLeads: 0,
+      dealMakingLeads: 0,
+      dealDoneLeads: 0,
       dealDropLeads: 0,
-      closedLeads: 0,
       otherLeads: 0
     };
 
@@ -60,7 +68,8 @@ exports.getDashboard = async (req, res) => {
       summary.inProgressLeads = statusCount['In Progress'] || 0;
       summary.assignedLeads = statusCount['Assigned'] || 0;
       summary.dealDropLeads = statusCount['Deal Drop'] || 0;
-      summary.closedLeads = statusCount['Closed'] || 0;
+      summary.dealMakingLeads = statusCount['Deal Making'] || 0;
+      summary.dealDoneLeads = statusCount['Deal Done'] || 0;
       summary.otherLeads = statusCount['Other'] || 0;
 
       // Leads by source
@@ -93,23 +102,29 @@ exports.getDashboard = async (req, res) => {
           newLeads: userStatus['New'] || 0,
           inProgressLeads: userStatus['In Progress'] || 0,
           assignedLeads: userStatus['Assigned'] || 0,
+          dealMakingLeads: userStatus['Deal Making'] || 0,
+          dealDoneLeads: userStatus['Deal Done'] || 0,
           dealDropLeads: userStatus['Deal Drop'] || 0,
-          closedLeads: userStatus['Closed'] || 0,
           otherLeads: userStatus['Other'] || 0,
-          conversionRate: userLeads.length ? Math.round(((userStatus['Closed'] || 0) / userLeads.length) * 100) : 0
+
+          conversionRate: userLeads.length
+            ? Math.round(((userStatus['Deal Done'] || 0) / userLeads.length) * 100)
+            : 0
         };
       });
 
-      // Chair & revenue analytics (closed only)
-      const closedWithReqs = allLeads.filter(
-        l => l.status === 'Closed' && Array.isArray(l.normalizedRequirements) && l.normalizedRequirements.length
+      // Chair & revenue analytics (deal done only)
+      const dealDoneWithReqs = allLeads.filter(
+        l => l.status === 'Deal Done' &&
+            Array.isArray(l.normalizedRequirements) &&
+            l.normalizedRequirements.length
       );
 
       const chairsByUser = {};
       const revenueByUser = {};
       const chairsByModel = {};
 
-      for (const l of closedWithReqs) {
+      for (const l of dealDoneWithReqs) {
         for (const req of l.normalizedRequirements) {
           const userName = l.assignedTo?.fullName || 'Unassigned';
           const modelName = req.chair?.modelName || 'Unknown Model';
@@ -129,7 +144,7 @@ exports.getDashboard = async (req, res) => {
 
       // Monthly trend
       const monthlyStats = {};
-      for (const l of closedWithReqs) {
+      for (const l of dealDoneWithReqs) {
         for (const req of l.normalizedRequirements) {
           const d = new Date(l.updatedAt);
           const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -176,7 +191,8 @@ exports.getDashboard = async (req, res) => {
       summary.inProgressLeads = statusCount['In Progress'] || 0;
       summary.assignedLeads = statusCount['Assigned'] || 0;
       summary.dealDropLeads = statusCount['Deal Drop'] || 0;
-      summary.closedLeads = statusCount['Closed'] || 0;
+      summary.dealMakingLeads = statusCount['Deal Making'] || 0;
+      summary.dealDoneLeads = statusCount['Deal Done'] || 0;
       summary.otherLeads = statusCount['Other'] || 0;
 
       // Leads by source
@@ -196,22 +212,28 @@ exports.getDashboard = async (req, res) => {
         newLeads: summary.newLeads,
         inProgressLeads: summary.inProgressLeads,
         assignedLeads: summary.assignedLeads,
+        dealMakingLeads: summary.dealMakingLeads,
+        dealDoneLeads: summary.dealDoneLeads,
         dealDropLeads: summary.dealDropLeads,
-        closedLeads: summary.closedLeads,
         otherLeads: summary.otherLeads,
-        conversionRate: summary.totalLeads ? Math.round((summary.closedLeads / summary.totalLeads) * 100) : 0
+        conversionRate: summary.totalLeads
+          ? Math.round((summary.dealDoneLeads / summary.totalLeads) * 100)
+          : 0
       }];
 
+
       // Chair & revenue analytics
-      const closedWithReqs = myLeads.filter(
-        l => l.status === 'Closed' && Array.isArray(l.normalizedRequirements) && l.normalizedRequirements.length
+      const dealDoneWithReqs = myLeads.filter(
+        l => l.status === 'Deal Done' &&
+            Array.isArray(l.normalizedRequirements) &&
+            l.normalizedRequirements.length
       );
 
       const chairsByUser = {};
       const revenueByUser = {};
       const chairsByModel = {};
 
-      for (const l of closedWithReqs) {
+      for (const l of dealDoneWithReqs) {
         for (const req of l.normalizedRequirements) {
           const userName = user.fullName;
           const modelName = req.chair?.modelName || 'Unknown Model';
@@ -231,7 +253,7 @@ exports.getDashboard = async (req, res) => {
 
       // Monthly trend
       const monthlyStats = {};
-      for (const l of closedWithReqs) {
+      for (const l of dealDoneWithReqs) {
         for (const req of l.normalizedRequirements) {
           const d = new Date(l.updatedAt);
           const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -266,17 +288,19 @@ exports.getDashboard = async (req, res) => {
         summary.newLeads,
         summary.inProgressLeads,
         summary.assignedLeads,
+        summary.dealMakingLeads,
+        summary.dealDoneLeads,
         summary.dealDropLeads,
-        summary.closedLeads,
         summary.otherLeads
       ],
       colors: [
-        '#0d6efd', // New - Bootstrap Primary
-        '#ffc107', // In Progress - Bootstrap Warning
-        '#0dcaf0', // Assigned - Bootstrap Info
-        '#dc3545', // Deal Drop - Bootstrap Danger
-        '#198754', // Closed - Bootstrap Success
-        '#6c757d'  // Other - Bootstrap Secondary
+        '#0d6efd', // New
+        '#ffc107', // In Progress
+        '#0dcaf0', // Assigned
+        '#6f42c1', // Deal Making
+        '#198754', // Deal Done
+        '#dc3545', // Deal Drop
+        '#6c757d'  // Other
       ]
     };
 

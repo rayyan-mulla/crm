@@ -509,8 +509,8 @@
               <select name="status" id="statusSelect" class="form-select me-2" onchange="toggleCustomStatus()">
                 <option value="">-- Update Status --</option>
                 <% 
-                  const adminStatuses = ["New","Assigned","In Progress","Deal Drop","Closed"];
-                  const userStatuses = ["In Progress","Deal Drop","Closed"];
+                  const adminStatuses = ["New","Assigned","In Progress","Deal Drop", "Deal Making", "Deal Done"];
+                  const userStatuses = ["In Progress","Deal Drop", "Deal Making", "Deal Done"];
                   const statuses = user.role === 'admin' ? adminStatuses : userStatuses;
                 %>
 
