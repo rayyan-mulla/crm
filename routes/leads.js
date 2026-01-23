@@ -4,6 +4,7 @@ const router = express.Router();
 const leadCtrl = require('../controllers/leadController');
 const whatsappCtrl = require('../controllers/whatsappWebhookController');
 const piController = require('../controllers/piController');
+const taxInvoiceController = require('../controllers/taxInvoiceController');
 const { isLoggedIn, isAdmin } = require('../middlewares/auth');
 const Lead = require('../models/Lead')
 const upload = require('../middlewares/upload');
@@ -79,10 +80,14 @@ router.post('/:id/pi/create', isLoggedIn, piController.create);
 
 router.get('/:id/pi/:piId/pdf', isLoggedIn, piController.downloadPdf);
 
-router.get('/:leadId/pi/:piId/edit', isAdmin, piController.editForm);
+router.get('/:leadId/pi/:piId/edit', isLoggedIn, piController.editForm);
 
-router.post('/:leadId/pi/:piId/edit', isAdmin, piController.update);
+router.post('/:leadId/pi/:piId/edit', isLoggedIn, piController.update);
 
 router.post('/:leadId/pi/:piId/delete', isAdmin, piController.delete);
+
+router.get('/:leadId/pi/:piId/invoices', isLoggedIn, taxInvoiceController.invoiceHistory);
+
+router.post('/:leadId/pi/:piId/invoices', isLoggedIn, taxInvoiceController.generateFromPI);
 
 module.exports = router;

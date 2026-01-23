@@ -51,6 +51,7 @@ const usersRouter = require('./routes/users');
 const metaWebhookRouter = require('./routes/metaWebhook');
 const whatsappWebhookRoutes = require('./routes/whatsappWebhook');
 const chairsRouter = require('./routes/chairs');
+const taxInvoiceRoutes = require('./routes/taxInvoice');
 
 app.use('/', indexRouter);
 app.use('/leads', leadsRouter);
@@ -59,6 +60,7 @@ app.use('/users', usersRouter);
 app.use('/webhooks/meta', metaWebhookRouter);
 app.use('/webhooks/whatsapp', whatsappWebhookRoutes);
 app.use('/chairs', chairsRouter);
+app.use('/tax-invoice', taxInvoiceRoutes);
 
 // --- Seeds at startup ---
 (async () => {

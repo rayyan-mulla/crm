@@ -2,7 +2,11 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title><%= pi.piNumber %></title>
+<title>
+  <%= documentType === 'TAX_INVOICE'
+    ? pi.invoiceNumber
+    : pi.piNumber %>
+</title>
 
 <style>
   @font-face {
@@ -105,9 +109,22 @@
       <strong>GSTIN:</strong> 27AASCM1392C1ZB
     </td>
     <td width="50%">
-      <strong>PI No:</strong> <%= pi.piNumber %><br>
+      <strong>
+        <%= documentType === 'TAX_INVOICE'
+          ? 'Invoice No:'
+          : 'PI No:' %>
+      </strong>
+
+      <%= documentType === 'TAX_INVOICE'
+        ? pi.invoiceNumber
+        : pi.piNumber %><br>
+
       <strong>Date:</strong>
-      <%= new Date(pi.createdAt).toLocaleDateString('en-IN') %>
+      <%= new Date(
+        documentType === 'TAX_INVOICE'
+          ? pi.invoiceDate || pi.createdAt
+          : pi.createdAt
+      ).toLocaleDateString('en-IN') %>
 
       <% if (pi.status === 'DELETED') { %>
         <div style="margin-top:6px; color:#b30000; font-size:11px;">

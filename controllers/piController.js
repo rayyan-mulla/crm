@@ -1,8 +1,8 @@
 const Lead = require('../models/Lead');
 const ProformaInvoice = require('../models/ProformaInvoice');
 const mongoose = require('mongoose');
-const puppeteer = require('puppeteer');
 const imageToBase64 = require('../utils/imageToBase64');
+const pdfGenerator = require('../utils/pdfGenerator');
 
 async function generatePiNumber() {
   const now = new Date();
@@ -152,10 +152,17 @@ exports.history = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    const user = req.session.user;
+
+    const canCreateOrEditPI =
+      user?.role === 'admin' ||
+      (lead.assignedTo && String(lead.assignedTo) === String(user?.id));
+
     res.render('pi/history', {
       lead,
       piHistory,
-      user: req.session.user,
+      user,
+      canCreateOrEditPI,
       activePage: 'proformaInvoice',
       showBack: true
     });
@@ -176,168 +183,22 @@ exports.downloadPdf = async (req, res) => {
 
     if (!pi) return res.status(404).send('PI not found');
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--allow-file-access-from-files'
-      ]
-    });
-
-    const page = await browser.newPage();
-
     const logoBase64 = imageToBase64('images/logo.png');
     const signBase64 = imageToBase64('images/sign.png');
 
-    const html = await new Promise((resolve, reject) => {
-      res.render('pi/pdf', { pi, logoBase64, signBase64 }, (err, rendered) => {
-        if (err) reject(err);
-        else resolve(rendered);
-      });
+    await pdfGenerator.generatePdf({
+      res,
+      template: 'pdf',
+      templateData: {
+        pi,
+        logoBase64,
+        signBase64,
+        documentType: 'PROFORMA_INVOICE'
+      },
+      filename: `${pi.piNumber}.pdf`,
+      headerTitle: 'PROFORMA INVOICE'
     });
 
-    await page.setContent(html, {
-      waitUntil: ['load', 'domcontentloaded']
-    });
-
-    await page.evaluateHandle('document.fonts.ready');
-
-    const fs = require('fs');
-
-    // 1️⃣ Check font files exist in container
-    try {
-    const fontsPath = '/app/public/fonts';
-    console.log(
-      '[PDF DEBUG] fonts folder exists:',
-      fs.existsSync(fontsPath)
-    );
-
-    if (fs.existsSync(fontsPath)) {
-      console.log(
-        '[PDF DEBUG] fonts found:',
-        fs.readdirSync(fontsPath)
-      );
-    }
-    } catch (e) {
-    console.error('[PDF DEBUG] font folder error:', e);
-    }
-
-    // 2️⃣ Check which font Chromium actually used
-    const usedFont = await page.evaluate(() => {
-    return window.getComputedStyle(document.body).fontFamily;
-    });
-
-    console.log('[PDF DEBUG] font used by Chromium:', usedFont);
-
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-
-      displayHeaderFooter: true,
-
-      headerTemplate: `
-        <style>
-          @font-face {
-            font-family: 'Roboto';
-            src: url('file:///app/public/fonts/Roboto-Regular.ttf') format('truetype');
-            font-weight: 400;
-            font-style: normal;
-          }
-
-          @font-face {
-            font-family: 'Roboto';
-            src: url('file:///app/public/fonts/Roboto-Bold.ttf') format('truetype');
-            font-weight: 700;
-            font-style: normal;
-          }
-          * {
-            font-family: 'Roboto';
-          }
-        </style>
-
-        <div style="
-          width:100%;
-          padding:8px 15mm;
-          box-sizing:border-box;
-          display:flex;
-          align-items:center;
-          justify-content:space-between;
-          font-family: 'Liberation Sans';
-        ">
-          <!-- LEFT: LOGO -->
-          <div style="width:30%; text-align:left;">
-            <img src="${logoBase64}" style="height:42px;" />
-          </div>
-
-          <!-- CENTER: TITLE -->
-          <div style="
-            width:40%;
-            text-align:center;
-            font-size:16px;
-            font-weight:bold;
-            letter-spacing:1px;
-          ">
-            PROFORMA INVOICE
-          </div>
-
-          <!-- RIGHT: EMPTY (INTENTIONAL) -->
-          <div style="width:30%;"></div>
-        </div>
-      `,
-
-      footerTemplate: `
-        <style>
-          @font-face {
-            font-family: 'Roboto';
-            src: url('file:///app/public/fonts/Roboto-Regular.ttf') format('truetype');
-            font-weight: 400;
-            font-style: normal;
-          }
-
-          @font-face {
-            font-family: 'Roboto';
-            src: url('file:///app/public/fonts/Roboto-Bold.ttf') format('truetype');
-            font-weight: 700;
-            font-style: normal;
-          }
-          * {
-            font-family: 'Roboto';
-          }
-        </style>
-
-        <div style="
-          width:100%;
-          padding:6px 15mm;
-          font-size:10px;
-          color:#666;
-          box-sizing:border-box;
-          text-align:center;
-          font-family: 'Liberation Sans';
-        ">
-          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-        </div>
-      `,
-
-      margin: {
-        top: '85px',     // increased for larger logo
-        bottom: '50px',
-        left: '15mm',
-        right: '15mm'
-      }
-    });
-
-    await browser.close();
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="${pi.piNumber}.pdf"`
-    );
-
-    res.end(pdfBuffer);
   } catch (err) {
     console.error('PI PDF ERROR:', err);
     res.status(500).send(err.message);
@@ -358,7 +219,9 @@ exports.editForm = async (req, res) => {
   // 🔐 Permission check
   const isAdmin = user.role === 'admin';
   const isAssignedUser =
-    lead.assignedTo && lead.assignedTo.toString() === user._id.toString();
+    lead.assignedTo &&
+    user?.id &&
+    lead.assignedTo.toString() === user.id.toString();
 
   if (!isAdmin && !isAssignedUser) {
     return res.status(403).send('Not authorized to edit this PI');
