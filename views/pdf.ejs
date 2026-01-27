@@ -103,9 +103,8 @@
   <tr>
     <td width="50%">
       <span class="sub-heading">Sold By</span>
-      Marziya Innovations Pvt. Ltd.<br>
-      Shop No.17, Ground Floor, Sarvoday Mall, Opposite APMC<br>
-      Bail Bazar Road, Kalyan (West), Maharashtra - 421301<br>
+      <strong>Marziya Innovations Pvt. Ltd.</strong><br>
+      Shop No.17, Ground Floor, Sarvoday Mall, Opposite APMC, Bail Bazar Road, Kalyan (West), Maharashtra - 421301<br>
       <strong>GSTIN:</strong> 27AASCM1392C1ZB
     </td>
     <td width="50%">
@@ -142,7 +141,7 @@
   <tr>
     <td width="50%">
       <span class="sub-heading">Bill To</span>
-      <%= pi.billingAddress.name %><br>
+      <strong><%= pi.billingAddress.name %></strong><br>
       <%= pi.billingAddress.line1 %><br>
       <%= pi.billingAddress.city %>, <%= pi.billingAddress.state %> -
       <%= pi.billingAddress.pincode %><br>
@@ -152,7 +151,7 @@
 
     <td width="50%">
       <span class="sub-heading">Ship To</span>
-      <%= pi.shippingAddress.name %><br>
+      <strong><%= pi.shippingAddress.name %></strong><br>
       <%= pi.shippingAddress.line1 %><br>
       <%= pi.shippingAddress.city %>, <%= pi.shippingAddress.state %> -
       <%= pi.shippingAddress.pincode %><br>
@@ -180,7 +179,7 @@
         <td class="text-right">₹<%= item.unitPrice.toFixed(2) %></td>
         <td class="text-center"><%= item.quantity %></td>
         <td class="text-right">
-          ₹<%= ((item.unitPrice + item.shippingUnit) * item.quantity).toFixed(2) %>
+          ₹<%= (item.unitPrice * item.quantity).toFixed(2) %>
         </td>
       </tr>
     <% }) %>

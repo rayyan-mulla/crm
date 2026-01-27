@@ -1,5 +1,6 @@
 const Lead = require('../models/Lead');
 const ProformaInvoice = require('../models/ProformaInvoice');
+const Chair = require('../models/Chair');
 const mongoose = require('mongoose');
 const imageToBase64 = require('../utils/imageToBase64');
 const pdfGenerator = require('../utils/pdfGenerator');
@@ -93,7 +94,7 @@ exports.create = async (req, res) => {
     });
 
     const taxableAmount = items.reduce(
-      (sum, i) => sum + ((i.unitPrice + i.shippingUnit) * i.quantity),
+      (sum, i) => sum + (i.unitPrice * i.quantity),
       0
     );
 
@@ -214,9 +215,10 @@ exports.editForm = async (req, res) => {
   const lead = await Lead.findById(leadId).lean();
   if (!lead) return res.status(404).send('Lead not found');
 
+  const chairs = await Chair.find().lean();
+
   const user = req.session.user;
 
-  // 🔐 Permission check
   const isAdmin = user.role === 'admin';
   const isAssignedUser =
     lead.assignedTo &&
@@ -230,6 +232,7 @@ exports.editForm = async (req, res) => {
   res.render('pi/edit', {
     pi,
     lead,
+    chairs,
     user,
     activePage: 'proformaInvoice',
     showBack: true
@@ -256,7 +259,8 @@ exports.update = async (req, res) => {
     const isAdmin = user.role === 'admin';
     const isAssignedUser =
       lead.assignedTo &&
-      lead.assignedTo.toString() === user._id.toString();
+      user?.id &&
+      lead.assignedTo.toString() === user.id.toString();
 
     if (!isAdmin && !isAssignedUser) {
       return res.status(403).send('Not authorized');
@@ -271,6 +275,57 @@ exports.update = async (req, res) => {
     pi.shippingAddress = sameAsBilling
       ? req.body.billing
       : req.body.shipping;
+
+    /* ===============================
+      ITEMS UPDATE (SNAPSHOT)
+    =============================== */
+    const itemsFromForm = Array.isArray(req.body.items)
+      ? req.body.items
+      : Object.values(req.body.items || {});
+
+    const existingItemsById = new Map(
+      pi.items.map(item => [
+        String(item._id),
+        {
+          shippingUnit: item.shippingUnit || 0
+        }
+      ])
+    );
+
+    pi.items = [];
+
+    for (const i of itemsFromForm) {
+      if (!i.chairId || !i.colorId) continue;
+
+      const chair = await Chair.findById(i.chairId).lean();
+      if (!chair) continue;
+
+      const color = chair.colors.find(
+        c => String(c._id) === String(i.colorId)
+      );
+      if (!color) continue;
+
+      const preserved = i.itemId
+        ? existingItemsById.get(String(i.itemId))
+        : null;
+
+      const item = {
+        chairId: chair._id,
+        chairModel: chair.modelName,
+        colorId: color._id,
+        colorName: color.name,
+        quantity: Number(i.quantity),
+        unitPrice: Number(i.unitPrice),
+        shippingUnit: preserved?.shippingUnit || 0
+      };
+
+      if (i.itemId) {
+        item._id = i.itemId; // only assign if it exists
+      }
+
+      pi.items.push(item);
+
+    }
 
     /* ===============================
        GST LOGIC (RECALCULATED)
@@ -291,9 +346,9 @@ exports.update = async (req, res) => {
        RE-CALCULATE TOTALS
     =============================== */
     const taxableAmount = pi.items.reduce(
-      (sum, i) => sum + ((i.unitPrice + i.shippingUnit) * i.quantity),
-      0
-    );
+  (sum, i) => sum + (i.unitPrice * i.quantity),
+  0
+);
 
     const gstBreakup = { igst: 0, cgst: 0, sgst: 0 };
 
