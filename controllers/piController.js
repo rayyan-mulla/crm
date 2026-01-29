@@ -126,6 +126,7 @@ exports.create = async (req, res) => {
       grandTotal: taxableAmount + gstAmount,
       paymentMode: req.body.paymentMode,
       estimatedDelivery: req.body.estimatedDelivery,
+      installationType: req.body.installationType || 'FREE',
       notes: req.body.notes,
       createdBy: new mongoose.mongo.ObjectId(req.session.user.id)
     });
@@ -346,9 +347,9 @@ exports.update = async (req, res) => {
        RE-CALCULATE TOTALS
     =============================== */
     const taxableAmount = pi.items.reduce(
-  (sum, i) => sum + (i.unitPrice * i.quantity),
-  0
-);
+      (sum, i) => sum + (i.unitPrice * i.quantity),
+      0
+    );
 
     const gstBreakup = { igst: 0, cgst: 0, sgst: 0 };
 
@@ -374,6 +375,7 @@ exports.update = async (req, res) => {
     =============================== */
     pi.paymentMode = req.body.paymentMode;
     pi.estimatedDelivery = req.body.estimatedDelivery;
+    pi.installationType = req.body.installationType || 'FREE',
     pi.notes = req.body.notes;
 
     await pi.save();

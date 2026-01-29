@@ -43,20 +43,30 @@
 
       <div class="row g-3">
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-lg-3">
           <label class="form-label">Billing Name</label>
           <input class="form-control" name="billing[name]"
                  value="<%= pi.billingAddress?.name || '' %>" required>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-lg-3">
+          <label class="form-label">Email Address</label>
+          <input
+            type="email"
+            class="form-control"
+            name="billing[email]"
+            value="<%= pi.billingAddress?.email || '' %>"
+          >
+        </div>
+
+        <div class="col-md-6 col-lg-3">
           <label class="form-label">Phone Number</label>
           <input class="form-control" name="billing[phone]"
                  value="<%= pi.billingAddress?.phone || '' %>"
                  pattern="[0-9]{10}">
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-lg-3">
           <label class="form-label">GSTIN</label>
           <input class="form-control" name="billing[gstin]"
                  value="<%= pi.billingAddress?.gstin || '' %>">
@@ -222,7 +232,7 @@
 
       <div class="row g-3">
 
-        <div class="col-md-6">
+        <div class="col-md-4">
           <label class="form-label">Payment Mode</label>
           <select name="paymentMode" class="form-select">
             <option value="">-- Select --</option>
@@ -234,13 +244,24 @@
           </select>
         </div>
 
-        <div class="col-md-6">
+        <div class="col-md-4">
           <label class="form-label">Estimated Delivery</label>
           <input class="form-control"
                  name="estimatedDelivery"
                  value="<%= pi.estimatedDelivery || '' %>">
         </div>
 
+        <div class="col-md-4">
+          <label class="form-label">Installation</label>
+          <select name="installationType" class="form-select">
+            <option value="FREE" <%= pi.installationType === 'FREE' ? 'selected' : '' %>>
+              Free Installation
+            </option>
+            <option value="DIY" <%= pi.installationType === 'DIY' ? 'selected' : '' %>>
+              DIY (Do It Yourself)
+            </option>
+          </select>
+        </div>
       </div>
 
       <div class="mt-3">

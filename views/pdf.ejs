@@ -146,6 +146,9 @@
       <%= pi.billingAddress.city %>, <%= pi.billingAddress.state %> -
       <%= pi.billingAddress.pincode %><br>
       <strong>Phone:</strong> <%= pi.billingAddress.phone || '-' %><br>
+      <% if (pi.billingAddress.email) { %>
+        <strong>Email:</strong> <%= pi.billingAddress.email %><br>
+      <% } %>
       <strong>GSTIN:</strong> <%= pi.billingAddress.gstin || 'N/A' %>
     </td>
 
@@ -245,6 +248,8 @@
       <strong>Warranty:</strong> As per company policy.<br>
       <strong>Estimated Delivery:</strong>
       <%= pi.estimatedDelivery || '5 to 6 Working Days' %><br>
+      <strong>Installation:</strong>
+      <%= pi.installationType === 'DIY' ? 'DIY (Do It Yourself)' : 'Free Installation' %><br>
       <span class="sub-heading">Payment Terms</span>
       Advance Payment Only<br>
       <strong>Payment Mode:</strong> <%= pi.paymentMode || '-' %>

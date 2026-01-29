@@ -68,6 +68,8 @@ exports.generateFromPI = async (req, res) => {
       grandTotal: pi.grandTotal,
 
       paymentMode: pi.paymentMode,
+      estimatedDelivery: pi.estimatedDelivery,
+      installationType: pi.installationType,
       notes: pi.notes,
 
       createdBy: new mongoose.mongo.ObjectId(req.session.user.id)

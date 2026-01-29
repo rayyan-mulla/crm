@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const AddressSchema = new mongoose.Schema({
   name: String,
+  email: String,
   line1: String,
   line2: String,
   city: String,
@@ -72,6 +73,12 @@ const TaxInvoiceSchema = new mongoose.Schema({
   grandTotal: Number,
 
   paymentMode: String,
+  estimatedDelivery: String,
+  installationType: {
+    type: String,
+    enum: ['FREE', 'DIY'],
+    default: 'FREE'
+  },
   notes: String,
 
   status: {
