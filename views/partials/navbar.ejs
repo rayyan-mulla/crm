@@ -68,6 +68,9 @@
         <li class="nav-item">
           <a class="nav-link <%= (activePage === 'leads') ? 'active' : '' %>" href="/leads">Leads</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link <%= (activePage === 'reports') ? 'active' : '' %>" href="/reports">Reports</a>
+        </li>
         <% if (user && user.role === 'admin') { %>
         <li class="nav-item">
           <a class="nav-link <%= (activePage === 'users') ? 'active' : '' %>" href="/users">Users</a>
