@@ -361,7 +361,7 @@ function displaySource(source) {
                 <td class="text-primary">₹<%= r.sellUnit %></td>
                 <td>₹<%= r.costUnit %></td>
                 <td class="<%= r.profit >= 0 ? 'text-success' : 'text-danger' %> fw-bold">
-                  ₹<%= r.profit %>
+                  ₹<%= Number(r.profit || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %>
                 </td>
                 <td>
                   <span class="badge bg-light border text-dark">

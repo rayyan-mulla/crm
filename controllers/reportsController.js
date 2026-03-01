@@ -89,7 +89,7 @@ async function buildReportData(query){
 
       const qty = Number(req.quantity)||0;
       const sellUnit = Number(req.unitPrice)||0;
-      const costUnit = Number(color.finalPrice)||0;
+      const costUnit = Number(color.basePrice)||0;
 
       const revenue = sellUnit*qty;
       const cost = costUnit*qty;
@@ -468,23 +468,66 @@ exports.exportReportsPDF = async (req, res) => {
     rowY+=18;
     doc.font('Roboto').fontSize(8);
 
-    data.rows.forEach(r=>{
-      if(rowY>760){doc.addPage();rowY=40;}
+    data.rows.forEach(r => {
 
-      doc.rect(startX,rowY-2,520,16).stroke();
-      cols.forEach(c=>{doc.moveTo(startX+c,rowY-2).lineTo(startX+c,rowY+14).stroke();});
+      const rowData = [
+        formatDate(r.date),
+        r.customer,
+        r.user,
+        r.chair,
+        String(cleanNumber(r.qty)),
+        `₹${cleanNumber(r.sellUnit)}`,
+        `₹${cleanNumber(r.costUnit)}`,
+        `₹${cleanNumber(r.profit)}`,
+        displaySource(r.source)
+      ];
 
-      doc.text(formatDate(r.date), startX + PAD, rowY);
-      doc.text(r.customer,startX+55+PAD,rowY,{width:80});
-      doc.text(r.user,startX+140+PAD,rowY,{width:60});
-      doc.text(r.chair,startX+210+PAD,rowY,{width:80});
-      doc.text(String(cleanNumber(r.qty)),startX+300+PAD,rowY);
-      doc.text(`₹${cleanNumber(r.sellUnit)}`,startX+330+PAD,rowY);
-      doc.text(`₹${cleanNumber(r.costUnit)}`,startX+370+PAD,rowY);
-      doc.text(`₹${cleanNumber(r.profit)}`,startX+410+PAD,rowY);
-      doc.text(displaySource(r.source), startX + 450 + PAD, rowY, { width: 110 });
+      const colWidths = [
+        55, 85, 70, 90, 30, 40, 40, 40, 110
+      ];
 
-      rowY+=16;
+      // Calculate dynamic height
+      let maxHeight = 0;
+
+      rowData.forEach((text, i) => {
+        const h = doc.heightOfString(String(text), {
+          width: colWidths[i] - PAD * 2,
+          align: "left"
+        });
+        if (h > maxHeight) maxHeight = h;
+      });
+
+      const rowHeight = Math.max(16, maxHeight + 6);
+
+      // Page break check
+      if (rowY + rowHeight > 780) {
+        doc.addPage();
+        rowY = 40;
+      }
+
+      // Draw row border
+      doc.rect(startX, rowY - 2, 520, rowHeight).stroke();
+
+      // Draw vertical lines
+      let cumulativeX = 0;
+      cols.forEach(c => {
+        doc.moveTo(startX + c, rowY - 2)
+          .lineTo(startX + c, rowY - 2 + rowHeight)
+          .stroke();
+      });
+
+      // Draw text
+      let xCursor = startX;
+
+      rowData.forEach((text, i) => {
+        doc.text(String(text), xCursor + PAD, rowY, {
+          width: colWidths[i] - PAD * 2,
+          align: "left"
+        });
+        xCursor += colWidths[i];
+      });
+
+      rowY += rowHeight;
     });
 
     doc.end();
