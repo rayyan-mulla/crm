@@ -845,7 +845,7 @@ exports.saveRequirement = async (req, res) => {
       const gstApplicable = req.body.gstApplicable === 'true';
 
       const unitWithGst = gstApplicable ? unit * 1.18 : unit;
-      const total = Math.round((unitWithGst + ship) * qty);
+      const total = Math.round(unitWithGst * qty);
 
       await Lead.updateOne(
         { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
@@ -874,7 +874,7 @@ exports.saveRequirement = async (req, res) => {
         const gstApplicable = r.gstApplicable === 'true';
 
         const unitWithGst = gstApplicable ? unit * 1.18 : unit;
-        const total = Math.round((unitWithGst + ship) * qty);
+        const total = Math.round(unitWithGst * qty);
 
         return {
           chair: r.chairId,

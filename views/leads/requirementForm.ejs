@@ -259,7 +259,7 @@
     const unitWithGst = isGst ? (u * 1.18) : u;
     
     // Note: Added '+ s' back here so shipping is actually included in the total
-    const total = Math.round((unitWithGst + s) * q);
+    const total = Math.round(unitWithGst * q);
 
     row.querySelector('.total').value = total;
   }

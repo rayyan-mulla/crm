@@ -75,7 +75,13 @@
                           <%= chair.isActive ? 'Active' : 'Inactive' %>
                         </span>
                       </td>
-                      <td class="text-nowrap"><%= new Date(chair.createdAt).toLocaleDateString() %></td>
+                      <td class="text-nowrap">
+                        <%= new Date(chair.createdAt).toLocaleDateString('en-IN',{
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        }) %>
+                      </td>
                       <td>
                         <div class="d-flex gap-1 flex-nowrap justify-content-end">
                           <a href="/chairs/<%= chair._id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>

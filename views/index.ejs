@@ -310,7 +310,18 @@
           <% activity.forEach(a => { %>
             <li class="list-group-item d-flex justify-content-between">
               <span><%= a.message %></span>
-              <small class="text-muted"><%= a.time %></small>
+              <small class="text-muted">
+                <%= new Date(a.time).toLocaleString('en-IN', {
+                  timeZone: 'Asia/Kolkata',
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true
+                }).replace('am', 'AM').replace('pm', 'PM') %>
+              </small>
             </li>
           <% }) %>
         </ul>

@@ -88,7 +88,11 @@
                   </td>
 
                   <td>
-                    <%= new Date(pi.createdAt).toLocaleDateString('en-IN') %>
+                    <%= new Date(pi.createdAt).toLocaleDateString('en-IN',{
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    }) %>
                   </td>
 
                   <td class="text-end">

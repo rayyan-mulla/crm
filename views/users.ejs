@@ -39,7 +39,13 @@
                       <td class="text-truncate" style="max-width:120px;" title="<%= user.username %>"><%= user.username %></td>
                       <td class="text-truncate" style="max-width:180px;" title="<%= user.email %>"><%= user.email %></td>
                       <td><span class="badge <%= user.role === 'admin' ? 'bg-success' : 'bg-secondary' %>"><%= user.role %></span></td>
-                      <td class="text-nowrap"><%= new Date(user.createdAt).toLocaleDateString() %></td>
+                      <td class="text-nowrap">
+                        <%= new Date(user.createdAt).toLocaleDateString('en-IN',{
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        }) %>
+                      </td>
                       <td>
                         <div class="d-flex gap-1 flex-nowrap justify-content-end">
                           <a href="/users/<%= user._id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
