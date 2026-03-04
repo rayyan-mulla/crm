@@ -51,6 +51,8 @@ const usersRouter = require('./routes/users');
 const metaWebhookRouter = require('./routes/metaWebhook');
 const whatsappWebhookRoutes = require('./routes/whatsappWebhook');
 const chairsRouter = require('./routes/chairs');
+const sparePartsRouter = require('./routes/spareParts');
+const sparePartCategoryRoutes = require('./routes/sparePartCategories');
 const taxInvoiceRoutes = require('./routes/taxInvoice');
 const reportsRouter = require('./routes/reports')
 
@@ -60,7 +62,9 @@ app.use('/auth', authRouter);
 app.use('/users', usersRouter);
 app.use('/webhooks/meta', metaWebhookRouter);
 app.use('/webhooks/whatsapp', whatsappWebhookRoutes);
-app.use('/chairs', chairsRouter);
+app.use('/raw-materials/chairs', chairsRouter);
+app.use('/raw-materials/spare-parts', sparePartsRouter);
+app.use('/raw-materials/spare-part-categories', sparePartCategoryRoutes);
 app.use('/tax-invoice', taxInvoiceRoutes);
 app.use('/reports', reportsRouter);
 

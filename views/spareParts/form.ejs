@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>
+    <%= mode === 'create' ? 'Add Spare Part' : 'Edit Spare Part' %> - Olive Chairs ERP
+  </title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+<%- include('../partials/navbar', { user, activePage }) %>
+
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><%= mode === 'create' ? 'Add Spare Part' : 'Edit Spare Part' %></h3>
+  </div>
+
+  <form action="<%= mode === 'create' ? '/raw-materials/spare-parts' : '/raw-materials/spare-parts/' + sparePart._id %>" method="post" class="card shadow-sm p-3">
+    <div class="card-body">
+      <div class="row g-3">
+        <!-- Part Name -->
+        <div class="col-md-4">
+          <label class="form-label">Part Name</label>
+          <input 
+            name="partName"
+            class="form-control"
+            required
+            value="<%= sparePart.partName || '' %>"/>
+        </div>
+
+        <!-- Category -->
+        <div class="col-md-4">
+          <label class="form-label">Category</label>
+          <select name="category" class="form-select" required>
+            <option value="">Select Category</option>
+            <% categories.forEach(cat => { %>
+              <option 
+                value="<%= cat._id %>" 
+                <%= sparePart.category && sparePart.category.toString() === cat._id.toString()
+                ? 'selected'
+                : '' %>>
+                <%= cat.name %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Unit -->
+        <div class="col-md-3">
+          <label class="form-label">Unit</label>
+          <input 
+            name="unit"
+            class="form-control"
+            placeholder="pcs / set"
+            value="<%= sparePart.unit || 'pcs' %>"/>
+        </div>
+
+        <!-- Active (Top Right) -->
+        <div class="col-md-1 d-flex align-items-end">
+          <div class="form-check mt-4">
+            <input 
+              class="form-check-input"
+              type="checkbox"
+              name="isActive"
+              id="isActive"
+              <%= mode === 'create' 
+                    ? 'checked' 
+                    : (sparePart.isActive ? 'checked' : '') %> />
+            <label class="form-check-label" for="isActive">
+              Active
+            </label>
+          </div>
+        </div>
+
+        <!-- Base Cost with GST Attached -->
+        <div class="col-md-6">
+          <label class="form-label">Base Cost</label>
+          <div class="input-group">
+            <input 
+              class="form-control baseCost"
+              name="baseCost"
+              type="number"
+              min="0"
+              required
+              value="<%= sparePart.baseCost || '' %>" />
+
+            <div class="input-group-text">
+              <input 
+                class="form-check-input mt-0 gstCheck"
+                type="checkbox"
+                name="gstApplicable"
+                <%= sparePart.gstApplicable ? 'checked' : '' %> />
+              <small class="ms-1">GST</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Final Cost -->
+        <div class="col-md-6">
+          <label class="form-label">Final Cost</label>
+          <input 
+            class="form-control finalCost"
+            type="text"
+            readonly
+            value="<%= sparePart.finalCost ? sparePart.finalCost.toFixed(2) : '' %>"/>
+        </div>
+
+      </div>
+
+      <div class="mt-4 d-flex justify-content-end">
+        <button class="btn btn-primary">
+          <%= mode === 'create' ? 'Create' : 'Save Changes' %>
+        </button>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script>
+  function updateFinalCost() {
+    const base = Number(document.querySelector('.baseCost')?.value || 0);
+    const gst = document.querySelector('.gstCheck')?.checked;
+    const final = gst ? base * 1.18 : base;
+
+    const finalInput = document.querySelector('.finalCost');
+    if (finalInput) finalInput.value = final.toFixed(2);
+  }
+
+  document.addEventListener('input', updateFinalCost);
+  document.addEventListener('change', updateFinalCost);
+
+  updateFinalCost();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

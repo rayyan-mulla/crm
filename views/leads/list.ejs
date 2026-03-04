@@ -411,9 +411,11 @@
               %>
 
               <!-- Left Ellipsis -->
-              <li class="page-item disabled">
-                <span class="page-link">…</span>
-              </li>
+              <% if (centerStart > 2) { %>
+                <li class="page-item disabled">
+                  <span class="page-link">…</span>
+                </li>
+              <% } %>
 
               <!-- Center fixed slots -->
               <% for (let p = centerStart; p <= centerEnd; p++) { %>
@@ -423,9 +425,11 @@
               <% } %>
 
               <!-- Right Ellipsis -->
-              <li class="page-item disabled">
-                <span class="page-link">…</span>
-              </li>
+              <% if (centerEnd < totalPages - 1) { %>
+                <li class="page-item disabled">
+                  <span class="page-link">…</span>
+                </li>
+              <% } %>
 
               <!-- Last -->
               <% if (totalPages > 1) { %>

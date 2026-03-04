@@ -75,8 +75,30 @@
         <li class="nav-item">
           <a class="nav-link <%= (activePage === 'users') ? 'active' : '' %>" href="/users">Users</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link <%= (activePage === 'chairs') ? 'active' : '' %>" href="/chairs">Chairs</a>
+        <!-- Raw Materials Dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle 
+            <%= (activePage === 'chairs' || activePage === 'spareParts' || activePage === 'sparePartCategories') ? 'active' : '' %>" 
+            href="#" role="button" data-bs-toggle="dropdown">
+            Raw Materials
+          </a>
+          <ul class="dropdown-menu">
+            <li>
+              <a class="dropdown-item <%= (activePage === 'chairs') ? 'active' : '' %>" href="/raw-materials/chairs">
+                Chairs
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item <%= (activePage === 'spareParts') ? 'active' : '' %>" href="/raw-materials/spare-parts">
+                Spare Parts
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item <%= (activePage === 'sparePartCategories') ? 'active' : '' %>" href="/raw-materials/spare-part-categories">
+                Spare Part Categories
+              </a>
+            </li>
+          </ul>
         </li>
         <% } %>
 

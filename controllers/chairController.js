@@ -3,9 +3,32 @@ const Chair = require('../models/Chair');
 // List
 exports.index = async (req, res) => {
   try {
-    const chairs = await Chair.find().sort({ createdAt: -1 }).lean();
+
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
+    const search = (req.query.search || '').trim();
+
+    const filter = {};
+
+    if (search) {
+      filter.modelName = new RegExp(search, 'i');
+    }
+
+    const total = await Chair.countDocuments(filter);
+
+    const chairs = await Chair.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
     res.render('chairs/index', {
       chairs,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      query: req.query,
       user: req.session.user,
       activePage: 'chairs'
     });
