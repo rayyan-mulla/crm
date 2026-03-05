@@ -213,13 +213,13 @@
             <small class="text-muted d-block">Source</small>
             <span class="fw-semibold text-dark">
               <%= displaySource(lead.source) %>
-              <% if (lead.sourceMeta && (lead.sourceMeta.byUser || lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt)) { %>
+              <% if (lead.sourceMeta && (lead.sourceMeta.byUser || lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt || lead.sourceMeta.created_time)) { %>
                 <small class="text-muted">
                   (
                   <% if (lead.sourceMeta.byUser) { %>
                     by <%= lead.sourceMeta.byUser %>
                   <% } %>
-                  <% const sourceDate = lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt; %>
+                  <% const sourceDate = lead.sourceMeta.importedAt || lead.sourceMeta.uploadedAt || lead.sourceMeta.createdAt || lead.sourceMeta.created_time; %>
                   <% if (sourceDate) { %>
                     on <%= new Date(sourceDate).toLocaleString('en-IN', {
                       timeZone: 'Asia/Kolkata',

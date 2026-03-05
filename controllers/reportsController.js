@@ -6,6 +6,16 @@ const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 const PDFDocument = require('pdfkit');
 const path = require('path');
 
+function getDealClosedDate(lead) {
+  if (!lead.statusHistory) return null;
+
+  const entries = lead.statusHistory
+    .filter(s => s.status === "Deal Done")
+    .sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+
+  return entries.length ? entries[0].createdAt : null;
+}
+
 async function buildReportData(query){
 
   const {
@@ -31,24 +41,36 @@ async function buildReportData(query){
     filter.customer_name = { $regex: search, $options:'i' };
   }
 
-  if(fromDate || toDate){
-    filter.updatedAt = {};
-
-    if(fromDate) filter.updatedAt.$gte = new Date(fromDate);
-
-    if(toDate){
-      const d = new Date(toDate);
-      d.setHours(23,59,59,999);
-      filter.updatedAt.$lte = d;
-    }
-  }
-
   const analyticsLeads = await Lead.find(filter)
     .populate('assignedTo','fullName')
     .populate('normalizedRequirements.chair')
     .lean();
 
   let filteredLeads = analyticsLeads;
+
+  if(fromDate || toDate){
+
+    const from = fromDate ? new Date(fromDate) : null;
+    const to = toDate ? new Date(toDate) : null;
+
+    filteredLeads = filteredLeads.filter(lead => {
+
+      const closedDate = getDealClosedDate(lead);
+      if(!closedDate) return false;
+
+      const d = new Date(closedDate);
+
+      if(from && d < from) return false;
+
+      if(to){
+        const end = new Date(to);
+        end.setHours(23,59,59,999);
+        if(d > end) return false;
+      }
+
+      return true;
+    });
+  }
 
   if(model){
     filteredLeads = analyticsLeads
@@ -105,7 +127,11 @@ async function buildReportData(query){
       const modelName = chair.modelName || 'Unknown';
       chairsByModel[modelName]=(chairsByModel[modelName]||0)+qty;
 
-      const d=new Date(lead.updatedAt);
+      const closedDate = getDealClosedDate(lead);
+      if(!closedDate) continue;
+
+      const d = new Date(closedDate);
+
       const monthKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 
       if(!monthly[monthKey])
@@ -116,7 +142,7 @@ async function buildReportData(query){
       monthly[monthKey].profit+=profit;
 
       tableRows.push({
-        date:lead.updatedAt,
+        date:getDealClosedDate(lead),
         customer:lead.customer_name,
         user:userName,
         chair:modelName,

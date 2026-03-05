@@ -619,7 +619,12 @@ exports.importFromGoogle = async (req, res) => {
 
       // Build a stable natural key
       let phone = null;
-      try { phone = rawPhone ? formatPhoneE164(rawPhone) : null; } catch (_) { phone = null; }
+      try {
+        phone = rawPhone ? formatPhoneE164(rawPhone) : null;
+      } catch (_) {
+        phone = null;
+      }
+
       const email = normalizeEmail(rawEmail);
 
       // Build base payload from the sheet
@@ -644,8 +649,10 @@ exports.importFromGoogle = async (req, res) => {
       // Try to find an existing lead by stable natural key (phone or email)
       let matchQuery = { source: 'google_sheet' };
       const or = [];
+
       if (phone) or.push({ contact_number: phone });
       if (email) or.push({ email_id: email });
+
       if (or.length > 0) {
         matchQuery.$or = or;
       } else {
@@ -658,31 +665,62 @@ exports.importFromGoogle = async (req, res) => {
         continue;
       }
 
-      let lead = await Lead.findOne(matchQuery);
+      const lead = await Lead.findOne(matchQuery);
 
       if (lead) {
         // ✅ Update only sheet-driven fields; preserve status/notes/etc.
-        lead.customer_name = sheetData.customer_name;
-        if (phone) lead.contact_number = phone;       // maintain normalized phone
-        lead.email_id = sheetData.email_id;
-        lead.city = sheetData.city;
-        lead.requirement = sheetData.requirement;
-        lead.leadSource = sheetData.leadSource; 
-        lead.sourceMeta = sheetData.sourceMeta;       // refresh import metadata
-        // DO NOT touch lead.status or other CRM-managed fields
-        await lead.save();
+        let hasChanges = false;
+
+        if (lead.customer_name !== sheetData.customer_name) {
+          lead.customer_name = sheetData.customer_name;
+          hasChanges = true;
+        }
+
+        if (phone && lead.contact_number !== phone) {
+          lead.contact_number = phone;
+          hasChanges = true;
+        }
+
+        if (lead.email_id !== sheetData.email_id) {
+          lead.email_id = sheetData.email_id;
+          hasChanges = true;
+        }
+
+        if (lead.city !== sheetData.city) {
+          lead.city = sheetData.city;
+          hasChanges = true;
+        }
+
+        if (lead.requirement !== sheetData.requirement) {
+          lead.requirement = sheetData.requirement;
+          hasChanges = true;
+        }
+
+        if (lead.leadSource !== sheetData.leadSource) {
+          lead.leadSource = sheetData.leadSource;
+          hasChanges = true;
+        }
+
+        if (hasChanges) {
+          lead.sourceMeta = sheetData.sourceMeta;
+          await lead.save();
+        }
+
       } else {
         // ✅ New person (different phone/email): insert a new lead
         await Lead.create({
           ...sheetData,
           status: 'New',
-          // optional: a more stable externalId, not row-based
-          externalId: phone ? `gs_phone:${phone}` : (email ? `gs_email:${email}` : undefined)
+          externalId: phone
+            ? `gs_phone:${phone}`
+            : (email ? `gs_email:${email}` : undefined)
         });
+
       }
     }
 
     res.redirect('/leads');
+
   } catch (err) {
     console.error('importFromGoogle error', err);
     res.status(500).send('Error importing leads from Google Sheets');
@@ -706,7 +744,7 @@ exports.uploadFromExcel = [
         let email = r["Email ID"] ? r["Email ID"].toString().trim().toLowerCase() : null;
 
         // Import fields (safe to overwrite)
-        const importFields = {
+        const excelData = {
           date: r["Date"] ? new Date(r["Date"]) : new Date(),
           customer_name: r["Customer Name"] || "",
           contact_number: phone || "",
@@ -735,14 +773,42 @@ exports.uploadFromExcel = [
 
         if (lead) {
           // ✅ Update only import fields, keep CRM-managed fields
-          lead.customer_name = importFields.customer_name;
-          if (phone) lead.contact_number = phone;
-          if (email) lead.email_id = email;
-          lead.city = importFields.city;
-          lead.requirement = importFields.requirement;
-          lead.leadSource = importFields.leadSource;
-          lead.sourceMeta = importFields.sourceMeta;
-          await lead.save();
+          let hasChanges = false;
+
+          if (lead.customer_name !== excelData.customer_name) {
+            lead.customer_name = excelData.customer_name;
+            hasChanges = true;
+          }
+
+          if (phone && lead.contact_number !== phone) {
+            lead.contact_number = phone;
+            hasChanges = true;
+          }
+
+          if (lead.email_id !== excelData.email_id) {
+            lead.email_id = excelData.email_id;
+            hasChanges = true;
+          }
+
+          if (lead.city !== excelData.city) {
+            lead.city = excelData.city;
+            hasChanges = true;
+          }
+
+          if (lead.requirement !== excelData.requirement) {
+            lead.requirement = excelData.requirement;
+            hasChanges = true;
+          }
+
+          if (lead.leadSource !== excelData.leadSource) {
+            lead.leadSource = excelData.leadSource;
+            hasChanges = true;
+          }
+
+          if (hasChanges) {
+            lead.sourceMeta = excelData.sourceMeta;
+            await lead.save();
+          }
         } else {
           // ✅ Create new lead if no match found
           const externalId = phone 
@@ -752,7 +818,7 @@ exports.uploadFromExcel = [
               : `excel_${req.file.originalname}_row_${i + 2}`;
 
           lead = new Lead({
-            ...importFields,
+            ...excelData,
             status: "New",
             externalId
           });
