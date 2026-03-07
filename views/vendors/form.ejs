@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>
+    <%= mode === 'create' ? 'Add Vendor' : 'Edit Vendor' %> - Olive Chairs ERP
+  </title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+<%- include('../partials/navbar', { user, activePage }) %>
+
+<div class="container py-5">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><%= mode === 'create' ? 'Add Vendor' : 'Edit Vendor' %></h3>
+  </div>
+
+  <form
+    action="<%= mode === 'create'
+      ? '/purchasing/vendors'
+      : '/purchasing/vendors/' + vendor._id %>"
+    method="POST"
+    class="card shadow-sm p-3"
+  >
+
+    <div class="card-body">
+
+      <!-- Vendor Information Header -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <h5 class="mb-0">Vendor Information</h5>
+
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            name="isActive"
+            id="isActive"
+            <%= mode === 'create'
+                  ? 'checked'
+                  : (vendor.isActive ? 'checked' : '') %>>
+          <label class="form-check-label" for="isActive">
+            Active
+          </label>
+        </div>
+
+      </div>
+
+      <div class="row g-3">
+
+        <!-- Vendor Name -->
+        <div class="col-md-3">
+          <label class="form-label">Vendor Name</label>
+          <input
+            name="name"
+            class="form-control"
+            required
+            value="<%= vendor.name || '' %>">
+        </div>
+
+        <!-- Email -->
+        <div class="col-md-3">
+          <label class="form-label">Email Address</label>
+          <input
+            type="email"
+            name="email"
+            class="form-control"
+            placeholder="customer@example.com"
+            value="<%= vendor.email || '' %>">
+        </div>
+
+        <!-- Phone -->
+        <div class="col-md-3">
+          <label class="form-label">Phone Number</label>
+          <input
+            name="phone"
+            class="form-control"
+            pattern="[0-9]{10}"
+            placeholder="10-digit mobile number"
+            value="<%= vendor.phone || '' %>">
+        </div>
+
+        <!-- GST -->
+        <div class="col-md-3">
+          <label class="form-label">GSTIN</label>
+          <input
+            name="gstin"
+            class="form-control"
+            placeholder="Optional"
+            value="<%= vendor.gstin || '' %>">
+        </div>
+
+        <!-- Address Line -->
+        <div class="col-12">
+          <label class="form-label">Address Line</label>
+          <input
+            name="address[line1]"
+            class="form-control"
+            value="<%= vendor.address?.line1 || '' %>">
+        </div>
+
+        <!-- City -->
+        <div class="col-md-4">
+          <label class="form-label">City</label>
+          <input
+            name="address[city]"
+            class="form-control"
+            value="<%= vendor.address?.city || '' %>">
+        </div>
+
+        <!-- State -->
+        <div class="col-md-4">
+          <label class="form-label">State</label>
+          <input
+            name="address[state]"
+            class="form-control"
+            value="<%= vendor.address?.state || '' %>">
+        </div>
+
+        <!-- Pincode -->
+        <div class="col-md-4">
+          <label class="form-label">Pincode</label>
+          <input
+            name="address[pincode]"
+            class="form-control"
+            value="<%= vendor.address?.pincode || '' %>">
+        </div>
+
+      </div>
+
+      <div class="mt-4 d-flex justify-content-end">
+        <button class="btn btn-primary">
+          <%= mode === 'create' ? 'Create Vendor' : 'Save Changes' %>
+        </button>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

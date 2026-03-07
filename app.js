@@ -55,6 +55,7 @@ const sparePartsRouter = require('./routes/spareParts');
 const sparePartCategoryRoutes = require('./routes/sparePartCategories');
 const taxInvoiceRoutes = require('./routes/taxInvoice');
 const reportsRouter = require('./routes/reports')
+const vendorsRouter = require('./routes/vendors');
 
 app.use('/', indexRouter);
 app.use('/leads', leadsRouter);
@@ -67,6 +68,7 @@ app.use('/raw-materials/spare-parts', sparePartsRouter);
 app.use('/raw-materials/spare-part-categories', sparePartCategoryRoutes);
 app.use('/tax-invoice', taxInvoiceRoutes);
 app.use('/reports', reportsRouter);
+app.use('/purchasing/vendors', vendorsRouter);
 
 // --- Seeds at startup ---
 (async () => {

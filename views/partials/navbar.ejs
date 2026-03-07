@@ -16,7 +16,7 @@
 
   /* Back button styling */
   .back-btn {
-    color: #6c757d;         /* Bootstrap secondary grey */
+    color: #6c757d; /* Bootstrap secondary grey */
     font-weight: 500;
     transition: color 0.2s ease;
   }
@@ -35,6 +35,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
   <div class="container-fluid position-relative">
+
     <!-- Logo on the left -->
     <a class="navbar-brand" href="/">
       <img src="/images/logo.png" alt="Olive Chairs Logo">
@@ -42,8 +43,11 @@
 
     <!-- Back Button (only if showBack is true) -->
     <% if (typeof showBack !== 'undefined' && showBack) { %>
-      <a href="/leads" id="navBackBtn"
-        class="back-btn ms-4 d-flex align-items-center text-decoration-none">
+      <a
+        href="/leads"
+        id="navBackBtn"
+        class="back-btn ms-4 d-flex align-items-center text-decoration-none"
+      >
         <span class="d-none d-md-inline">&larr; Back</span>
       </a>
     <% } %>
@@ -55,66 +59,179 @@
     </div>
 
     <!-- Mobile toggle -->
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+    <button
+      class="navbar-toggler"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#navbarNav"
+    >
       <span class="navbar-toggler-icon"></span>
     </button>
 
     <!-- Links on the right -->
     <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
       <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link <%= (activePage === 'dashboard') ? 'active' : '' %>" href="/">Dashboard</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link <%= (activePage === 'leads') ? 'active' : '' %>" href="/leads">Leads</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link <%= (activePage === 'reports') ? 'active' : '' %>" href="/reports">Reports</a>
-        </li>
-        <% if (user && user.role === 'admin') { %>
-        <li class="nav-item">
-          <a class="nav-link <%= (activePage === 'users') ? 'active' : '' %>" href="/users">Users</a>
-        </li>
-        <!-- Raw Materials Dropdown -->
+
+        <!-- Leads Dropdown -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle 
-            <%= (activePage === 'chairs' || activePage === 'spareParts' || activePage === 'sparePartCategories') ? 'active' : '' %>" 
-            href="#" role="button" data-bs-toggle="dropdown">
-            Raw Materials
+          <a
+            class="nav-link dropdown-toggle 
+              <%= (activePage === 'dashboard' || activePage === 'leads' || activePage === 'reports') ? 'active' : '' %>"
+            href="#"
+            role="button"
+            data-bs-toggle="dropdown"
+          >
+            Leads
           </a>
+
           <ul class="dropdown-menu">
             <li>
-              <a class="dropdown-item <%= (activePage === 'chairs') ? 'active' : '' %>" href="/raw-materials/chairs">
-                Chairs
+              <a
+                class="dropdown-item <%= (activePage === 'dashboard') ? 'active' : '' %>"
+                href="/"
+              >
+                Dashboard
               </a>
             </li>
+
             <li>
-              <a class="dropdown-item <%= (activePage === 'spareParts') ? 'active' : '' %>" href="/raw-materials/spare-parts">
-                Spare Parts
+              <a
+                class="dropdown-item <%= (activePage === 'leads') ? 'active' : '' %>"
+                href="/leads"
+              >
+                Leads
               </a>
             </li>
+
             <li>
-              <a class="dropdown-item <%= (activePage === 'sparePartCategories') ? 'active' : '' %>" href="/raw-materials/spare-part-categories">
-                Spare Part Categories
+              <a
+                class="dropdown-item <%= (activePage === 'reports') ? 'active' : '' %>"
+                href="/reports"
+              >
+                Reports
               </a>
             </li>
           </ul>
         </li>
+
+        <% if (user && user.role === 'admin') { %>
+
+          <!-- Raw Materials Dropdown -->
+          <li class="nav-item dropdown">
+            <a
+              class="nav-link dropdown-toggle
+                <%= (activePage === 'chairs' || activePage === 'spareParts' || activePage === 'sparePartCategories') ? 'active' : '' %>"
+              href="#"
+              role="button"
+              data-bs-toggle="dropdown"
+            >
+              Raw Materials
+            </a>
+
+            <ul class="dropdown-menu">
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'chairs') ? 'active' : '' %>"
+                  href="/raw-materials/chairs"
+                >
+                  Chairs
+                </a>
+              </li>
+
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'spareParts') ? 'active' : '' %>"
+                  href="/raw-materials/spare-parts"
+                >
+                  Spare Parts
+                </a>
+              </li>
+
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'sparePartCategories') ? 'active' : '' %>"
+                  href="/raw-materials/spare-part-categories"
+                >
+                  Spare Part Categories
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Purchasing Dropdown -->
+          <li class="nav-item dropdown">
+            <a
+              class="nav-link dropdown-toggle
+                <%= (activePage === 'vendors' || activePage === 'purchases') ? 'active' : '' %>"
+              href="#"
+              role="button"
+              data-bs-toggle="dropdown"
+            >
+              Purchasing
+            </a>
+
+            <ul class="dropdown-menu">
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'vendors') ? 'active' : '' %>"
+                  href="/purchasing/vendors"
+                >
+                  Vendors
+                </a>
+              </li>
+
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'purchases') ? 'active' : '' %>"
+                  href="/purchasing/purchases"
+                >
+                  Purchases
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Users -->
+          <li class="nav-item">
+            <a
+              class="nav-link <%= (activePage === 'users') ? 'active' : '' %>"
+              href="/users"
+            >
+              Users
+            </a>
+          </li>
+
         <% } %>
 
-        <!-- Profile dropdown -->
-        <% if (user) { %>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-            <i class="bi bi-person-circle me-1"></i>
-            <span><%= user.fullName %> (<%= user.role %>)</span>
-          </a>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><span class="dropdown-item-text">Signed in as <strong><%= user.username %></strong></span></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item text-danger" href="/auth/logout">Logout</a></li>
-          </ul>
-        </li>
+        <!-- Profile Dropdown -->
+          <% if (user) { %>
+          <li class="nav-item dropdown">
+            <a
+              class="nav-link dropdown-toggle d-flex align-items-center"
+              href="#"
+              role="button"
+              data-bs-toggle="dropdown"
+            >
+              <i class="bi bi-person-circle me-1"></i>
+              <span><%= user.fullName %> (<%= user.role %>)</span>
+            </a>
+
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <span class="dropdown-item-text">
+                  Signed in as <strong><%= user.username %></strong>
+                </span>
+              </li>
+
+              <li><hr class="dropdown-divider"></li>
+
+              <li>
+                <a class="dropdown-item text-danger" href="/auth/logout">
+                  Logout
+                </a>
+              </li>
+            </ul>
+          </li>
         <% } %>
       </ul>
     </div>
@@ -122,42 +239,47 @@
 </nav>
 
 <script>
-(function () {
-  const backBtn = document.getElementById("navBackBtn");
-  if (!backBtn) return;
+  (function () {
+    const backBtn = document.getElementById("navBackBtn");
+    if (!backBtn) return;
 
-  function getSavedLeadsUrl() {
-    try { return sessionStorage.getItem("leadsLastUrl"); }
-    catch { return null; }
-  }
-
-  function pickFallback() {
-    try {
-      const ref = document.referrer;
-      if (ref && new URL(ref).origin === location.origin) return ref;
-    } catch {}
-
-    return getSavedLeadsUrl() || "/leads";
-  }
-
-  function smartBack() {
-    try {
-      if (history.length > 1 && document.referrer.includes(location.origin)) {
-        history.back();
-        return;
+    function getSavedLeadsUrl() {
+      try {
+        return sessionStorage.getItem("leadsLastUrl");
+      } catch {
+        return null;
       }
-      location.href = pickFallback();
-    } catch {
-      location.href = "/leads";
     }
-  }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    backBtn.href = pickFallback(); // enables long-press open-in-new-tab
-    backBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      smartBack();
+    function pickFallback() {
+      try {
+        const ref = document.referrer;
+        if (ref && new URL(ref).origin === location.origin) {
+          return ref;
+        }
+      } catch {}
+
+      return getSavedLeadsUrl() || "/leads";
+    }
+
+    function smartBack() {
+      try {
+        if (history.length > 1 && document.referrer.includes(location.origin)) {
+          history.back();
+          return;
+        }
+        location.href = pickFallback();
+      } catch {
+        location.href = "/leads";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      backBtn.href = pickFallback(); // enables long-press open-in-new-tab
+      backBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        smartBack();
+      });
     });
-  });
-})();
+  })();
 </script>
