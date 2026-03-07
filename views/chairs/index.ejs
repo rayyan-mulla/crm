@@ -282,7 +282,7 @@
         const chairId = button.getAttribute('data-chair-id');
         const chairName = button.getAttribute('data-chair-name');
 
-        deleteForm.action = `/chairs/${chairId}/delete`; // update form action
+        deleteForm.action = `/raw-materials/chairs/${chairId}/delete`; // update form action
         deleteChairName.textContent = chairName; // show chair name in modal
       });
     </script>

@@ -79,10 +79,10 @@ exports.create = async (req, res) => {
     }
 
     await Chair.create({ modelName, colors });
-    res.redirect('/chairs');
+    res.redirect('/raw-materials/chairs');
   } catch (err) {
     console.error('chairs.create error', err);
-    res.redirect('/chairs/new');
+    res.redirect('/raw-materials/chairs/new');
   }
 };
 
@@ -90,7 +90,7 @@ exports.create = async (req, res) => {
 exports.editForm = async (req, res) => {
   try {
     const chair = await Chair.findById(req.params.id).lean();
-    if (!chair) return res.redirect('/chairs');
+    if (!chair) return res.redirect('/raw-materials/chairs');
     res.render('chairs/form', {
       mode: 'edit',
       chair,
@@ -134,10 +134,10 @@ exports.update = async (req, res) => {
       colors
     }, { runValidators: true });
 
-    res.redirect('/chairs');
+    res.redirect('/raw-materials/chairs');
   } catch (err) {
     console.error('chairs.update error', err);
-    res.redirect(`/chairs/${req.params.id}/edit`);
+    res.redirect(`/raw-materials/chairs/${req.params.id}/edit`);
   }
 };
 
@@ -148,7 +148,7 @@ exports.destroy = async (req, res) => {
   } catch (err) {
     console.error('chairs.destroy error', err);
   }
-  res.redirect('/chairs');
+  res.redirect('/raw-materials/chairs');
 };
 
 // Delete single color (AJAX or regular POST)
@@ -156,9 +156,9 @@ exports.deleteColor = async (req, res) => {
   try {
     const { id, colorId } = req.params;
     await Chair.findByIdAndUpdate(id, { $pull: { colors: { _id: colorId } } });
-    res.redirect(`/chairs/${id}/edit`);
+    res.redirect(`/raw-materials/chairs/${id}/edit`);
   } catch (err) {
     console.error('chairs.deleteColor error', err);
-    res.redirect(`/chairs/${req.params.id}/edit`);
+    res.redirect(`/raw-materials/chairs/${req.params.id}/edit`);
   }
 };
