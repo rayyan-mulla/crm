@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Add Purchase - Olive Chairs ERP</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+  <style>
+    .remove-row { cursor: pointer; }
+    .item-card { background: #fafafa; }
+  </style>
+</head>
+
+<body>
+<%- include('../partials/navbar', { user, activePage }) %>
+
+<div class="container py-5">
+  <h3 class="mb-4">New Purchase</h3>
+
+  <form method="POST" action="/purchasing/purchases">
+    <input type="hidden" name="totalAmount" id="totalAmountInput">
+
+    <!-- TOP SECTION -->
+    <div class="card shadow-sm p-3 mb-4">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Purchase Details</h5>
+      </div>
+
+      <div class="card-body">
+        <div class="row g-3">
+
+          <div class="col-md-3">
+            <label class="form-label">Vendor</label>
+            <select name="vendor" class="form-select" required>
+              <option value="">Select Vendor</option>
+              <% vendors.forEach(v => { %>
+                <option value="<%= v._id %>"><%= v.name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Invoice Number</label>
+            <input name="invoiceNumber" class="form-control">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Purchase Date</label>
+            <input type="date" name="purchaseDate" class="form-control"
+              value="<%= new Date().toISOString().split('T')[0] %>">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+              <option value="purchased">Purchased</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ITEMS -->
+    <div class="card shadow-sm p-3">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Purchase Items</h5>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="addRow">+ Add Item</button>
+      </div>
+
+      <div class="card-body">
+        <div id="itemsContainer">
+
+          <div class="item-card border rounded p-3 mb-3">
+
+            <!-- ROW 1 -->
+            <div class="row g-3">
+
+              <div class="col-md-3">
+                <label class="form-label">Type</label>
+                <select class="form-select itemType">
+                  <option value="sparePart">Spare Part</option>
+                  <option value="chair">Chair</option>
+                </select>
+                <input type="hidden" name="items[0][itemType]" class="itemTypeInput">
+              </div>
+
+              <div class="col-md-3 categoryWrapper">
+                <label class="form-label">Category</label>
+                <select class="form-select categorySelect">
+                  <option value="">Select Category</option>
+                  <% categories.forEach(cat => { %>
+                    <option value="<%= cat._id %>"><%= cat.name %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Item</label>
+                <select class="form-select itemSelect" name="items[0][item]">
+                  <option value="">Select Item</option>
+                </select>
+              </div>
+
+              <div class="col-md-3 chairColorWrapper d-none">
+                <label class="form-label">Color</label>
+                <select class="form-select colorSelect" name="items[0][color]">
+                  <option value="">Select Color</option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Base Price</label>
+                <input type="number" name="items[0][basePrice]" class="form-control basePrice" readonly>
+              </div>
+
+            </div>
+
+            <!-- ROW 2 -->
+            <div class="row g-3 mt-2">
+
+              <div class="col-md-3">
+                <label class="form-label">Purchase Rate</label>
+                <div class="input-group">
+                  <input type="number" name="items[0][unitCost]" class="form-control unitCost">
+                  <div class="input-group-text">
+                    <input type="checkbox" class="form-check-input gstCheck" name="items[0][gstApplicable]">
+                    <small class="ms-1">GST</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Qty</label>
+                <input type="number" name="items[0][quantity]" class="form-control qty" value="1">
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Total</label>
+                <input type="text" name="items[0][totalCost]" class="form-control totalCost" readonly>
+              </div>
+
+              <div class="col-md-3 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-danger w-100 remove-row">Remove</button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <div class="mt-4 text-end">
+          <h5>Total Purchase: <span id="grandTotal">₹0.00</span></h5>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card shadow-sm p-3 mt-4">
+      <div class="card-body">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="3"></textarea>
+      </div>
+    </div>
+
+    <div class="text-end mt-4">
+      <button class="btn btn-primary">Save Purchase</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  let rowIndex = 1;
+
+  const spareParts = <%- JSON.stringify(spareParts) %>;
+  const chairs = <%- JSON.stringify(chairs) %>;
+
+  /* CALCULATE ROW */
+  function calculateRow(row) {
+    const qty = Number(row.querySelector('.qty').value || 0);
+    const rate = Number(row.querySelector('.unitCost').value || 0);
+    const gst = row.querySelector('.gstCheck').checked;
+
+    const finalRate = gst ? rate * 1.18 : rate;
+    const total = qty * finalRate;
+
+    row.querySelector('.totalCost').value = total.toFixed(2);
+    calculateGrandTotal();
+  }
+
+  /* GRAND TOTAL */
+  function calculateGrandTotal() {
+    let total = 0;
+
+    document.querySelectorAll('.totalCost').forEach(el => {
+      total += Number(el.value || 0);
+    });
+
+    document.getElementById('grandTotal').innerText = "₹" + total.toFixed(2);
+    document.getElementById('totalAmountInput').value = total;
+  }
+
+  /* LOAD SPARE PARTS */
+  function loadSpareParts(row, categoryId) {
+    const itemSelect = row.querySelector('.itemSelect');
+    itemSelect.innerHTML = '<option value="">Select Item</option>';
+
+    spareParts
+      .filter(p => p.category == categoryId)
+      .forEach(p => {
+        const option = document.createElement('option');
+        option.value = `spare_${p._id}`;
+        option.textContent = p.partName;
+        option.dataset.price = p.baseCost;
+        itemSelect.appendChild(option);
+      });
+  }
+
+  /* LOAD CHAIRS */
+  function loadChairs(row) {
+    const itemSelect = row.querySelector('.itemSelect');
+    itemSelect.innerHTML = '<option value="">Select Chair</option>';
+
+    chairs.forEach(c => {
+      const option = document.createElement('option');
+      option.value = `chair_${c._id}`;
+      option.textContent = c.modelName;
+      option.dataset.colors = JSON.stringify(c.colors);
+      itemSelect.appendChild(option);
+    });
+  }
+
+  /* EVENTS */
+  document.addEventListener('change', function(e) {
+    const row = e.target.closest('.item-card');
+
+    if (!row) return;
+
+    /* GST TOGGLE */
+    if (e.target.classList.contains('gstCheck')) {
+      calculateRow(row);
+    }
+
+    /* TYPE CHANGE */
+    if (e.target.classList.contains('itemType')) {
+      row.querySelector('.itemTypeInput').value = e.target.value;
+
+      const category = row.querySelector('.categoryWrapper');
+      const color = row.querySelector('.chairColorWrapper');
+      const itemSelect = row.querySelector('.itemSelect');
+
+      itemSelect.innerHTML = '<option value="">Select Item</option>';
+
+      row.querySelector('.basePrice').value = '';
+      row.querySelector('.unitCost').value = '';
+      row.querySelector('.totalCost').value = '';
+
+      if (e.target.value === 'chair') {
+        category.classList.add('d-none');
+        color.classList.remove('d-none');
+        loadChairs(row);
+      } else {
+        category.classList.remove('d-none');
+        color.classList.add('d-none');
+      }
+    }
+
+    /* CATEGORY CHANGE */
+    if (e.target.classList.contains('categorySelect')) {
+      loadSpareParts(row, e.target.value);
+    }
+
+    /* ITEM SELECT */
+    if (e.target.classList.contains('itemSelect')) {
+      const option = e.target.selectedOptions[0];
+
+      if (option.value.startsWith('spare')) {
+        const price = option.dataset.price || 0;
+
+        row.querySelector('.basePrice').value = price;
+        row.querySelector('.unitCost').value = price;
+
+        calculateRow(row);
+      }
+
+      if (option.value.startsWith('chair')) {
+        const colors = JSON.parse(option.dataset.colors || "[]");
+        const colorSelect = row.querySelector('.colorSelect');
+
+        colorSelect.innerHTML = '<option value="">Select Color</option>';
+
+        colors.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c._id;
+          opt.textContent = c.name;
+          opt.dataset.price = c.basePrice;
+          colorSelect.appendChild(opt);
+        });
+      }
+    }
+
+    /* COLOR SELECT */
+    if (e.target.classList.contains('colorSelect')) {
+      const option = e.target.selectedOptions[0];
+      const price = option.dataset.price || 0;
+
+      row.querySelector('.basePrice').value = price;
+      row.querySelector('.unitCost').value = price;
+
+      calculateRow(row);
+    }
+  });
+
+  /* INPUT EVENTS */
+  document.addEventListener('input', function(e) {
+    if (
+      e.target.classList.contains('qty') ||
+      e.target.classList.contains('unitCost')
+    ) {
+      calculateRow(e.target.closest('.item-card'));
+    }
+  });
+
+  /* ADD ROW */
+  document.getElementById('addRow').addEventListener('click', () => {
+    const container = document.getElementById('itemsContainer');
+    const firstRow = container.querySelector('.item-card');
+    const newRow = firstRow.cloneNode(true);
+
+    newRow.querySelectorAll('input,select').forEach(el => {
+      if (el.name) {
+        el.name = el.name.replace('[0]', `[${rowIndex}]`);
+      }
+
+      if (el.tagName === "SELECT") {
+        el.selectedIndex = 0;
+      } else {
+        el.value = '';
+      }
+    });
+
+    newRow.querySelector('.qty').value = 1;
+
+    container.appendChild(newRow);
+    rowIndex++;
+  });
+
+  /* REMOVE ROW */
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('remove-row')) {
+      const rows = document.querySelectorAll('.item-card');
+
+      if (rows.length > 1) {
+        e.target.closest('.item-card').remove();
+        calculateGrandTotal();
+      }
+    }
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
