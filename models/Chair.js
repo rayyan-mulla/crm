@@ -10,6 +10,9 @@ const ColorSchema = new mongoose.Schema({
 
 const ChairSchema = new mongoose.Schema({
   modelName: { type: String, required: true, trim: true, unique: true },
+
+  hsnCode: { type: String, trim: true, default: '94036000' },
+  
   colors: { type: [ColorSchema], default: [] },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });

@@ -96,6 +96,7 @@
               <tr>
                 <th>#</th>
                 <th>Part</th>
+                <th>HSN Code</th> 
                 <th>Category</th>
                 <th>Unit</th>
                 <th>Cost</th>
@@ -113,6 +114,12 @@
 
                   <td>
                     <%= part.partName %>
+                  </td>
+
+                  <td class="text-nowrap">
+                    <span class="badge bg-light text-dark border">
+                      <%= part.hsnCode || '94036000' %>
+                    </span>
                   </td>
 
                   <td><%= part.category ? part.category.name : '-' %></td>

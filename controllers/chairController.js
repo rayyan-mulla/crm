@@ -52,7 +52,7 @@ exports.newForm = (req, res) => {
 // Create
 exports.create = async (req, res) => {
   try {
-    const { modelName } = req.body;
+    const { modelName, hsnCode } = req.body;
 
     // Parse colors sent as arrays: colorName[], colorPrice[]
     const colors = [];
@@ -78,7 +78,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    await Chair.create({ modelName, colors });
+    await Chair.create({ modelName, hsnCode, colors });
     res.redirect('/raw-materials/chairs');
   } catch (err) {
     console.error('chairs.create error', err);
@@ -106,7 +106,7 @@ exports.editForm = async (req, res) => {
 // Update (whole chair + colors)
 exports.update = async (req, res) => {
   try {
-    const { modelName, isActive } = req.body;
+    const { modelName, hsnCode, isActive } = req.body;
 
     // Rebuild colors from form (edit view sends arrays + each row has rowId if existing)
     const names = Array.isArray(req.body.colorName) ? req.body.colorName : (req.body.colorName ? [req.body.colorName] : []);
@@ -130,6 +130,7 @@ exports.update = async (req, res) => {
 
     await Chair.findByIdAndUpdate(req.params.id, {
       modelName,
+      hsnCode,
       isActive: !!isActive,
       colors
     }, { runValidators: true });

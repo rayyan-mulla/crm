@@ -45,6 +45,7 @@ const ProformaInvoiceSchema = new mongoose.Schema({
 
   items: [{
     chairModel: String,
+    hsnCode: String,
     colorId: mongoose.Schema.Types.ObjectId,
     colorName: String,
     quantity: Number,

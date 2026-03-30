@@ -169,9 +169,10 @@
     <tr>
       <th width="5%">#</th>
       <th>Description</th>
-      <th class="text-right" width="15%">Unit Price</th>
-      <th class="text-center" width="10%">Qty</th>
-      <th class="text-right" width="15%">Amount</th>
+      <th>HSN Code</th>
+      <th width="15%">Unit Price</th>
+      <th width="10%">Qty</th>
+      <th width="15%">Amount</th>
     </tr>
   </thead>
   <tbody>
@@ -179,6 +180,7 @@
       <tr>
         <td class="text-center"><%= idx + 1 %></td>
         <td><%= item.chairModel %> - <%= item.colorName %></td>
+        <td><%= item.hsnCode %></td>
         <td class="text-right">₹<%= item.unitPrice.toFixed(2) %></td>
         <td class="text-center"><%= item.quantity %></td>
         <td class="text-right">

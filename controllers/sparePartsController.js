@@ -65,6 +65,7 @@ exports.create = async (req, res) => {
   try {
     const {
       partName,
+      hsnCode,
       category,
       unit,
       baseCost,
@@ -78,6 +79,7 @@ exports.create = async (req, res) => {
 
     await SparePart.create({
       partName,
+      hsnCode,
       category,
       unit,
       baseCost: isNaN(base) ? 0 : base,
@@ -123,6 +125,7 @@ exports.update = async (req, res) => {
   try {
     const {
       partName,
+      hsnCode,
       category,
       unit,
       baseCost,
@@ -138,6 +141,7 @@ exports.update = async (req, res) => {
       req.params.id,
       {
         partName,
+        hsnCode,
         category,
         unit,
         baseCost: isNaN(base) ? 0 : base,

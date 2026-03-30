@@ -20,9 +20,26 @@
 
   <form action="<%= mode === 'create' ? '/raw-materials/spare-parts' : '/raw-materials/spare-parts/' + sparePart._id %>" method="post" class="card shadow-sm p-3">
     <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Spare Part Information</h5>
+        <div class="form-check">
+          <input 
+            class="form-check-input"
+            type="checkbox"
+            name="isActive"
+            id="isActive"
+            <%= mode === 'create' 
+                  ? 'checked' 
+                  : (sparePart.isActive ? 'checked' : '') %> />
+          <label class="form-check-label" for="isActive">
+            Active
+          </label>
+        </div>
+      </div>
+
       <div class="row g-3">
         <!-- Part Name -->
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Part Name</label>
           <input 
             name="partName"
@@ -31,8 +48,17 @@
             value="<%= sparePart.partName || '' %>"/>
         </div>
 
+        <!-- HSN Code -->
+        <div class="col-md-3">
+          <label class="form-label">HSN Code</label>
+          <input 
+            name="hsnCode" 
+            class="form-control" 
+            value="<%= sparePart.hsnCode || '94036000' %>" />
+        </div>
+
         <!-- Category -->
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Category</label>
           <select name="category" class="form-select" required>
             <option value="">Select Category</option>
@@ -56,23 +82,6 @@
             class="form-control"
             placeholder="pcs / set"
             value="<%= sparePart.unit || 'pcs' %>"/>
-        </div>
-
-        <!-- Active (Top Right) -->
-        <div class="col-md-1 d-flex align-items-end">
-          <div class="form-check mt-4">
-            <input 
-              class="form-check-input"
-              type="checkbox"
-              name="isActive"
-              id="isActive"
-              <%= mode === 'create' 
-                    ? 'checked' 
-                    : (sparePart.isActive ? 'checked' : '') %> />
-            <label class="form-check-label" for="isActive">
-              Active
-            </label>
-          </div>
         </div>
 
         <!-- Base Cost with GST Attached -->

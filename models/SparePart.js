@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const SparePartSchema = new mongoose.Schema({
   partName: { type: String, required: true, trim: true },
+  
+  hsnCode: { type: String, trim: true, default: '94036000' },
 
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'SparePartCategory' },
   unit: { type: String, default: 'pcs' },

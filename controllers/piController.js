@@ -85,6 +85,7 @@ exports.create = async (req, res) => {
 
       return {
         chairModel: r.chair.modelName,
+        hsnCode: r.chair.hsnCode || '94036000',
         colorId: r.colorId,            
         colorName: color?.name || '-',
         quantity: r.quantity,
@@ -313,6 +314,7 @@ exports.update = async (req, res) => {
       const item = {
         chairId: chair._id,
         chairModel: chair.modelName,
+        hsnCode: chair.hsnCode || '94036000',
         colorId: color._id,
         colorName: color.name,
         quantity: Number(i.quantity),
