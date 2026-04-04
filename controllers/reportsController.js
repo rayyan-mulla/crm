@@ -1,9 +1,8 @@
 const Lead = require('../models/Lead');
 const User = require('../models/User');
 const Chair = require('../models/Chair');
+const TaxInvoice = require('../models/TaxInvoice');
 const mongoose = require('mongoose');
-const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
-const PDFDocument = require('pdfkit');
 const path = require('path');
 
 function getDealClosedDate(lead) {
@@ -23,42 +22,23 @@ async function buildReportData(query){
     toDate,
     assignedTo,
     source,
-    customerType,
-    model,
     search
   } = query;
 
-  const filter = { status:'Deal Done' };
-
-  if(source) filter.source = source;
-  if(customerType) filter.customerType = customerType;
-
-  if(assignedTo && mongoose.Types.ObjectId.isValid(assignedTo)){
-    filter.assignedTo = assignedTo;
-  }
-
-  if(search){
-    filter.customer_name = { $regex: search, $options:'i' };
-  }
-
-  const analyticsLeads = await Lead.find(filter)
-    .populate('assignedTo','fullName')
-    .populate('normalizedRequirements.chair')
+  // ✅ Fetch invoices
+  let invoices = await TaxInvoice.find({ status: 'ACTIVE' })
+    .populate('createdBy','fullName')
+    .populate('lead')
     .lean();
 
-  let filteredLeads = analyticsLeads;
+  // 🔍 FILTERS
 
   if(fromDate || toDate){
-
     const from = fromDate ? new Date(fromDate) : null;
     const to = toDate ? new Date(toDate) : null;
 
-    filteredLeads = filteredLeads.filter(lead => {
-
-      const closedDate = getDealClosedDate(lead);
-      if(!closedDate) return false;
-
-      const d = new Date(closedDate);
+    invoices = invoices.filter(inv => {
+      const d = new Date(inv.invoiceDate);
 
       if(from && d < from) return false;
 
@@ -72,94 +52,146 @@ async function buildReportData(query){
     });
   }
 
-  if(model){
-    filteredLeads = analyticsLeads
-      .map(lead=>{
-        const newReqs = (lead.normalizedRequirements||[])
-          .filter(r=>r.chair?.modelName===model);
-
-        return {...lead, normalizedRequirements:newReqs};
-      })
-      .filter(l=>l.normalizedRequirements.length>0);
+  if(assignedTo){
+    invoices = invoices.filter(
+      inv => String(inv.createdBy?._id) === String(assignedTo)
+    );
   }
+
+  if(source){
+    invoices = invoices.filter(
+      inv => inv.lead?.source === source
+    );
+  }
+
+  if(search){
+    invoices = invoices.filter(
+      inv => (inv.billingAddress?.name || inv.lead?.customer_name || '')
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }
+
+  // 📊 AGGREGATIONS
 
   let totalRevenue = 0;
   let totalCost = 0;
+  let totalProfit = 0;
   let totalChairs = 0;
 
-  const chairsByModel = {};
   const revenueByUser = {};
   const revenueBySource = {};
+  const chairsByModel = {};
   const monthly = {};
 
   const tableRows = [];
 
-  for(const lead of filteredLeads){
+  // ⚡ PERFORMANCE: preload all chairs
+  const chairs = await Chair.find().lean();
+  const chairMap = {};
 
-    const userName = lead.assignedTo?.fullName || 'Unassigned';
-    const src = lead.source || 'Unknown';
+  chairs.forEach(c => {
+    chairMap[c.modelName] = c;
+  });
 
-    for(const req of (lead.normalizedRequirements||[])){
+  for(const inv of invoices){
 
-      const chair = req.chair;
-      if(!chair) continue;
+    const userName = inv.createdBy?.fullName || 'Unknown';
+    const src = inv.lead?.source || 'Unknown';
 
-      const color = chair.colors.find(
-        c=>c._id.toString()===req.colorId.toString()
-      );
-      if(!color) continue;
+    const totalWithGST = Number(inv.grandTotal) || 0;
+    const taxable = Number(inv.taxableAmount) || 0;
+    const gst = Number(inv.gstAmount) || 0;
 
-      const qty = Number(req.quantity)||0;
-      const sellUnit = Number(req.unitPrice)||0;
-      const costUnit = Number(color.basePrice)||0;
+    totalRevenue += totalWithGST;
 
-      const revenue = sellUnit*qty;
-      const cost = costUnit*qty;
-      const profit = revenue-cost;
+    revenueByUser[userName] =
+      (revenueByUser[userName] || 0) + totalWithGST;
 
-      totalRevenue += revenue;
-      totalCost += cost;
+    revenueBySource[src] =
+      (revenueBySource[src] || 0) + totalWithGST;
+
+    let invoiceCost = 0;
+    let invoiceProfit = 0;
+    let totalQty = 0;
+
+    const itemDescriptions = [];
+
+    for(const item of (inv.items || [])){
+
+      const qty = Number(item.quantity) || 0;
+      const sell = Number(item.unitPrice) || 0;
+
+      totalQty += qty;
       totalChairs += qty;
 
-      revenueByUser[userName]=(revenueByUser[userName]||0)+revenue;
-      revenueBySource[src]=(revenueBySource[src]||0)+revenue;
+      const modelName = item.chairModel || 'Unknown';
 
-      const modelName = chair.modelName || 'Unknown';
-      chairsByModel[modelName]=(chairsByModel[modelName]||0)+qty;
+      // 🔥 Fetch chair from map
+      const chair = chairMap[modelName];
 
-      const closedDate = getDealClosedDate(lead);
-      if(!closedDate) continue;
+      let costPrice = 0;
 
-      const d = new Date(closedDate);
+      if(chair){
+        const color = chair.colors.find(
+          c => c.name === item.colorName
+        );
 
-      const monthKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        costPrice = Number(color?.basePrice) || 0;
+      }
 
-      if(!monthly[monthKey])
-        monthly[monthKey]={chairs:0,revenue:0,profit:0};
+      const itemRevenue = sell * qty;
+      const itemCost = costPrice * qty;
+      const itemProfit = itemRevenue - itemCost;
 
-      monthly[monthKey].chairs+=qty;
-      monthly[monthKey].revenue+=revenue;
-      monthly[monthKey].profit+=profit;
+      invoiceCost += itemCost;
+      invoiceProfit += itemProfit;
 
-      tableRows.push({
-        date:getDealClosedDate(lead),
-        customer:lead.customer_name,
-        user:userName,
-        chair:modelName,
-        color:color.name,
-        qty,
-        sellUnit,
-        costUnit,
-        profit,
-        source:lead.source
-      });
+      // charts
+      chairsByModel[modelName] =
+        (chairsByModel[modelName] || 0) + qty;
+
+      // 🪑 Better display
+      itemDescriptions.push(
+        `${modelName} (${item.colorName || '-'}) x${qty}`
+      );
     }
+
+    totalCost += invoiceCost;
+    totalProfit += invoiceProfit;
+
+    // 📅 Monthly
+    const d = new Date(inv.invoiceDate);
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+
+    if(!monthly[monthKey])
+      monthly[monthKey] = { totalWithGST: 0, profit: 0 };
+
+    monthly[monthKey].totalWithGST += totalWithGST;
+    monthly[monthKey].profit += invoiceProfit;
+
+    // 📋 Table Row
+    tableRows.push({
+      date: inv.invoiceDate,
+      customer: inv.billingAddress?.name || inv.lead?.customer_name,
+      user: userName,
+      chair: itemDescriptions, // array now
+      qty: totalQty,
+
+      sellUnit: totalWithGST,
+      taxable: taxable,
+      gst: gst,
+
+      costUnit: invoiceCost,
+      profit: invoiceProfit,
+      source: src
+    });
   }
 
-  const totalCount = filteredLeads.length;
+  const totalDeals = invoices.length;
 
-  const avgDealValue = totalCount ? totalRevenue/totalCount : 0;
-  const avgSellPrice = totalChairs ? totalRevenue/totalChairs : 0;
+  const avgDealValue = totalDeals ? totalRevenue / totalDeals : 0;
+  const avgSellPrice = totalChairs ? totalRevenue / totalChairs : 0;
 
   const topModel =
     Object.entries(chairsByModel)
@@ -173,9 +205,9 @@ async function buildReportData(query){
     summary:{
       totalRevenue,
       totalCost,
-      totalProfit:totalRevenue-totalCost,
+      totalProfit,
       totalChairs,
-      totalDeals:totalCount,
+      totalDeals,
       avgDealValue,
       avgSellPrice,
       topModel,
@@ -187,7 +219,7 @@ async function buildReportData(query){
       monthly,
       revenueBySource
     },
-    rows:tableRows
+    rows: tableRows
   };
 }
 
@@ -309,7 +341,7 @@ exports.exportReportsPDF = async (req, res) => {
     const chairSafe = safeData(data.charts.chairsByModel);
     const sourceSafe = safeData(data.charts.revenueBySource);
 
-    const monthlyValuesRevenue = Object.values(data.charts.monthly||{}).map(m=>cleanNumber(m?.revenue));
+    const monthlyValuesRevenue = Object.values(data.charts.monthly||{}).map(m=>cleanNumber(m?.totalWithGST));
     const monthlyValuesProfit  = Object.values(data.charts.monthly||{}).map(m=>cleanNumber(m?.profit));
 
     const monthlyImage = await canvas.renderToBuffer({

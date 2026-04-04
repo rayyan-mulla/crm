@@ -340,9 +340,10 @@ function displaySource(source) {
               <th>Customer</th>
               <th>User</th>
               <th>Chair</th>
-              <th>Color</th>
               <th>Qty</th>
-              <th>Sell</th>
+              <th>Taxable</th>
+              <th>GST</th>
+              <th>Total</th>
               <th>Cost</th>
               <th>Profit</th>
               <th>Source</th>
@@ -355,13 +356,27 @@ function displaySource(source) {
                 <td><%= formatDate(r.date) %></td>
                 <td><%= r.customer %></td>
                 <td><%= r.user %></td>
-                <td><%= r.chair %></td>
-                <td><%= r.color %></td>
+                <td>
+                  <% (r.chair || []).forEach(item => { %>
+                    <div><%= item %></div>
+                  <% }) %>
+                </td>
                 <td><%= r.qty %></td>
-                <td class="text-primary">₹<%= r.sellUnit %></td>
-                <td>₹<%= r.costUnit %></td>
+                <td>₹<%= Number(r.taxable || 0).toLocaleString('en-IN') %></td>
+                <td class="text-warning">
+                  ₹<%= Number(r.gst || 0).toLocaleString('en-IN') %>
+                </td>
+
+                <td class="text-primary fw-bold">
+                  ₹<%= Number(r.sellUnit || 0).toLocaleString('en-IN') %>
+                </td>
+
+                <td>
+                  ₹<%= Number(r.costUnit || 0).toLocaleString('en-IN') %>
+                </td>
+
                 <td class="<%= r.profit >= 0 ? 'text-success' : 'text-danger' %> fw-bold">
-                  ₹<%= Number(r.profit || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %>
+                  ₹<%= Number(r.profit || 0).toLocaleString('en-IN') %>
                 </td>
                 <td>
                   <span class="badge bg-light border text-dark">
