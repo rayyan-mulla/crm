@@ -88,10 +88,16 @@ async function buildReportData(query){
 
   // ⚡ PERFORMANCE: preload all chairs
   const chairs = await Chair.find().lean();
-  const chairMap = {};
+  const colorMap = {};
 
-  chairs.forEach(c => {
-    chairMap[c.modelName] = c;
+  chairs.forEach(chair => {
+    (chair.colors || []).forEach(color => {
+      colorMap[String(color._id)] = {
+        chairName: chair.modelName,
+        colorName: color.name,
+        costPrice: color.basePrice
+      };
+    });
   });
 
   for(const inv of invoices){
@@ -125,20 +131,11 @@ async function buildReportData(query){
       totalQty += qty;
       totalChairs += qty;
 
-      const modelName = item.chairModel || 'Unknown';
+      const colorData = colorMap[String(item.colorId)] || {};
 
-      // 🔥 Fetch chair from map
-      const chair = chairMap[modelName];
-
-      let costPrice = 0;
-
-      if(chair){
-        const color = chair.colors.find(
-          c => c.name === item.colorName
-        );
-
-        costPrice = Number(color?.basePrice) || 0;
-      }
+      const modelName = colorData.chairName || item.chairModel || 'Unknown';
+      const colorName = colorData.colorName || item.colorName || '-';
+      const costPrice = Number(colorData.costPrice) || 0;
 
       const itemRevenue = sell * qty;
       const itemCost = costPrice * qty;
@@ -153,7 +150,7 @@ async function buildReportData(query){
 
       // 🪑 Better display
       itemDescriptions.push(
-        `${modelName} (${item.colorName || '-'}) x${qty}`
+        `${modelName} (${colorName}) x${qty}`
       );
     }
 
