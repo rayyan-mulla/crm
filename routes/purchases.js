@@ -13,4 +13,9 @@ router.post('/', purchaseController.create);
 
 router.get('/:id', purchaseController.view);
 
+router.get('/:id/edit', purchaseController.editForm);
+router.post('/:id', purchaseController.update);
+
+router.post('/:id/delete', purchaseController.delete);
+
 module.exports = router;

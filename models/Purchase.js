@@ -76,8 +76,8 @@ const PurchaseSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['draft', 'purchased', 'cancelled'],
-    default: 'purchased'
+    enum: ['DRAFT', 'PURCHASED', 'CANCELLED'],
+    default: 'PURCHASED'
   },
 
   items: [PurchaseItemSchema],

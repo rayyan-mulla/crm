@@ -118,7 +118,7 @@
                                     <%= col.name %>
                                   </span>
                                   <% if (col.gstApplicable) { %>
-                                    <span class="badge bg-info text-dark ms-2" style="font-size: 0.65rem; padding: 0.35em 0.5em;">
+                                    <span class="badge bg-info text-white ms-2" style="font-size: 0.65rem; padding: 0.35em 0.5em;">
                                       18% GST
                                     </span>
                                   <% } %>
@@ -134,6 +134,22 @@
                                     <span class="text-primary">₹<%= col.finalPrice ? col.finalPrice.toFixed(2) : col.basePrice.toFixed(2) %></span>
                                   </div>
                                 </div>
+
+                                <%
+                                  const stock = Number(col.stock) || 0;
+
+                                  let stockClass = 'bg-success';
+                                  if (stock === 0) stockClass = 'bg-danger';
+                                  else if (stock < 10) stockClass = 'bg-warning text-dark';
+                                %>
+
+                                <div class="d-flex justify-content-between small mt-1">
+                                  <span class="text-muted">Stock:</span>
+                                  <span class="badge <%= stockClass %>">
+                                    <%= stock %>
+                                  </span>
+                                </div>
+                                
                               </div>
                             <% }) %>
                           </div>

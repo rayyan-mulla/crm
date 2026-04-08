@@ -99,10 +99,11 @@
                 <th>HSN Code</th> 
                 <th>Category</th>
                 <th>Unit</th>
+                <th class="text-center">Stock</th>
                 <th>Cost</th>
                 <th class="text-center">GST</th>
                 <th>Status</th>
-                <th>Created</th>
+                <th>Created At</th>
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
@@ -130,6 +131,19 @@
                     </span>
                   </td>
 
+                  <%
+                    let stockClass = 'bg-success';
+
+                    if (part.stock === 0) stockClass = 'bg-danger';
+                    else if (part.stock < 10) stockClass = 'bg-warning text-dark';
+                  %>
+
+                  <td class="text-center">
+                    <span class="badge <%= stockClass %>">
+                      <%= part.stock %>
+                    </span>
+                  </td>
+
                   <td>
                     <div class="d-flex flex-column gap-0">
 
@@ -152,7 +166,7 @@
 
                   <td class="text-center">
                     <% if (part.gstApplicable) { %>
-                      <span class="badge bg-info text-dark"
+                      <span class="badge bg-info text-white"
                             style="font-size: 0.65rem; padding: 0.35em 0.5em;">
                         18%
                       </span>

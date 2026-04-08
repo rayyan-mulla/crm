@@ -18,9 +18,15 @@
 <%- include('../partials/navbar', { user, activePage }) %>
 
 <div class="container py-5">
-  <h3 class="mb-4">New Purchase</h3>
+  <h3 class="mb-4">
+    <%= mode === 'edit' ? 'Edit Purchase' : 'New Purchase' %>
+  </h3>
 
-  <form method="POST" action="/purchasing/purchases">
+  <form method="POST" 
+    action="<%= mode === 'edit' 
+      ? '/purchasing/purchases/' + purchase._id 
+      : '/purchasing/purchases' %>">
+
     <input type="hidden" name="totalAmount" id="totalAmountInput">
 
     <!-- TOP SECTION -->
@@ -33,31 +39,51 @@
         <div class="row g-3">
 
           <div class="col-md-3">
+            <label class="form-label">Purchase Date</label>
+            <input type="date" name="purchaseDate" class="form-control"
+              value="<%= purchase 
+                ? new Date(purchase.purchaseDate).toISOString().split('T')[0]
+                : new Date().toISOString().split('T')[0] %>">
+          </div>
+
+          <div class="col-md-3">
             <label class="form-label">Vendor</label>
             <select name="vendor" class="form-select" required>
               <option value="">Select Vendor</option>
+
               <% vendors.forEach(v => { %>
-                <option value="<%= v._id %>"><%= v.name %></option>
+                <option value="<%= v._id %>" 
+                  <%= purchase?.vendor?._id?.toString() === v._id.toString() ? 'selected' : '' %>>
+                  <%= v.name %>
+                </option>
               <% }) %>
+
             </select>
           </div>
 
           <div class="col-md-3">
             <label class="form-label">Invoice Number</label>
-            <input name="invoiceNumber" class="form-control">
-          </div>
-
-          <div class="col-md-3">
-            <label class="form-label">Purchase Date</label>
-            <input type="date" name="purchaseDate" class="form-control"
-              value="<%= new Date().toISOString().split('T')[0] %>">
+            <input name="invoiceNumber" class="form-control" 
+              value="<%= purchase?.invoiceNumber || '' %>">
           </div>
 
           <div class="col-md-3">
             <label class="form-label">Status</label>
             <select name="status" class="form-select">
-              <option value="purchased">Purchased</option>
-              <option value="draft">Draft</option>
+              <option value="PURCHASED" 
+                <%= purchase?.status === 'PURCHASED' ? 'selected' : '' %>>
+                Purchased
+              </option>
+
+              <option value="DRAFT" 
+                <%= purchase?.status === 'DRAFT' ? 'selected' : '' %>>
+                Draft
+              </option>
+
+              <option value="CANCELLED" 
+                <%= purchase?.status === 'CANCELLED' ? 'selected' : '' %>>
+                Cancelled
+              </option>
             </select>
           </div>
 
@@ -75,21 +101,28 @@
       <div class="card-body">
         <div id="itemsContainer">
 
+          <% const itemsData = purchase?.items?.length ? purchase.items : [{}]; %>
+
+          <% itemsData.forEach((item, index) => { %>
+
           <div class="item-card border rounded p-3 mb-3">
 
-            <!-- ROW 1 -->
             <div class="row g-3">
 
+              <!-- TYPE -->
               <div class="col-md-3">
                 <label class="form-label">Type</label>
                 <select class="form-select itemType">
-                  <option value="sparePart">Spare Part</option>
-                  <option value="chair">Chair</option>
+                  <option value="sparePart" <%= item.itemType === 'sparePart' ? 'selected' : '' %>>Spare Part</option>
+                  <option value="chair" <%= item.itemType === 'chair' ? 'selected' : '' %>>Chair</option>
                 </select>
-                <input type="hidden" name="items[0][itemType]" class="itemTypeInput">
+                <input type="hidden" name="items[<%= index %>][itemType]" 
+                      class="itemTypeInput" 
+                      value="<%= item.itemType || '' %>">
               </div>
 
-              <div class="col-md-3 categoryWrapper">
+              <!-- CATEGORY -->
+              <div class="col-md-3 categoryWrapper <%= item.itemType === 'chair' ? 'd-none' : '' %>">
                 <label class="form-label">Category</label>
                 <select class="form-select categorySelect">
                   <option value="">Select Category</option>
@@ -99,36 +132,44 @@
                 </select>
               </div>
 
+              <!-- ITEM -->
               <div class="col-md-3">
                 <label class="form-label">Item</label>
-                <select class="form-select itemSelect" name="items[0][item]">
+                <select class="form-select itemSelect" name="items[<%= index %>][item]">
                   <option value="">Select Item</option>
                 </select>
               </div>
 
-              <div class="col-md-3 chairColorWrapper d-none">
+              <!-- COLOR -->
+              <div class="col-md-3 chairColorWrapper <%= item.itemType === 'chair' ? '' : 'd-none' %>">
                 <label class="form-label">Color</label>
-                <select class="form-select colorSelect" name="items[0][color]">
+                <select class="form-select colorSelect" name="items[<%= index %>][color]">
                   <option value="">Select Color</option>
                 </select>
               </div>
 
+              <!-- BASE -->
               <div class="col-md-3">
                 <label class="form-label">Base Price</label>
-                <input type="number" name="items[0][basePrice]" class="form-control basePrice" readonly>
+                <input type="number" name="items[<%= index %>][basePrice]" 
+                      class="form-control basePrice" 
+                      value="<%= item.basePrice || '' %>" readonly>
               </div>
 
             </div>
 
-            <!-- ROW 2 -->
             <div class="row g-3 mt-2">
 
               <div class="col-md-3">
                 <label class="form-label">Purchase Rate</label>
                 <div class="input-group">
-                  <input type="number" name="items[0][unitCost]" class="form-control unitCost">
+                  <input type="number" name="items[<%= index %>][unitCost]" 
+                        class="form-control unitCost" 
+                        value="<%= item.unitCost || '' %>">
                   <div class="input-group-text">
-                    <input type="checkbox" class="form-check-input gstCheck" name="items[0][gstApplicable]">
+                    <input type="checkbox" class="form-check-input gstCheck"
+                      name="items[<%= index %>][gstApplicable]"
+                      <%= item.gstApplicable ? 'checked' : '' %>>
                     <small class="ms-1">GST</small>
                   </div>
                 </div>
@@ -136,12 +177,16 @@
 
               <div class="col-md-3">
                 <label class="form-label">Qty</label>
-                <input type="number" name="items[0][quantity]" class="form-control qty" value="1">
+                <input type="number" name="items[<%= index %>][quantity]" 
+                      class="form-control qty" 
+                      value="<%= item.quantity || 1 %>">
               </div>
 
               <div class="col-md-3">
                 <label class="form-label">Total</label>
-                <input type="text" name="items[0][totalCost]" class="form-control totalCost" readonly>
+                <input type="text" name="items[<%= index %>][totalCost]" 
+                      class="form-control totalCost" 
+                      value="<%= item.totalCost || '' %>" readonly>
               </div>
 
               <div class="col-md-3 d-flex align-items-end">
@@ -149,8 +194,8 @@
               </div>
 
             </div>
-
           </div>
+          <% }) %>
         </div>
 
         <div class="mt-4 text-end">
@@ -163,7 +208,7 @@
     <div class="card shadow-sm p-3 mt-4">
       <div class="card-body">
         <label class="form-label">Notes</label>
-        <textarea name="notes" class="form-control" rows="3"></textarea>
+        <textarea name="notes" class="form-control"><%= purchase?.notes || '' %></textarea>
       </div>
     </div>
 
@@ -334,7 +379,7 @@
 
     newRow.querySelectorAll('input,select').forEach(el => {
       if (el.name) {
-        el.name = el.name.replace('[0]', `[${rowIndex}]`);
+        el.name = el.name.replace(/\[\d+\]/, `[${rowIndex}]`);
       }
 
       if (el.tagName === "SELECT") {
@@ -360,6 +405,87 @@
         calculateGrandTotal();
       }
     }
+  });
+</script>
+
+<script>
+  const purchaseItems = <%- JSON.stringify(purchase?.items || []) %>;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const rows = document.querySelectorAll('.item-card');
+
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      const item = purchaseItems[index];
+      if (!item) continue;
+
+      const itemType = item.itemType;
+
+      const typeSelect = row.querySelector('.itemType');
+      typeSelect.value = itemType;
+      typeSelect.dispatchEvent(new Event('change'));
+
+      if (itemType === 'sparePart') {
+        const categorySelect = row.querySelector('.categorySelect');
+
+        const spare = spareParts.find(p => p._id == item.sparePart);
+
+        if (spare) {
+          categorySelect.value = spare.category;
+          categorySelect.dispatchEvent(new Event('change'));
+
+          const itemSelect = row.querySelector('.itemSelect');
+
+          // 🔥 ensure options exist
+          loadSpareParts(row, spare.category);
+
+          itemSelect.value = `spare_${item.sparePart}`;
+          itemSelect.dispatchEvent(new Event('change'));
+        }
+      }
+
+      if (itemType === 'chair') {
+        const itemSelect = row.querySelector('.itemSelect');
+
+        loadChairs(row);
+
+        itemSelect.value = `chair_${item.chair}`;
+
+        // 🔥 MANUALLY LOAD COLORS (instead of relying on change event)
+        const selectedChair = chairs.find(c => c._id == item.chair);
+
+        const colorSelect = row.querySelector('.colorSelect');
+        colorSelect.innerHTML = '<option value="">Select Color</option>';
+
+        if (selectedChair && selectedChair.colors) {
+          selectedChair.colors.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c._id;
+            opt.textContent = c.name;
+            opt.dataset.price = c.basePrice;
+            colorSelect.appendChild(opt);
+          });
+        }
+
+        // ✅ NOW SET SELECTED COLOR
+        if (item.chairColor) {
+          colorSelect.value = item.chairColor;
+        }
+
+        // 🔥 SET PRICE ALSO
+        const selectedColor = selectedChair?.colors?.find(
+          c => c._id == item.chairColor
+        );
+
+        if (selectedColor) {
+          row.querySelector('.basePrice').value = selectedColor.basePrice;
+          row.querySelector('.unitCost').value = selectedColor.basePrice;
+          calculateRow(row);
+        }
+      }
+    }
+
+    calculateGrandTotal();
   });
 </script>
 

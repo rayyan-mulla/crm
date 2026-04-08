@@ -12,7 +12,9 @@ const SparePartSchema = new mongoose.Schema({
   gstApplicable: { type: Boolean, default: false },
   finalCost: { type: Number, required: true, min: 0 },
 
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+
+  stock: { type: Number, default: 0 }
 
 }, { timestamps: true });
 

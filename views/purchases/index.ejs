@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Vendors - Olive Chairs ERP</title>
+  <title>Purchases - Olive Chairs ERP</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
@@ -33,12 +33,12 @@
 
 <div class="container py-5">
 
-  <!-- Page Header -->
+  <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>Vendors</h3>
+    <h3>Purchases</h3>
 
-    <a href="/purchasing/vendors/new" class="btn btn-outline-primary">
-      + Add Vendor
+    <a href="/purchasing/purchases/new" class="btn btn-outline-primary">
+      + Add Purchase
     </a>
   </div>
 
@@ -46,7 +46,7 @@
   <div class="sticky-actions d-flex justify-content-between align-items-center mb-3">
 
     <!-- Per Page -->
-    <form id="limitForm" class="d-flex align-items-center gap-2" method="get">
+    <form class="d-flex align-items-center gap-2" method="get">
       <span class="small">Per page</span>
 
       <input type="hidden" name="search" value="<%= query.search || '' %>">
@@ -70,7 +70,7 @@
       <input
         name="search"
         class="form-control form-control-sm"
-        placeholder="Search vendor..."
+        placeholder="Search purchase..."
         value="<%= query.search || '' %>"
         style="width:220px"
       >
@@ -85,7 +85,7 @@
   <div class="card shadow-sm">
     <div class="card-body">
 
-    <% if(vendors && vendors.length>0){ %>
+    <% if(purchases && purchases.length>0){ %>
 
       <div class="table-responsive">
 
@@ -94,79 +94,73 @@
           <thead class="table-light">
             <tr>
               <th>#</th>
+              <th>Purchase No</th>
+              <th>Date</th>
               <th>Vendor</th>
-              <th>Contact</th>
-              <th>GST</th>
-              <th>Address</th>
-              <th>Balance</th>
+              <th>Invoice</th>
+              <th>Total</th>
               <th>Status</th>
               <th>Created At</th>
+              <th>Created By</th>
               <th class="text-end">Actions</th>
             </tr>
           </thead>
 
           <tbody>
 
-          <% vendors.forEach((v,index)=>{ %>
+          <% purchases.forEach((p,index)=>{ %>
 
             <tr>
 
               <td><%= (page-1)*limit + index + 1 %></td>
 
-              <td><%= v.name %></td>
+              <td><%= p.purchaseNumber %></td>
 
               <td>
-                <div><%= v.phone || '-' %></div>
-                <small class="text-muted"><%= v.email || '-' %></small>
-              </td>
-
-              <td><%= v.gstin || '-' %></td>
-
-              <td>
-              <% if(v.address){ %>
-                <div><%= v.address.line1 || '' %></div>
-
-                <small class="text-muted">
-                  <%= v.address.city || '' %>
-                  <%= v.address.city && v.address.state ? ',' : '' %>
-                  <%= v.address.state || '' %>
-                  <%= v.address.pincode ? ' - ' + v.address.pincode : '' %>
-                </small>
-              <% } else { %>
-                -
-              <% } %>
-              </td>
-
-              <%
-                let balanceClass = 'bg-secondary';
-                if (v.balance > 0) balanceClass = 'bg-danger';
-                else if (v.balance < 0) balanceClass = 'bg-success';
-              %>
-
-              <td>
-                <span class="badge <%= balanceClass %>">
-                  ₹<%= (v.balance || 0).toFixed(2) %>
-                </span>
-              </td>
-
-              <td>
-                <span class="badge <%= v.isActive ? 'bg-success' : 'bg-secondary' %>">
-                  <%= v.isActive ? 'Active' : 'Inactive' %>
-                </span>
-              </td>
-
-              <td class="text-nowrap">
-                <%= new Date(v.createdAt).toLocaleDateString('en-IN',{
+                <%= new Date(p.purchaseDate).toLocaleDateString('en-IN',{
                   day:'2-digit',
                   month:'2-digit',
                   year:'numeric'
                 }) %>
               </td>
 
+              <td><%= p.vendor?.name || '-' %></td>
+
+              <td><%= p.invoiceNumber || '-' %></td>
+
+              <td>₹<%= p.totalAmount.toFixed(2) %></td>
+
+              <td>
+                <span class="badge 
+                  <%= p.status==='PURCHASED' ? 'bg-success' :
+                      p.status==='CANCELLED' ? 'bg-danger' :
+                      p.status==='DRAFT' ? 'bg-warning text-dark' :
+                      'bg-secondary' %>">
+                  <%= p.status %>
+                </span>
+              </td>
+
+              <td class="text-nowrap">
+                <%= new Date(p.createdAt).toLocaleDateString('en-IN',{
+                  day:'2-digit',
+                  month:'2-digit',
+                  year:'numeric'
+                }) %>
+              </td>
+
+              <td><%= p.createdBy?.fullName %></td>
+
               <td class="text-end">
 
                 <a
-                  href="/purchasing/vendors/<%= v._id %>/edit"
+                  href="/purchasing/purchases/<%= p._id %>"
+                  class="btn btn-sm btn-outline-success"
+                >
+                  View
+                </a>
+
+                <a
+                  href="/purchasing/purchases/<%= p._id %>/edit"
                   class="btn btn-sm btn-outline-primary"
                 >
                   Edit
@@ -177,8 +171,8 @@
                   class="btn btn-sm btn-outline-danger"
                   data-bs-toggle="modal"
                   data-bs-target="#deleteModal"
-                  data-id="<%= v._id %>"
-                  data-name="<%= v.name %>"
+                  data-id="<%= p._id %>"
+                  data-name="<%= p.purchaseNumber %>"
                 >
                   Delete
                 </button>
@@ -269,7 +263,7 @@
 
     <% } else { %>
 
-      <p class="text-muted text-center mb-0">No vendors found.</p>
+      <p class="text-muted text-center mb-0">No purchases found.</p>
 
     <% } %>
 
@@ -291,7 +285,7 @@
 
         <div class="modal-body">
           <p>
-            Are you sure you want to delete vendor
+            Are you sure you want to delete purchase
             <strong id="deleteName"></strong>?
           </p>
         </div>
@@ -324,7 +318,7 @@
     const id=button.getAttribute('data-id');
     const name=button.getAttribute('data-name');
 
-    deleteForm.action=`/purchasing/vendors/${id}/delete`;
+    deleteForm.action=`/purchasing/purchases/${id}/delete`;
     deleteName.textContent=name;
   });
 
