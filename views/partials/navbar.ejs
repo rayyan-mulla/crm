@@ -162,7 +162,7 @@
           <li class="nav-item dropdown">
             <a
               class="nav-link dropdown-toggle
-                <%= (activePage === 'vendors' || activePage === 'purchases') ? 'active' : '' %>"
+                <%= (activePage === 'vendors' || activePage === 'purchases' || activePage === 'vendorPayments') ? 'active' : '' %>"
               href="#"
               role="button"
               data-bs-toggle="dropdown"
@@ -186,6 +186,14 @@
                   href="/purchasing/purchases"
                 >
                   Purchases
+                </a>
+              </li>
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'vendorPayments') ? 'active' : '' %>"
+                  href="/purchasing/vendor-payments"
+                >
+                  Vendor Payments
                 </a>
               </li>
             </ul>
