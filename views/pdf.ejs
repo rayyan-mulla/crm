@@ -45,7 +45,7 @@
   }
 
   .section {
-    margin-top: 8px;
+    margin-top: 4px;
   }
 
   .text-right { text-align: right; }
@@ -105,7 +105,8 @@
       <span class="sub-heading">Sold By</span>
       <strong>Marziya Innovations Pvt. Ltd.</strong><br>
       Shop No.17, Ground Floor, Sarvoday Mall, Opposite APMC, Bail Bazar Road, Kalyan (West), Maharashtra - 421301<br>
-      <strong>GSTIN:</strong> 27AASCM1392C1ZB
+      <strong>GSTIN:</strong> 27AASCM1392C1ZB<br>
+      <strong>PAN:</strong> AASCM1392C
     </td>
     <td width="50%">
       <strong>
@@ -123,7 +124,11 @@
         documentType === 'TAX_INVOICE'
           ? pi.invoiceDate || pi.createdAt
           : pi.createdAt
-      ).toLocaleDateString('en-IN') %>
+      ).toLocaleDateString('en-IN') %><br>
+
+      <% if (pi.poNumber && pi.poNumber.trim() !== '') { %>
+        <strong>PO No:</strong> <%= pi.poNumber %><br>
+      <% } %>
 
       <% if (pi.status === 'DELETED') { %>
         <div style="margin-top:6px; color:#b30000; font-size:11px;">
@@ -262,7 +267,7 @@
 <!-- ================= DECLARATION ================= -->
 <table class="section">
   <tr>
-    <td class="compact-text">
+    <td widht="70%" class="compact-text">
       <span class="sub-heading">Declaration</span>
       1. We declare that this Proforma Invoice shows the actual price of the goods and/or services described and that all particulars are true and correct.<br>
       2. Errors and omissions excepted.<br>
@@ -270,11 +275,19 @@
       4. All claims, if any, must be reported on the day of delivery.<br>
       5. Shipping charges are non-refundable in case of returns.
     </td>
+
+    <td width="30%" class="text-center" style="vertical-align: bottom; padding-bottom: 15px;">
+      <img src="<%= signBase64 %>" class="signature"><br>
+      <div style="margin-top: 8px;">
+        <strong>Authorised Signatory</strong><br>
+        Marziya Innovations Pvt. Ltd.
+      </div>
+    </td>
   </tr>
 </table>
 
 <!-- ================= SIGNATURE ================= -->
-<table class="no-border section">
+<!-- <table class="no-border section">
   <tr>
     <td width="70%"></td>
     <td width="30%" class="text-center">
@@ -283,7 +296,7 @@
       Marziya Innovations Pvt. Ltd.
     </td>
   </tr>
-</table>
+</table> -->
 
 </body>
 </html>

@@ -73,6 +73,10 @@ const TaxInvoiceSchema = new mongoose.Schema({
   gstAmount: Number,
   grandTotal: Number,
 
+  poNumber: {
+    type: String,
+    trim: true
+  },
   paymentMode: String,
   estimatedDelivery: String,
   installationType: {

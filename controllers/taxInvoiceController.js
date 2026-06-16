@@ -67,6 +67,7 @@ exports.generateFromPI = async (req, res) => {
       gstAmount: pi.gstAmount,
       grandTotal: pi.grandTotal,
 
+      poNumber: pi.poNumber,
       paymentMode: pi.paymentMode,
       estimatedDelivery: pi.estimatedDelivery,
       installationType: pi.installationType,

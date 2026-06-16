@@ -125,6 +125,7 @@ exports.create = async (req, res) => {
       taxableAmount,
       gstAmount,
       grandTotal: taxableAmount + gstAmount,
+      poNumber: req.body.poNumber,
       paymentMode: req.body.paymentMode,
       estimatedDelivery: req.body.estimatedDelivery,
       installationType: req.body.installationType || 'FREE',
@@ -375,6 +376,7 @@ exports.update = async (req, res) => {
     /* ===============================
        META FIELDS
     =============================== */
+    pi.poNumber = req.body.poNumber;
     pi.paymentMode = req.body.paymentMode;
     pi.estimatedDelivery = req.body.estimatedDelivery;
     pi.installationType = req.body.installationType || 'FREE',

@@ -232,7 +232,15 @@
 
       <div class="row g-3">
 
-        <div class="col-md-4">
+        <!-- PO Number Field -->
+        <div class="col-md-3">
+          <label class="form-label">PO Number</label>
+          <input class="form-control"
+                 name="poNumber"
+                 value="<%= pi.poNumber || '' %>">
+        </div>
+
+        <div class="col-md-3">
           <label class="form-label">Payment Mode</label>
           <select name="paymentMode" class="form-select">
             <option value="">-- Select --</option>
@@ -244,14 +252,14 @@
           </select>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Estimated Delivery</label>
           <input class="form-control"
                  name="estimatedDelivery"
                  value="<%= pi.estimatedDelivery || '' %>">
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Installation</label>
           <select name="installationType" class="form-select">
             <option value="FREE" <%= pi.installationType === 'FREE' ? 'selected' : '' %>>
