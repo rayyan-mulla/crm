@@ -104,7 +104,7 @@
     <td width="50%">
       <span class="sub-heading">Sold By</span>
       <strong>Marziya Innovations Pvt. Ltd.</strong><br>
-      Shop No.17, Ground Floor, Sarvoday Mall, Opposite APMC, Bail Bazar Road, Kalyan (West), Maharashtra - 421301<br>
+      Shop No.17, Ground Floor, Sarvoday Mall, Opp. APMC, Bail Bazar Road, Kalyan (W), Maharashtra - 421301<br>
       <strong>GSTIN:</strong> 27AASCM1392C1ZB<br>
       <strong>PAN:</strong> AASCM1392C
     </td>
@@ -257,8 +257,8 @@
       <%= pi.estimatedDelivery || '5 to 6 Working Days' %><br>
       <strong>Installation:</strong>
       <%= pi.installationType === 'DIY' ? 'DIY (Do It Yourself)' : 'Free Installation' %><br>
-      <span class="sub-heading">Payment Terms</span>
-      Advance Payment Only<br>
+      <!-- <span class="sub-heading">Payment Terms</span> -->
+      <strong>Payment Terms:</strong> Advance Payment Only<br>
       <strong>Payment Mode:</strong> <%= pi.paymentMode || '-' %>
     </td>
   </tr>
@@ -267,7 +267,7 @@
 <!-- ================= DECLARATION ================= -->
 <table class="section">
   <tr>
-    <td widht="70%" class="compact-text">
+    <td widht="70%" class="compact-text" style="font-size: 10px;">
       <span class="sub-heading">Declaration</span>
       1. We declare that this Proforma Invoice shows the actual price of the goods and/or services described and that all particulars are true and correct.<br>
       2. Errors and omissions excepted.<br>
@@ -278,10 +278,10 @@
 
     <td width="30%" class="text-center" style="vertical-align: bottom; padding-bottom: 15px;">
       <img src="<%= signBase64 %>" class="signature"><br>
-      <div style="margin-top: 8px;">
+      <!-- <div style="margin-top: 8px;">
         <strong>Authorised Signatory</strong><br>
         Marziya Innovations Pvt. Ltd.
-      </div>
+      </div> -->
     </td>
   </tr>
 </table>
