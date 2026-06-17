@@ -127,6 +127,7 @@ async function buildReportData(query){
 
       const qty = Number(item.quantity) || 0;
       const sell = Number(item.unitPrice) || 0;
+      const shippingCostPerUnit = Number(item.shippingUnit) || 0;
 
       totalQty += qty;
       totalChairs += qty;
@@ -138,7 +139,7 @@ async function buildReportData(query){
       const costPrice = Number(colorData.costPrice) || 0;
 
       const itemRevenue = sell * qty;
-      const itemCost = costPrice * qty;
+      const itemCost = (costPrice + shippingCostPerUnit) * qty;
       const itemProfit = itemRevenue - itemCost;
 
       invoiceCost += itemCost;
