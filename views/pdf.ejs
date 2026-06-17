@@ -88,10 +88,25 @@
     pointer-events: none;
     text-transform: uppercase;
   }
+
+  .logo-watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(0deg);
+    width: 360px;
+    height: auto;
+    opacity: 0.1;
+    pointer-events: none;
+  }
 </style>
 </head>
 
 <body>
+
+<% if (pi.status !== 'DELETED') { %>
+  <img src="<%= logoBase64 %>" class="logo-watermark" alt="Marziya Innovations Watermark">
+<% } %>
 
 <!-- ================= WATERMARK (ONLY IF DELETED) ================= -->
 <% if (pi.status === 'DELETED') { %>
@@ -104,7 +119,7 @@
     <td width="50%">
       <span class="sub-heading">Sold By</span>
       <strong>Marziya Innovations Pvt. Ltd.</strong><br>
-      Shop No.17, Ground Floor, Sarvoday Mall, Opp. APMC, Bail Bazar Road, Kalyan (W), Maharashtra - 421301<br>
+      Shop No.17, Gr. Floor, Sarvoday Mall, Opp. APMC, Bail Bazar Road, Kalyan (W), Maharashtra - 421301<br>
       <strong>GSTIN:</strong> 27AASCM1392C1ZB<br>
       <strong>PAN:</strong> AASCM1392C
     </td>
