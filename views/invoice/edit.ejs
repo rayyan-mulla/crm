@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Edit Proforma Invoice - <%= pi.piNumber %></title>
+  <title>Edit Tax Invoice - <%= invoice.invoiceNumber %></title>
 
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
@@ -25,14 +25,14 @@
 <div class="container py-4">
 
   <h3 class="mb-3">
-    Edit Proforma Invoice
+    Edit Tax Invoice
     <small class="text-muted fs-6">
-      <%= pi.piNumber %> — <%= lead.customer_name %>
+      <%= invoice.invoiceNumber %> — <%= lead.customer_name %>
     </small>
   </h3>
 
   <form
-    action="/leads/<%= lead._id %>/pi/<%= pi._id %>/edit"
+    action="/leads/<%= lead._id %>/pi/<%= invoice.piId %>/invoices/<%= invoice._id %>/edit"
     method="post"
     class="card shadow-sm p-4"
   >
@@ -46,7 +46,7 @@
         <div class="col-md-6 col-lg-3">
           <label class="form-label">Billing Name</label>
           <input class="form-control" name="billing[name]"
-                 value="<%= pi.billingAddress?.name || '' %>" required>
+                 value="<%= invoice.billingAddress?.name || '' %>" required>
         </div>
 
         <div class="col-md-6 col-lg-3">
@@ -55,45 +55,45 @@
             type="email"
             class="form-control"
             name="billing[email]"
-            value="<%= pi.billingAddress?.email || '' %>"
+            value="<%= invoice.billingAddress?.email || '' %>"
           >
         </div>
 
         <div class="col-md-6 col-lg-3">
           <label class="form-label">Phone Number</label>
           <input class="form-control" name="billing[phone]"
-                 value="<%= pi.billingAddress?.phone || '' %>"
+                 value="<%= invoice.billingAddress?.phone || '' %>"
                  pattern="[0-9]{10}">
         </div>
 
         <div class="col-md-6 col-lg-3">
           <label class="form-label">GSTIN</label>
           <input class="form-control" name="billing[gstin]"
-                 value="<%= pi.billingAddress?.gstin || '' %>">
+                 value="<%= invoice.billingAddress?.gstin || '' %>">
         </div>
 
         <div class="col-12">
           <label class="form-label">Address Line</label>
           <input class="form-control" name="billing[line1]"
-                 value="<%= pi.billingAddress?.line1 || '' %>" required>
+                 value="<%= invoice.billingAddress?.line1 || '' %>" required>
         </div>
 
         <div class="col-md-4">
           <label class="form-label">City</label>
           <input class="form-control" name="billing[city]"
-                 value="<%= pi.billingAddress?.city || '' %>" required>
+                 value="<%= invoice.billingAddress?.city || '' %>" required>
         </div>
 
         <div class="col-md-4">
           <label class="form-label">State</label>
           <input class="form-control" name="billing[state]"
-                 value="<%= pi.billingAddress?.state || '' %>" required>
+                 value="<%= invoice.billingAddress?.state || '' %>" required>
         </div>
 
         <div class="col-md-4">
           <label class="form-label">Pincode</label>
           <input class="form-control" name="billing[pincode]"
-                 value="<%= pi.billingAddress?.pincode || '' %>">
+                 value="<%= invoice.billingAddress?.pincode || '' %>">
         </div>
 
       </div>
@@ -106,7 +106,7 @@
              id="sameAsBilling"
              name="sameAsBilling"
              value="true"
-             <%= pi.shippingAddress?.line1 === pi.billingAddress?.line1 ? 'checked' : '' %>>
+             <%= invoice.shippingAddress?.line1 === invoice.billingAddress?.line1 ? 'checked' : '' %>>
       <label class="form-check-label">
         Shipping address same as billing
       </label>
@@ -121,38 +121,38 @@
         <div class="col-md-6">
           <label class="form-label">Shipping Name</label>
           <input class="form-control" name="shipping[name]"
-                 value="<%= pi.shippingAddress?.name || '' %>" required>
+                 value="<%= invoice.shippingAddress?.name || '' %>" required>
         </div>
 
         <div class="col-md-6">
           <label class="form-label">Phone Number</label>
           <input class="form-control" name="shipping[phone]"
-                 value="<%= pi.shippingAddress?.phone || '' %>"
+                 value="<%= invoice.shippingAddress?.phone || '' %>"
                  pattern="[0-9]{10}">
         </div>
 
         <div class="col-12">
           <label class="form-label">Address Line</label>
           <input class="form-control" name="shipping[line1]"
-                 value="<%= pi.shippingAddress?.line1 || '' %>" required>
+                 value="<%= invoice.shippingAddress?.line1 || '' %>" required>
         </div>
 
         <div class="col-md-4">
           <label class="form-label">City</label>
           <input class="form-control" name="shipping[city]"
-                 value="<%= pi.shippingAddress?.city || '' %>" required>
+                 value="<%= invoice.shippingAddress?.city || '' %>" required>
         </div>
 
         <div class="col-md-4">
           <label class="form-label">State</label>
           <input class="form-control" name="shipping[state]"
-                 value="<%= pi.shippingAddress?.state || '' %>" required>
+                 value="<%= invoice.shippingAddress?.state || '' %>" required>
         </div>
 
         <div class="col-md-4">
           <label class="form-label">Pincode</label>
           <input class="form-control" name="shipping[pincode]"
-                 value="<%= pi.shippingAddress?.pincode || '' %>">
+                 value="<%= invoice.shippingAddress?.pincode || '' %>">
         </div>
 
       </div>
@@ -173,7 +173,7 @@
       </div>
 
       <div id="itemsContainer" class="vstack gap-3">
-        <% pi.items.forEach((item, idx) => { %>
+        <% invoice.items.forEach((item, idx) => { %>
           <div class="req-row border-bottom pb-3">
             <div class="row g-2 align-items-end">
               <input type="hidden" name="items[<%= idx %>][itemId]" value="<%= item._id %>">
@@ -231,7 +231,7 @@
                type="checkbox"
                name="gstEnabled"
                value="true"
-               <%= pi.gstEnabled ? 'checked' : '' %>>
+               <%= invoice.gstEnabled ? 'checked' : '' %>>
         <label class="form-check-label">GST Applicable</label>
       </div>
 
@@ -242,7 +242,7 @@
           <label class="form-label">PO Number</label>
           <input class="form-control"
                  name="poNumber"
-                 value="<%= pi.poNumber || '' %>">
+                 value="<%= invoice.poNumber || '' %>">
         </div>
 
         <div class="col-md-3">
@@ -250,7 +250,7 @@
           <select name="paymentMode" class="form-select">
             <option value="">-- Select --</option>
             <% ['NEFT / RTGS','Cheque','UPI','Cash'].forEach(m => { %>
-              <option value="<%= m %>" <%= pi.paymentMode === m ? 'selected' : '' %>>
+              <option value="<%= m %>" <%= invoice.paymentMode === m ? 'selected' : '' %>>
                 <%= m %>
               </option>
             <% }) %>
@@ -261,16 +261,16 @@
           <label class="form-label">Estimated Delivery</label>
           <input class="form-control"
                  name="estimatedDelivery"
-                 value="<%= pi.estimatedDelivery || '' %>">
+                 value="<%= invoice.estimatedDelivery || '' %>">
         </div>
 
         <div class="col-md-3">
           <label class="form-label">Installation</label>
           <select name="installationType" class="form-select">
-            <option value="FREE" <%= pi.installationType === 'FREE' ? 'selected' : '' %>>
+            <option value="FREE" <%= invoice.installationType === 'FREE' ? 'selected' : '' %>>
               Free Installation
             </option>
-            <option value="DIY" <%= pi.installationType === 'DIY' ? 'selected' : '' %>>
+            <option value="DIY" <%= invoice.installationType === 'DIY' ? 'selected' : '' %>>
               DIY (Do It Yourself)
             </option>
           </select>
@@ -279,17 +279,17 @@
 
       <div class="mt-3">
         <label class="form-label">Notes (shown on PI)</label>
-        <textarea name="notes" class="form-control" rows="3"><%= pi.notes || '' %></textarea>
+        <textarea name="notes" class="form-control" rows="3"><%= invoice.notes || '' %></textarea>
       </div>
     </div>
 
     <!-- ================= ACTIONS ================= -->
     <div class="d-flex justify-content-end">
-      <a href="/leads/<%= lead._id %>/pi" class="btn btn-secondary me-2">
+      <a href="/leads/<%= lead._id %>/pi/<%= invoice.piId %>/invoices" class="btn btn-secondary me-2">
         Cancel
       </a>
       <button class="btn btn-primary">
-        Update Proforma Invoice
+        Update Tax Invoice
       </button>
     </div>
 
@@ -320,7 +320,7 @@
   const container = document.getElementById('itemsContainer');
   const addBtn = document.getElementById('addItem');
 
-  let index = <%= pi.items.length %>;
+  let index = <%= invoice.items.length %>;
 
   // Add new row
   addBtn.addEventListener('click', () => {

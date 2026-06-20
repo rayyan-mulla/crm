@@ -126,8 +126,8 @@ async function buildReportData(query){
     for(const item of (inv.items || [])){
 
       const qty = Number(item.quantity) || 0;
-      const sell = Number(item.unitPrice) || 0;
-      const shippingCostPerUnit = Number(item.shippingUnit) || 0;
+
+      const shipping = Number(item.shippingUnit) || 0;
 
       totalQty += qty;
       totalChairs += qty;
@@ -138,12 +138,10 @@ async function buildReportData(query){
       const colorName = colorData.colorName || item.colorName || '-';
       const costPrice = Number(colorData.costPrice) || 0;
 
-      const itemRevenue = sell * qty;
-      const itemCost = (costPrice + shippingCostPerUnit) * qty;
-      const itemProfit = itemRevenue - itemCost;
+      // COST
+      const itemCost = (costPrice + shipping) * qty;
 
       invoiceCost += itemCost;
-      invoiceProfit += itemProfit;
 
       // charts
       chairsByModel[modelName] =
@@ -154,6 +152,8 @@ async function buildReportData(query){
         `${modelName} (${colorName}) x${qty}`
       );
     }
+
+    invoiceProfit = taxable - invoiceCost;
 
     totalCost += invoiceCost;
     totalProfit += invoiceProfit;
@@ -176,7 +176,7 @@ async function buildReportData(query){
       chair: itemDescriptions, // array now
       qty: totalQty,
 
-      sellUnit: totalWithGST,
+      sellUnit: taxable,
       taxable: taxable,
       gst: gst,
 

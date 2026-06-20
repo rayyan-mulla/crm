@@ -1,6 +1,7 @@
 const Lead = require('../models/Lead');
 const ProformaInvoice = require('../models/ProformaInvoice');
 const TaxInvoice = require('../models/TaxInvoice');
+const Chair = require('../models/Chair');
 const imageToBase64 = require('../utils/imageToBase64');
 const pdfGenerator = require('../utils/pdfGenerator');
 const mongoose = require('mongoose');
@@ -148,6 +149,155 @@ exports.invoiceHistory = async (req, res) => {
     activePage: 'proformaInvoice',
     showBack: true
   });
+};
+
+exports.editForm = async (req, res) => {
+  try {
+    const { leadId, invoiceId } = req.params;
+    const user = req.session.user;
+
+    // 🛡️ Admin check: Only admin can view the edit form for a Tax Invoice
+    if (user?.role !== 'admin') {
+      return res.status(403).send('Not authorized. Only administrators can edit Tax Invoices.');
+    }
+
+    const invoice = await TaxInvoice.findById(invoiceId).lean();
+    if (!invoice) return res.status(404).send('Tax Invoice not found');
+
+    if (invoice.status === 'DELETED') {
+      return res.status(400).send('Deleted Tax Invoices cannot be modified.');
+    }
+
+    const lead = await Lead.findById(leadId).lean();
+    if (!lead) return res.status(404).send('Lead not found');
+
+    const chairs = await Chair.find().lean();
+
+    // We pass the invoice document context to the view under variable name 'pi' 
+    // so it perfectly matches your duplicated layout mechanics without changes.
+    res.render('invoice/edit', {
+      invoice: invoice, 
+      lead,
+      chairs,
+      user,
+      activePage: 'proformaInvoice',
+      showBack: true
+    });
+  } catch (err) {
+    console.error('TAX INVOICE EDIT FORM LOAD ERROR:', err);
+    res.status(500).send('Internal Server Error');
+  }
+};
+
+exports.update = async (req, res) => {
+  try {
+    const { leadId, piId, invoiceId } = req.params;
+    const user = req.session.user;
+
+    // 🛡️ Guard execution layer to admin only
+    if (user?.role !== 'admin') {
+      return res.status(403).send('Not authorized.');
+    }
+
+    const invoice = await TaxInvoice.findById(invoiceId);
+    if (!invoice) return res.status(404).send('Tax Invoice not found');
+    if (invoice.status === 'DELETED') {
+      return res.status(400).send('Deleted Tax Invoices cannot be edited.');
+    }
+
+    // 1. Address Updates
+    invoice.billingAddress = req.body.billing;
+    const sameAsBilling = !!req.body.sameAsBilling;
+    invoice.shippingAddress = sameAsBilling ? req.body.billing : req.body.shipping;
+
+    // 2. Items Deep Snapshot Copy
+    const itemsFromForm = Array.isArray(req.body.items)
+      ? req.body.items
+      : Object.values(req.body.items || {});
+
+    const existingItemsById = new Map(
+      invoice.items.map(item => [
+        String(item._id),
+        { shippingUnit: item.shippingUnit || 0 }
+      ])
+    );
+
+    invoice.items = [];
+
+    for (const i of itemsFromForm) {
+      if (!i.chairId || !i.colorId) continue;
+
+      const chair = await Chair.findById(i.chairId).lean();
+      if (!chair) continue;
+
+      const color = chair.colors.find(c => String(c._id) === String(i.colorId));
+      if (!color) continue;
+
+      const preserved = i.itemId ? existingItemsById.get(String(i.itemId)) : null;
+
+      const item = {
+        chairId: chair._id,
+        chairModel: chair.modelName,
+        hsnCode: chair.hsnCode || '94036000',
+        colorId: color._id,
+        colorName: color.name,
+        quantity: Number(i.quantity),
+        unitPrice: Number(i.unitPrice),
+        shippingUnit: Number(i.shippingUnit || 0)
+      };
+
+      if (i.itemId) item._id = i.itemId;
+      invoice.items.push(item);
+    }
+
+    // 3. Financial Recalculation Engine
+    const COMPANY_STATE = 'Maharashtra';
+    const gstEnabled = !!req.body.gstEnabled;
+    invoice.gstEnabled = gstEnabled;
+
+    const billingState = (req.body.billing?.state || '').trim();
+    invoice.gstType = gstEnabled
+      ? (billingState === COMPANY_STATE ? 'CGST_SGST' : 'IGST')
+      : 'NONE';
+
+    const taxableAmount = invoice.items.reduce(
+      (sum, i) => sum + (i.unitPrice * i.quantity),
+      0
+    );
+
+    const gstBreakup = { igst: 0, cgst: 0, sgst: 0 };
+
+    if (gstEnabled) {
+      if (invoice.gstType === 'IGST') {
+        gstBreakup.igst = taxableAmount * 0.18;
+      } else if (invoice.gstType === 'CGST_SGST') {
+        gstBreakup.cgst = taxableAmount * 0.09;
+        gstBreakup.sgst = taxableAmount * 0.09;
+      }
+    }
+
+    const gstAmount = gstBreakup.igst + gstBreakup.cgst + gstBreakup.sgst;
+
+    invoice.taxableAmount = taxableAmount;
+    invoice.gstBreakup = gstBreakup;
+    invoice.gstAmount = gstAmount;
+    invoice.grandTotal = taxableAmount + gstAmount;
+
+    // 4. Logistics & Overheads Data Capture
+    invoice.shippingCost = Number(req.body.shippingCost || 0);
+    invoice.poNumber = req.body.poNumber;
+    invoice.paymentMode = req.body.paymentMode;
+    invoice.estimatedDelivery = req.body.estimatedDelivery;
+    invoice.installationType = req.body.installationType || 'FREE';
+    invoice.notes = req.body.notes;
+
+    await invoice.save();
+
+    res.redirect(`/leads/${leadId}/pi/${piId}/invoices`);
+  } catch (err) {
+    console.error('TAX INVOICE UPDATE CONTROLLER ERROR:', err);
+    res.status(500).send(err.message);
+  }
 };
 
 exports.deleteInvoice = async (req, res) => {

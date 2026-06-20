@@ -320,7 +320,7 @@ exports.update = async (req, res) => {
         colorName: color.name,
         quantity: Number(i.quantity),
         unitPrice: Number(i.unitPrice),
-        shippingUnit: preserved?.shippingUnit || 0
+        shippingUnit: Number(i.shippingUnit || 0)
       };
 
       if (i.itemId) {

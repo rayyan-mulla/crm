@@ -90,4 +90,8 @@ router.get('/:leadId/pi/:piId/invoices', isLoggedIn, taxInvoiceController.invoic
 
 router.post('/:leadId/pi/:piId/invoices', isLoggedIn, taxInvoiceController.generateFromPI);
 
+router.get('/:leadId/pi/:piId/invoices/:invoiceId/edit', isLoggedIn, taxInvoiceController.editForm);
+
+router.post('/:leadId/pi/:piId/invoices/:invoiceId/edit', isLoggedIn, taxInvoiceController.update);
+
 module.exports = router;

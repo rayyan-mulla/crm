@@ -131,6 +131,16 @@
                       PDF
                     </a>
 
+                    <!-- Edit -->
+                    <% if (!isDeleted && user.role === 'admin') { %>
+                      <a
+                        href="/leads/<%= lead._id %>/pi/<%= pi._id %>/invoices/<%= inv._id %>/edit"
+                        class="btn btn-sm btn-outline-primary"
+                      >
+                        Edit
+                      </a>
+                    <% } %>
+
                     <% if (user.role === 'admin' && !isDeleted) { %>
                       <button
                         type="button"
