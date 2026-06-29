@@ -1,4 +1,7 @@
 const Chair = require('../models/Chair');
+const ProductCategory = require('../models/ProductCategory');
+const SparePart = require('../models/SparePart');
+const SubAssembly = require('../models/SubAssembly');
 
 // List
 exports.index = async (req, res) => {
@@ -17,6 +20,8 @@ exports.index = async (req, res) => {
     const total = await Chair.countDocuments(filter);
 
     const chairs = await Chair.find(filter)
+      .populate('category')
+      .populate('components.item')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -39,20 +44,31 @@ exports.index = async (req, res) => {
 };
 
 // New form
-exports.newForm = (req, res) => {
-  res.render('chairs/form', {
-    mode: 'create',
-    chair: { modelName: '', colors: [] },
-    user: req.session.user,
-    activePage: 'chairs',
-    showBack: true
-  });
+exports.newForm = async (req, res) => {
+  try {
+    const categories = await ProductCategory.find({ isActive: true }).lean();
+    const spareParts = await SparePart.find({ isActive:true }).lean();
+    const subAssemblies = await SubAssembly.find({ isActive:true }).lean();
+    res.render('chairs/form', {
+      mode: 'create',
+      chair: { modelName: '', colors: [], components: [] },
+      categories,
+      spareParts,
+      subAssemblies,
+      user: req.session.user,
+      activePage: 'chairs',
+      showBack: true
+    });
+  } catch (err) {
+    console.error('chairs.newForm error', err);
+    res.status(500).send('Server error');
+  }
 };
 
 // Create
 exports.create = async (req, res) => {
   try {
-    const { modelName, hsnCode } = req.body;
+    const { modelName, hsnCode, category } = req.body;
 
     // Parse colors sent as arrays: colorName[], colorPrice[]
     const colors = [];
@@ -78,7 +94,26 @@ exports.create = async (req, res) => {
       });
     }
 
-    await Chair.create({ modelName, hsnCode, colors });
+    const components = [];
+    const types = Array.isArray(req.body.componentType) ? req.body.componentType : (req.body.componentType ? [req.body.componentType] : []);
+    const items = Array.isArray(req.body.componentItem) ? req.body.componentItem : (req.body.componentItem ? [req.body.componentItem] : []);
+    const qtns  = Array.isArray(req.body.componentQty) ? req.body.componentQty : (req.body.componentQty ? [req.body.componentQty] : []);
+
+    for (let i = 0; i < types.length; i++) {
+      const itemId = (items[i] || '').trim();
+      if (!itemId) continue; // Discard invalid or unselected drops
+
+      const modelRefString = types[i] === 'sparePart' ? 'SparePart' : 'SubAssembly';
+
+      components.push({
+        componentType: types[i],
+        item: itemId,
+        componentModel: modelRefString,
+        quantity: Number(qtns[i] || 1)
+      });
+    }
+
+    await Chair.create({ modelName, hsnCode, category: category || undefined, colors, components });
     res.redirect('/raw-materials/chairs');
   } catch (err) {
     console.error('chairs.create error', err);
@@ -90,12 +125,19 @@ exports.create = async (req, res) => {
 exports.editForm = async (req, res) => {
   try {
     const chair = await Chair.findById(req.params.id).lean();
+    const categories = await ProductCategory.find({ isActive: true }).lean();
+    const spareParts = await SparePart.find({ isActive:true }).lean();
+    const subAssemblies = await SubAssembly.find({ isActive:true }).lean();
     if (!chair) return res.redirect('/raw-materials/chairs');
     res.render('chairs/form', {
       mode: 'edit',
       chair,
+      categories,
+      spareParts,
+      subAssemblies,
       user: req.session.user,
-      activePage: 'chairs'
+      activePage: 'chairs',
+      showBack: true
     });
   } catch (err) {
     console.error('chairs.editForm error', err);
@@ -106,7 +148,7 @@ exports.editForm = async (req, res) => {
 // Update (whole chair + colors)
 exports.update = async (req, res) => {
   try {
-    const { modelName, hsnCode, isActive } = req.body;
+    const { modelName, hsnCode, category, isActive } = req.body;
 
     // Rebuild colors from form (edit view sends arrays + each row has rowId if existing)
     const names = Array.isArray(req.body.colorName) ? req.body.colorName : (req.body.colorName ? [req.body.colorName] : []);
@@ -128,11 +170,32 @@ exports.update = async (req, res) => {
       colors.push({ _id, name, basePrice: isNaN(basePrice) ? 0 : basePrice, gstApplicable: gstApplicable, finalPrice: Math.round(finalPrice * 100) / 100, isActive: isActiveRow });
     }
 
+    const components = [];
+    const types = Array.isArray(req.body.componentType) ? req.body.componentType : (req.body.componentType ? [req.body.componentType] : []);
+    const items = Array.isArray(req.body.componentItem) ? req.body.componentItem : (req.body.componentItem ? [req.body.componentItem] : []);
+    const qtns  = Array.isArray(req.body.componentQty) ? req.body.componentQty : (req.body.componentQty ? [req.body.componentQty] : []);
+
+    for (let i = 0; i < types.length; i++) {
+      const itemId = (items[i] || '').trim();
+      if (!itemId) continue; // Discard invalid or unselected drops
+
+      const modelRefString = types[i] === 'sparePart' ? 'SparePart' : 'SubAssembly';
+
+      components.push({
+        componentType: types[i],
+        item: itemId,
+        componentModel: modelRefString,
+        quantity: Number(qtns[i] || 1)
+      });
+    }
+
     await Chair.findByIdAndUpdate(req.params.id, {
       modelName,
       hsnCode,
+      category: category || undefined,
       isActive: !!isActive,
-      colors
+      colors,
+      components
     }, { runValidators: true });
 
     res.redirect('/raw-materials/chairs');

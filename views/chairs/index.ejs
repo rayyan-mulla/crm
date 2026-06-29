@@ -60,9 +60,7 @@
           </select>
         </form>
 
-
         <!-- Right: Seatch -->
-
         <form method="get" class="d-flex gap-2">
           <input
             name="search"
@@ -71,12 +69,8 @@
             value="<%= query.search || '' %>"
             style="width:220px"
           >
-
           <input type="hidden" name="limit" value="<%= limit %>">
-
-          <button class="btn btn-sm btn-primary">
-            Search
-          </button>
+          <button class="btn btn-sm btn-primary">Search</button>
         </form>
       </div>
 
@@ -88,9 +82,10 @@
                 <thead class="table-light">
                   <tr>
                     <th style="width: 40px;">#</th>
-                    <th style="max-width: 150px;">Model</th>
-                    <th style="width: 120px;">HSN Code</th> 
-                    <th style="max-width: 250px;">Colors</th>
+                    <th style="max-width: 120px;">Model</th>
+                    <th style="width: 110px;">HSN Code</th> 
+                    <th style="min-width: 320px;">Colors</th>
+                    <th style="max-width: 200px;">Components Breakdown</th>
                     <th style="width: 100px;">Status</th>
                     <th style="width: 120px;">Created At</th>
                     <th style="width: 140px;" class="text-end">Actions</th>
@@ -100,7 +95,7 @@
                   <% chairs.forEach((chair, index) => { %>
                     <tr>
                       <td><%= (page-1)*limit + index + 1 %></td>
-                      <td class="text-truncate" style="max-width:150px;" title="<%= chair.modelName %>">
+                      <td class="text-truncate" style="max-width:120px;" title="<%= chair.modelName %>">
                         <%= chair.modelName %>
                       </td>
                       <td class="text-nowrap">
@@ -137,19 +132,33 @@
 
                                 <%
                                   const stock = Number(col.stock) || 0;
-
                                   let stockClass = 'bg-success';
                                   if (stock === 0) stockClass = 'bg-danger';
                                   else if (stock < 10) stockClass = 'bg-warning text-dark';
                                 %>
-
                                 <div class="d-flex justify-content-between small mt-1">
                                   <span class="text-muted">Stock:</span>
-                                  <span class="badge <%= stockClass %>">
-                                    <%= stock %>
-                                  </span>
+                                  <span class="badge <%= stockClass %>"><%= stock %></span>
                                 </div>
-                                
+                              </div>
+                            <% }) %>
+                          </div>
+                        <% } else { %>
+                          <span class="text-muted">—</span>
+                        <% } %>
+                      </td>
+                      <td style="max-width: 200px;">
+                        <% if (chair.components && chair.components.length > 0) { %>
+                          <div class="d-flex flex-wrap gap-1">
+                            <% chair.components.forEach(c => { %>
+                              <div class="badge bg-light text-dark border d-flex align-items-center gap-2 px-2 py-1" style="font-weight: normal; white-space: normal; text-align: left;">
+                                <span>
+                                  <% let displayName = c.item?.partName || c.item?.name || c.partName || c.name; %>
+                                  <%= displayName || 'Unknown' %>
+                                </span>
+                                <span class="badge bg-secondary text-white rounded-pill px-1.5 py-0.5" style="font-size: 0.75rem;">
+                                  ×<%= c.quantity || 1 %>
+                                </span>
                               </div>
                             <% }) %>
                           </div>
@@ -229,14 +238,14 @@
                     centerStart = Math.max(2, centerStart);
                     centerEnd   = Math.min(totalPages - 1, centerEnd);
                   %>
-
+                  
                   <!-- Left Ellipsis -->
                   <% if (centerStart > 2) { %>
                     <li class="page-item disabled">
                       <span class="page-link">…</span>
                     </li>
                   <% } %>
-
+                  
                   <!-- Center Pages -->
                   <% for (let p = centerStart; p <= centerEnd; p++) { %>
                     <li class="page-item <%= p === page ? 'active' : '' %>">
@@ -257,7 +266,7 @@
                       <a class="page-link" href="<%= buildQuery(totalPages) %>"><%= totalPages %></a>
                     </li>
                   <% } %>
-
+                  
                   <!-- Next -->
                   <li class="page-item <%= page === totalPages ? 'disabled' : '' %>">
                     <a class="page-link" href="<%= buildQuery(Math.min(totalPages, page + 1)) %>">&raquo;</a>
@@ -304,11 +313,10 @@
         const chairId = button.getAttribute('data-chair-id');
         const chairName = button.getAttribute('data-chair-name');
 
-        deleteForm.action = `/raw-materials/chairs/${chairId}/delete`; // update form action
-        deleteChairName.textContent = chairName; // show chair name in modal
+        deleteForm.action = `/raw-materials/chairs/${chairId}/delete`;
+        deleteChairName.textContent = chairName;
       });
     </script>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

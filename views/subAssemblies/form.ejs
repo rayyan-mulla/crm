@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title><%= mode === 'create' ? 'Add Sub Assembly' : 'Edit Sub Assembly' %> - Olive Chairs ERP</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+</head>
+<body>
+<%- include('../partials/navbar', { user, activePage }) %>
+
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><%= mode === 'create' ? 'Add Sub Assembly' : 'Edit Sub Assembly' %></h3>
+  </div>
+
+  <form action="<%= mode === 'create' ? '/production/sub-assemblies' : '/production/sub-assemblies/' + subAssembly._id %>" method="post" class="card shadow-sm p-3">
+    <div class="card-body">
+      
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Sub Assembly Information</h5>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="isActive" id="isActive" <%= mode === 'create' ? 'checked' : (subAssembly.isActive ? 'checked' : '') %>>
+          <label class="form-check-label" for="isActive">Active</label>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label class="form-label">Name</label>
+          <input name="name" class="form-control" required value="<%= subAssembly.name || '' %>">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Code</label>
+          <input name="code" class="form-control" value="<%= subAssembly.code || '' %>">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">HSN Code</label>
+          <input name="hsnCode" class="form-control" value="<%= subAssembly.hsnCode || '94036000' %>">
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Components</h5>
+        <button type="button" id="addComponent" class="btn btn-sm btn-outline-primary">+ Add Component</button>
+      </div>
+
+      <div id="componentsContainer" class="vstack gap-2">
+        <% (subAssembly.components || []).forEach(c => { %>
+          <div class="row component-row align-items-center">
+            <div class="col-md-7">
+              <select name="component" class="form-select component-select" required>
+                <option value="">Select Spare Part</option>
+                <% spareParts.forEach(sp => { %>
+                  <option value="<%= sp._id %>" 
+                          data-base="<%= sp.baseCost %>" 
+                          data-final="<%= sp.finalCost %>" 
+                          <%= c.item?._id?.toString() === sp._id.toString() ? 'selected' : '' %>>
+                    <%= sp.partName %> (Base: <%= sp.baseCost %> | Final: <%= sp.finalCost %>)
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <input type="number" name="quantity" class="form-control qty-input" min="1" value="<%= c.quantity %>" required>
+            </div>
+
+            <div class="col-md-1 text-end">
+              <button type="button" class="btn btn-outline-danger removeComponent">✕</button>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+
+      <hr class="my-4">
+
+      <h5 class="mb-3">Pricing Valuation</h5>
+      
+      <div class="row g-3 mb-2">
+        <div class="col-md-3">
+          <label class="form-label text-muted">Calculated BOM Cost</label>
+          <input id="subBomCost" class="form-control bg-light text-muted" type="text" readonly value="<%= subAssembly.bomCost ? subAssembly.bomCost.toFixed(2) : '0.00' %>"/>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Set Selling Base Cost</label>
+          <div class="input-group">
+            <input 
+              id="basePrice"
+              name="basePrice" 
+              type="number" 
+              step="0.01"
+              min="0"
+              class="form-control" 
+              required 
+              value="<%= subAssembly.basePrice || '' %>" />
+            <div class="input-group-text">
+              <input 
+                class="form-check-input mt-0" 
+                type="checkbox" 
+                name="gstApplicable" 
+                id="gstApplicable" 
+                <%= subAssembly.gstApplicable !== false ? 'checked' : '' %> />
+              <small class="ms-1">GST</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Final Selling Price (Inc. Tax)</label>
+          <input id="finalPrice" class="form-control bg-light text-dark" type="text" readonly value="<%= subAssembly.finalPrice ? subAssembly.finalPrice.toFixed(2) : '0.00' %>"/>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label text-muted">Estimated Margin</label>
+          <input id="marginProfit" class="form-control bg-light text-muted" type="text" readonly value="0.00%"/>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex justify-content-end">
+        <button class="btn btn-primary px-4"><%= mode === 'create' ? 'Create Sub Assembly' : 'Save Changes' %></button>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script>
+  (function(){
+    const container = document.getElementById('componentsContainer');
+    const addBtn = document.getElementById('addComponent');
+
+    function calculateLiveTotals() {
+      let totalBOM = 0;
+
+      document.querySelectorAll('.component-row').forEach(row => {
+        const select = row.querySelector('.component-select');
+        const qtyInput = row.querySelector('.qty-input');
+        
+        if (select && qtyInput) {
+          const selectedOption = select.options[select.selectedIndex];
+          const qty = Number(qtyInput.value) || 0;
+
+          if (selectedOption && selectedOption.value) {
+            const baseCost = Number(selectedOption.getAttribute('data-base')) || 0;
+            totalBOM += baseCost * qty;
+          }
+        }
+      });
+      document.getElementById('subBomCost').value = totalBOM.toFixed(2);
+
+      const basePriceInput = document.getElementById('basePrice');
+      const gstCheck = document.getElementById('gstApplicable');
+      const finalPriceInput = document.getElementById('finalPrice');
+      const marginInput = document.getElementById('marginProfit');
+
+      let base = 0;
+      if (basePriceInput) {
+        base = Number(basePriceInput.value) || 0;
+      }
+
+      if (finalPriceInput) {
+        const final = (gstCheck && gstCheck.checked) ? base * 1.18 : base;
+        finalPriceInput.value = final.toFixed(2);
+      }
+
+      if (marginInput) {
+        if (totalBOM > 0 && base > 0) {
+          const profitMargin = ((base - totalBOM) / base) * 100;
+          marginInput.value = profitMargin.toFixed(2) + '%';
+          
+          if (profitMargin < 0) {
+            marginInput.classList.add('text-danger');
+            marginInput.classList.remove('text-muted', 'text-success');
+          } else {
+            marginInput.classList.add('text-success');
+            marginInput.classList.remove('text-muted', 'text-danger');
+          }
+        } else if (base > 0 && totalBOM === 0) {
+          marginInput.value = '100.00%';
+          marginInput.classList.add('text-success');
+          marginInput.classList.remove('text-muted', 'text-danger');
+        } else {
+          marginInput.value = '0.00%';
+          marginInput.className = 'form-control bg-light text-muted';
+        }
+      }
+    }
+
+    document.addEventListener('input', calculateLiveTotals);
+    document.addEventListener('change', calculateLiveTotals);
+
+    addBtn?.addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'row component-row align-items-center';
+      row.innerHTML = `
+        <div class="col-md-7">
+          <select name="component" class="form-select component-select" required>
+            <option value="">Select Spare Part</option>
+            <% spareParts.forEach(sp => { %>
+              <option value="<%= sp._id %>" data-base="<%= sp.baseCost %>" data-final="<%= sp.finalCost %>">
+                <%= sp.partName %> (Base: <%= sp.baseCost %> | Final: <%= sp.finalCost %>)
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <input type="number" name="quantity" class="form-control qty-input" min="1" value="1" required>
+        </div>
+        <div class="col-md-1 text-end">
+          <button type="button" class="btn btn-outline-danger removeComponent">✕</button>
+        </div>
+      `;
+      container.appendChild(row);
+      calculateLiveTotals();
+    });
+
+    container?.addEventListener('click', e => {
+      if (e.target.closest('.removeComponent')) {
+        e.target.closest('.component-row')?.remove();
+        calculateLiveTotals();
+      }
+    });
+
+    calculateLiveTotals();
+  })();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
+const MongoStore = require('connect-mongo').default;
 const path = require('path');
 const flash = require('connect-flash');
 const http = require('http');           // 👈 required
@@ -35,7 +36,15 @@ app.use('/temp-media', express.static(path.join(__dirname, 'uploads/whatsapp')))
 app.use(session({
   secret: process.env.SESSION_SECRET || 'olivecrmsecret',
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI
+  }),
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true
+  }
 }));
 app.use(flash());
 
@@ -58,6 +67,8 @@ const reportsRouter = require('./routes/reports')
 const vendorsRouter = require('./routes/vendors');
 const purchaseRoutes = require('./routes/purchases');
 const vendorPaymentRoutes = require('./routes/vendorPayments');
+const productCategoryRoutes = require('./routes/productCategories');
+const subAssemblyRoutes = require('./routes/subAssemblies');
 
 app.use('/', indexRouter);
 app.use('/leads', leadsRouter);
@@ -73,6 +84,8 @@ app.use('/reports', reportsRouter);
 app.use('/purchasing/vendors', vendorsRouter);
 app.use('/purchasing/purchases', purchaseRoutes);
 app.use('/purchasing/vendor-payments', vendorPaymentRoutes);
+app.use('/production/product-categories', productCategoryRoutes);
+app.use('/production/sub-assemblies', subAssemblyRoutes);
 
 // --- Seeds at startup ---
 (async () => {

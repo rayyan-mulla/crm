@@ -30,11 +30,22 @@
         </div>
       </div>
       <div class="row g-3">
-        <div class="col-md-6">
+        <div class="col-md-4">
           <label class="form-label">Model Name</label>
           <input name="modelName" class="form-control" required value="<%= chair.modelName || '' %>"/>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
+          <label class="form-label">Product Category</label>
+          <select name="category" class="form-select" required>
+            <option value="">Select Category</option>
+            <% categories.forEach(cat => { %>
+              <option value="<%= cat._id %>" <%= chair.category && chair.category.toString() === cat._id.toString() ? 'selected' : '' %>>
+                <%= cat.name %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4">
           <label class="form-label">HSN Code</label>
           <input name="hsnCode" class="form-control" value="<%= chair.hsnCode || '94036000' %>"/>
         </div>
@@ -49,12 +60,12 @@
 
       <div id="colorsContainer" class="vstack gap-2">
         <% (chair.colors || []).forEach(function(col){ %>
-          <div class="color-row row g-2 align-items-center">
+          <div class="color-row row align-items-center mx-0 mt-2">
             <input type="hidden" name="colorId" value="<%= col._id %>"/>
 
             <!-- Color Name -->
-            <div class="col-md-4">
-              <input class="form-control" name="colorName" placeholder="Color Name" required value="<%= col.name %>" />
+            <div class="col-md-4" style="padding-left: 0;">
+              <input class="form-control col-md-4" name="colorName" placeholder="Color Name" required value="<%= col.name %>" />
             </div>
 
             <!-- Base Price -->
@@ -83,10 +94,10 @@
             </div>
 
             <!-- Delete -->
-            <div class="col-6 col-md-1 text-end">
+            <div class="col-6 col-md-1 text-end" style="padding-right: 0;">
               <% if (mode === 'edit') { %>
                 <button type="button"
-                  class="btn btn-sm btn-outline-danger"
+                  class="btn btn-outline-danger"
                   data-bs-toggle="modal"
                   data-bs-target="#deleteColorModal"
                   data-chair-id="<%= chair._id %>"
@@ -95,11 +106,45 @@
                   ✕
                 </button>
               <% } else { %>
-                <button type="button" class="btn btn-sm btn-outline-danger removeColor">✕</button>
+                <button type="button" class="btn btn-outline-danger removeColor">✕</button>
               <% } %>
             </div>
           </div>
         <% }); %>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">Components</h5>
+        <button type="button" id="addComponent" class="btn btn-sm btn-outline-primary">Add Component</button>
+      </div>
+
+      <div id="componentsContainer" class="vstack gap-2">
+        <% (chair.components || []).forEach(component => { %>
+          <div class="component-row row align-items-center mt-2" data-saved-id="<%= component.item %>">
+            <div class="col-md-4">
+              <select name="componentType" class="form-select" required>
+                <option value="sparePart" <%= component.componentType === 'sparePart' ? 'selected' : '' %>>Spare Part</option>
+                <option value="subAssembly" <%= component.componentType === 'subAssembly' ? 'selected' : '' %>>Sub Assembly</option>
+              </select>
+            </div>
+
+            <div class="col-md-5">
+              <select name="componentItem" class="form-select" required>
+                <option value="">Select Item</option>
+              </select>
+            </div>
+
+            <div class="col-md-2">
+              <input type="number" name="componentQty" class="form-control" min="1" value="<%= component.quantity || 1 %>" required>
+            </div>
+
+            <div class="col-md-1 text-end">
+              <button type="button" class="btn btn-outline-danger removeComponent">✕</button>
+            </div>
+          </div>
+        <% }) %>
       </div>
 
       <div class="mt-4 d-flex justify-content-end">
@@ -155,9 +200,9 @@
 
     addBtn?.addEventListener('click', () => {
       const row = document.createElement('div');
-      row.className = 'color-row row g-2 align-items-center';
+      row.className = 'color-row row align-items-center mx-0 mt-2';
       row.innerHTML = `
-        <div class="col-md-4">
+        <div class="col-md-4" style="padding-left: 0;">
           <input class="form-control" name="colorName" placeholder="Color Name" required />
         </div>
 
@@ -180,8 +225,8 @@
           <label class="form-check-label">Active</label>
         </div>
 
-        <div class="col-6 col-md-1 text-end">
-          <button type="button" class="btn btn-sm btn-outline-danger removeColor">✕</button>
+        <div class="col-6 col-md-1 text-end" style="padding-right: 0;">
+          <button type="button" class="btn btn-outline-danger removeColor">✕</button>
         </div>
       `;
       container.appendChild(row);
@@ -217,6 +262,87 @@
 
   // Init on page load
   document.querySelectorAll('.color-row').forEach(updateFinalPrice);
+</script>
+
+<script>
+  (function(){
+    // Direct compilation injection of data lists from server payload variables
+    const sparePartsList = <%- JSON.stringify(spareParts || []) %>;
+    const subAssembliesList = <%- JSON.stringify(subAssemblies || []) %>;
+
+    const container = document.getElementById('componentsContainer');
+    const addBtn = document.getElementById('addComponent');
+
+    // Helper engine to swap list contents inside the sub-selectors
+    function populateItems(row, selectedType, preselectedId = '') {
+      const itemSelect = row.querySelector('[name="componentItem"]');
+      if (!itemSelect) return;
+
+      itemSelect.innerHTML = '<option value="">Select Item</option>';
+      const dataset = (selectedType === 'sparePart') ? sparePartsList : subAssembliesList;
+
+      dataset.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item._id;
+        option.textContent = item.partName || item.name || 'Unnamed Item';
+        if (String(item._id) === String(preselectedId)) {
+          option.selected = true;
+        }
+        itemSelect.appendChild(option);
+      });
+    }
+
+    // Trigger changes when dynamic row dropdown changes types
+    container?.addEventListener('change', (e) => {
+      if (e.target.name === 'componentType') {
+        const row = e.target.closest('.component-row');
+        populateItems(row, e.target.value);
+      }
+    });
+
+    // Create New Row Event Handler
+    addBtn?.addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'component-row row align-items-center mt-2';
+      row.innerHTML = `
+        <div class="col-md-4">
+          <select name="componentType" class="form-select" required>
+            <option value="sparePart">Spare Part</option>
+            <option value="subAssembly">Sub Assembly</option>
+          </select>
+        </div>
+        <div class="col-md-5">
+          <select name="componentItem" class="form-select" required>
+            <option value="">Select Item</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <input type="number" name="componentQty" class="form-control" value="1" min="1" required>
+        </div>
+        <div class="col-md-1 text-end">
+          <button type="button" class="btn btn-outline-danger removeComponent">✕</button>
+        </div>
+      `;
+      container.appendChild(row);
+      populateItems(row, 'sparePart');
+    });
+
+    // Handle Item Row Deletions
+    container?.addEventListener('click', (e) => {
+      if (e.target.classList.contains('removeComponent')) {
+        e.target.closest('.component-row')?.remove();
+      }
+    });
+
+    // Rehydrate and build item dropdown loops for pre-existing items loaded in edit view
+    document.querySelectorAll('.component-row').forEach(row => {
+      const currentType = row.querySelector('[name="componentType"]')?.value;
+      const savedItemId = row.getAttribute('data-saved-id');
+      if (currentType) {
+        populateItems(row, currentType, savedItemId);
+      }
+    });
+  })();
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

@@ -25,10 +25,24 @@
     color: #000000 !important; /* Turn black on hover */
   }
 
-  /* Adjust for mobile */
+  /* Fluid typography for middle branding segment */
+  .crm-title {
+    font-size: 1.1rem;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  /* Responsive adjust for mid-range desktop breakpoints */
+  @media (max-width: 1200px) and (min-width: 992px) {
+    .crm-title {
+      font-size: 0.9rem;
+    }
+  }
+
   @media (max-width: 992px) {
-    .navbar-center {
+    .crm-title {
       font-size: 14px;
+      text-align: left;
     }
   }
 </style>
@@ -46,14 +60,14 @@
       <a
         href="/leads"
         id="navBackBtn"
-        class="back-btn ms-4 d-flex align-items-center text-decoration-none"
+        class="back-btn ms-2 d-flex align-items-center text-decoration-none"
       >
         <span class="d-none d-md-inline">&larr; Back</span>
       </a>
     <% } %>
 
-    <!-- Centered CRM text -->
-    <div class="navbar-center fw-bold">
+    <!-- Centered CRM text: Flexible column width structure prevents collisions -->
+    <div class="crm-title fw-bold px-3 flex-grow-1 d-none d-sm-block text-center text-lg-center">
       <span class="d-lg-none">CRM</span>
       <span class="d-none d-lg-inline">Customer Relationship Management</span>
     </div>
@@ -153,6 +167,54 @@
                   href="/raw-materials/spare-part-categories"
                 >
                   Spare Part Categories
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Production Dropdown -->
+          <li class="nav-item dropdown">
+            <a
+              class="nav-link dropdown-toggle
+                <%= (activePage === 'productCategories' || activePage === 'subAssemblies' || activePage === 'products' || activePage === 'productionEntry') ? 'active' : '' %>"
+              href="#"
+              role="button"
+              data-bs-toggle="dropdown"
+            >
+              Production
+            </a>
+
+            <ul class="dropdown-menu">
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'productCategories') ? 'active' : '' %>"
+                  href="/production/product-categories"
+                >
+                  Product Categories
+                </a>
+              </li>
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'subAssemblies') ? 'active' : '' %>"
+                  href="/production/sub-assemblies"
+                >
+                  Sub Assemblies
+                </a>
+              </li>
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'products') ? 'active' : '' %>"
+                  href="/production/products"
+                >
+                  Products
+                </a>
+              </li>
+              <li>
+                <a
+                  class="dropdown-item <%= (activePage === 'productionEntry') ? 'active' : '' %>"
+                  href="/production/productions"
+                >
+                  Productions
                 </a>
               </li>
             </ul>
