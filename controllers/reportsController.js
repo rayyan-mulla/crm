@@ -21,7 +21,8 @@ async function buildReportData(query){
     fromDate,
     toDate,
     assignedTo,
-    source,
+    // source,
+    leadSource,
     search
   } = query;
 
@@ -58,9 +59,16 @@ async function buildReportData(query){
     );
   }
 
-  if(source){
+  // if(source){
+  //   invoices = invoices.filter(
+  //     inv => inv.lead?.source === source
+  //   );
+  // }
+
+  if(leadSource){
     invoices = invoices.filter(
-      inv => inv.lead?.source === source
+      inv => inv.lead?.leadSource && 
+        inv.lead.leadSource.toLowerCase().includes(leadSource.toLowerCase())
     );
   }
 
@@ -103,7 +111,8 @@ async function buildReportData(query){
   for(const inv of invoices){
 
     const userName = inv.createdBy?.fullName || 'Unknown';
-    const src = inv.lead?.source || 'Unknown';
+    // const src = inv.lead?.source || 'Unknown';
+    const src = inv.lead?.leadSource || inv.lead?.source || 'Unknown';
 
     const totalWithGST = Number(inv.grandTotal) || 0;
     const taxable = Number(inv.taxableAmount) || 0;
