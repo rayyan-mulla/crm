@@ -16,54 +16,47 @@ function getDealClosedDate(lead) {
 }
 
 async function buildReportData(query){
-
   const {
     fromDate,
     toDate,
     assignedTo,
-    // source,
     leadSource,
     search
   } = query;
 
-  // ✅ Fetch invoices
-  let invoices = await TaxInvoice.find({ status: 'ACTIVE' })
-    .populate('createdBy','fullName')
-    .populate('lead')
+  let dbQuery = { status: 'ACTIVE' };
+
+  if (fromDate || toDate) {
+    dbQuery.invoiceDate = {};
+    if (fromDate) {
+      dbQuery.invoiceDate.$gte = new Date(fromDate);
+    }
+    if (toDate) {
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+      dbQuery.invoiceDate.$lte = end;
+    }
+  } else {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    dbQuery.invoiceDate = { $gte: startOfMonth };
+  }
+
+  let invoices = await TaxInvoice.find(dbQuery)
+    .sort({ invoiceDate: -1 })
+    .populate('createdBy', 'fullName')
+    .populate({
+      path: 'lead',
+      populate: { path: 'assignedTo', select: 'fullName' }
+    })
     .lean();
 
-  // 🔍 FILTERS
-
-  if(fromDate || toDate){
-    const from = fromDate ? new Date(fromDate) : null;
-    const to = toDate ? new Date(toDate) : null;
-
+  if(assignedTo){
     invoices = invoices.filter(inv => {
-      const d = new Date(inv.invoiceDate);
-
-      if(from && d < from) return false;
-
-      if(to){
-        const end = new Date(to);
-        end.setHours(23,59,59,999);
-        if(d > end) return false;
-      }
-
-      return true;
+      const targetUserId = inv.lead?.assignedTo?._id || inv.lead?.assignedTo || inv.createdBy?._id;
+      return String(targetUserId) === String(assignedTo);
     });
   }
-
-  if(assignedTo){
-    invoices = invoices.filter(
-      inv => String(inv.createdBy?._id) === String(assignedTo)
-    );
-  }
-
-  // if(source){
-  //   invoices = invoices.filter(
-  //     inv => inv.lead?.source === source
-  //   );
-  // }
 
   if(leadSource){
     invoices = invoices.filter(
@@ -80,8 +73,6 @@ async function buildReportData(query){
     );
   }
 
-  // 📊 AGGREGATIONS
-
   let totalRevenue = 0;
   let totalCost = 0;
   let totalProfit = 0;
@@ -94,7 +85,6 @@ async function buildReportData(query){
 
   const tableRows = [];
 
-  // ⚡ PERFORMANCE: preload all chairs
   const chairs = await Chair.find().lean();
   const colorMap = {};
 
@@ -109,9 +99,7 @@ async function buildReportData(query){
   });
 
   for(const inv of invoices){
-
-    const userName = inv.createdBy?.fullName || 'Unknown';
-    // const src = inv.lead?.source || 'Unknown';
+    const userName = inv.lead?.assignedTo?.fullName || inv.createdBy?.fullName || 'Unknown';
     const src = inv.lead?.leadSource || inv.lead?.source || 'Unknown';
 
     const totalWithGST = Number(inv.grandTotal) || 0;
@@ -133,9 +121,7 @@ async function buildReportData(query){
     const itemDescriptions = [];
 
     for(const item of (inv.items || [])){
-
       const qty = Number(item.quantity) || 0;
-
       const shipping = Number(item.shippingUnit) || 0;
 
       totalQty += qty;
@@ -147,16 +133,12 @@ async function buildReportData(query){
       const colorName = colorData.colorName || item.colorName || '-';
       const costPrice = Number(colorData.costPrice) || 0;
 
-      // COST
       const itemCost = (costPrice + shipping) * qty;
-
       invoiceCost += itemCost;
 
-      // charts
       chairsByModel[modelName] =
         (chairsByModel[modelName] || 0) + qty;
 
-      // 🪑 Better display
       itemDescriptions.push(
         `${modelName} (${colorName}) x${qty}`
       );
@@ -167,7 +149,6 @@ async function buildReportData(query){
     totalCost += invoiceCost;
     totalProfit += invoiceProfit;
 
-    // 📅 Monthly
     const d = new Date(inv.invoiceDate);
     const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 
@@ -177,18 +158,15 @@ async function buildReportData(query){
     monthly[monthKey].totalWithGST += totalWithGST;
     monthly[monthKey].profit += invoiceProfit;
 
-    // 📋 Table Row
     tableRows.push({
       date: inv.invoiceDate,
       customer: inv.billingAddress?.name || inv.lead?.customer_name,
       user: userName,
-      chair: itemDescriptions, // array now
+      chair: itemDescriptions,
       qty: totalQty,
-
       sellUnit: taxable,
       taxable: taxable,
       gst: gst,
-
       costUnit: invoiceCost,
       profit: invoiceProfit,
       source: src
@@ -196,7 +174,6 @@ async function buildReportData(query){
   }
 
   const totalDeals = invoices.length;
-
   const avgDealValue = totalDeals ? totalRevenue / totalDeals : 0;
   const avgSellPrice = totalChairs ? totalRevenue / totalChairs : 0;
 
@@ -232,7 +209,6 @@ async function buildReportData(query){
 
 exports.getReports = async (req,res)=>{
   try{
-
     const pageNum = parseInt(req.query.page)||1;
     const limitNum = parseInt(req.query.limit)||10;
     const skip = (pageNum-1)*limitNum;
@@ -245,19 +221,30 @@ exports.getReports = async (req,res)=>{
 
     const allModels = await Chair.distinct('modelName');
 
+    const formatDateYMD = (date) => {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const now = new Date();
+    const defaultFromDate = formatDateYMD(new Date(now.getFullYear(), now.getMonth(), 1));
+    const defaultToDate = formatDateYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+
     res.render('reports/index',{
       user:req.session.user,
       users,
       allModels,
       query:req.query,
+      defaultFromDate,
+      defaultToDate,
       page:pageNum,
       limit:limitNum,
       totalPages:Math.ceil(reportData.rows.length/limitNum),
-
       summary:reportData.summary,
       charts:reportData.charts,
       rows:reportData.rows.slice(skip, skip+limitNum),
-
       activePage:'reports'
     });
 
@@ -269,9 +256,7 @@ exports.getReports = async (req,res)=>{
 
 exports.exportReportsPDF = async (req, res) => {
   try {
-
     const showAnalytics = req.query.showAnalytics === "true";
-    const path = require("path");
     const PDFDocument = require("pdfkit");
     const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
 
@@ -279,20 +264,15 @@ exports.exportReportsPDF = async (req, res) => {
       id: "valueLabelPlugin",
       afterDatasetsDraw(chart) {
         const { ctx } = chart;
-
         chart.data.datasets.forEach((dataset, i) => {
           const meta = chart.getDatasetMeta(i);
-
           meta.data.forEach((el, index) => {
             const val = dataset.data[index];
             if (!val || isNaN(val)) return;
-
             const pos = el.tooltipPosition();
-
             ctx.save();
             ctx.font = "9px Arial";
             ctx.textAlign = "center";
-
             if (chart.config.type === "doughnut") {
               ctx.fillStyle = "#fff";
               ctx.fillText(val, pos.x, pos.y);
@@ -300,7 +280,6 @@ exports.exportReportsPDF = async (req, res) => {
               ctx.fillStyle = dataset.borderColor || "#000";
               ctx.fillText(val, pos.x, pos.y - 8);
             }
-
             ctx.restore();
           });
         });
@@ -310,7 +289,6 @@ exports.exportReportsPDF = async (req, res) => {
     const data = await buildReportData(req.query);
 
     let assignedUserName = null;
-
     if (req.query.assignedTo && mongoose.Types.ObjectId.isValid(req.query.assignedTo)) {
       const assignedUser = await User.findById(req.query.assignedTo).lean();
       assignedUserName = assignedUser?.fullName || null;
@@ -534,7 +512,6 @@ exports.exportReportsPDF = async (req, res) => {
     doc.font('Roboto').fontSize(8);
 
     data.rows.forEach(r => {
-
       const rowData = [
         formatDate(r.date),
         r.customer,
@@ -551,9 +528,7 @@ exports.exportReportsPDF = async (req, res) => {
         55, 85, 70, 90, 30, 40, 40, 40, 110
       ];
 
-      // Calculate dynamic height
       let maxHeight = 0;
-
       rowData.forEach((text, i) => {
         const h = doc.heightOfString(String(text), {
           width: colWidths[i] - PAD * 2,
@@ -564,26 +539,20 @@ exports.exportReportsPDF = async (req, res) => {
 
       const rowHeight = Math.max(16, maxHeight + 6);
 
-      // Page break check
       if (rowY + rowHeight > 780) {
         doc.addPage();
         rowY = 40;
       }
 
-      // Draw row border
       doc.rect(startX, rowY - 2, 520, rowHeight).stroke();
 
-      // Draw vertical lines
-      let cumulativeX = 0;
       cols.forEach(c => {
         doc.moveTo(startX + c, rowY - 2)
           .lineTo(startX + c, rowY - 2 + rowHeight)
           .stroke();
       });
 
-      // Draw text
       let xCursor = startX;
-
       rowData.forEach((text, i) => {
         doc.text(String(text), xCursor + PAD, rowY, {
           width: colWidths[i] - PAD * 2,
@@ -598,7 +567,7 @@ exports.exportReportsPDF = async (req, res) => {
     doc.end();
 
   } catch(err){
-  console.error("PDF EXPORT ERROR",err);
-  res.status(500).send("PDF export error");
+    console.error("PDF EXPORT ERROR",err);
+    res.status(500).send("PDF export error");
   }
 };
