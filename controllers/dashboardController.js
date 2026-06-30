@@ -16,6 +16,51 @@ const FIXED_STATUSES = [
 exports.getDashboard = async (req, res) => {
   try {
     const user = req.session.user;
+    
+    // Get the selected range, defaulting to 'current_month'
+    const activeRange = req.query.range || 'current_month';
+    const { from, to } = req.query;
+    
+    // Calculate the date boundary based on the filter
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    let dateFilter = {};
+
+    if (activeRange === 'current_month') {
+      const startOfMonth = new Date(currentYear, currentMonth, 1);
+      dateFilter = { updatedAt: { $gte: startOfMonth } };
+
+    } else if (activeRange === 'last_month') {
+      const startOfLastMonth = new Date(currentYear, currentMonth - 1, 1);
+      const endOfLastMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
+      dateFilter = { updatedAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } };
+
+    } else if (activeRange === 'current_fy') {
+      // If current month is Jan, Feb, or Mar, FY started in the previous calendar year
+      const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+      const startOfFY = new Date(fyStartYear, 3, 1); // April 1st
+      dateFilter = { updatedAt: { $gte: startOfFY } };
+
+    } else if (activeRange === 'last_fy') {
+      const currentFYStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+      const lastFYStartYear = currentFYStartYear - 1;
+      
+      const startOfLastFY = new Date(lastFYStartYear, 3, 1); // April 1st of last year
+      const endOfLastFY = new Date(currentFYStartYear, 3, 0, 23, 59, 59, 999); // March 31st of this year
+      dateFilter = { updatedAt: { $gte: startOfLastFY, $lte: endOfLastFY } };
+
+    } else if (activeRange === 'custom' && from) {
+      const startCustom = new Date(from);
+      startCustom.setHours(0, 0, 0, 0);
+      dateFilter = { updatedAt: { $gte: startCustom } };
+      
+      if (to) {
+        const endCustom = new Date(to);
+        endCustom.setHours(23, 59, 59, 999);
+        dateFilter.updatedAt.$lte = endCustom;
+      }
+    } // 'all_time' leaves dateFilter as empty {}
 
     const summary = {
       totalLeads: 0,
@@ -40,7 +85,6 @@ exports.getDashboard = async (req, res) => {
     let usersData = [];
     let activity = [];
 
-    // ================== COMMON FUNCTION: count statuses ==================
     const countStatuses = (leads) => {
       const counts = {};
       for (const lead of leads) {
@@ -56,7 +100,8 @@ exports.getDashboard = async (req, res) => {
 
     // ================== ADMIN ==================
     if (user.role === 'admin') {
-      const allLeads = await Lead.find()
+      // Inject date filter into the MongoDB query
+      const allLeads = await Lead.find(dateFilter)
         .populate('assignedTo', 'fullName')
         .populate('normalizedRequirements.chair', 'modelName colors')
         .lean();
@@ -106,7 +151,6 @@ exports.getDashboard = async (req, res) => {
           dealDoneLeads: userStatus['Deal Done'] || 0,
           dealDropLeads: userStatus['Deal Drop'] || 0,
           otherLeads: userStatus['Other'] || 0,
-
           conversionRate: userLeads.length
             ? Math.round(((userStatus['Deal Done'] || 0) / userLeads.length) * 100)
             : 0
@@ -174,12 +218,21 @@ exports.getDashboard = async (req, res) => {
     } else {
       // ================== USER ==================
       const userObjectId = new mongoose.Types.ObjectId(user.id);
-      const myLeads = await Lead.find({
-        $or: [
-          { assignedTo: userObjectId },
-          { 'sourceMeta.createdBy': userObjectId }
+      
+      // Combine date logic with user assignment security restriction
+      const userQuery = {
+        $and: [
+          dateFilter,
+          {
+            $or: [
+              { assignedTo: userObjectId },
+              { 'sourceMeta.createdBy': userObjectId }
+            ]
+          }
         ]
-      })
+      };
+
+      const myLeads = await Lead.find(userQuery)
         .populate('assignedTo', 'fullName')
         .populate('normalizedRequirements.chair', 'modelName colors')
         .lean();
@@ -220,7 +273,6 @@ exports.getDashboard = async (req, res) => {
           ? Math.round((summary.dealDoneLeads / summary.totalLeads) * 100)
           : 0
       }];
-
 
       // Chair & revenue analytics
       const dealDoneWithReqs = myLeads.filter(
@@ -281,7 +333,7 @@ exports.getDashboard = async (req, res) => {
         }));
     }
 
-    // ================== STATUS CHART ==================
+    // STATUS CHART Setup
     charts.status = {
       labels: [...FIXED_STATUSES, 'Other'],
       data: [
@@ -311,7 +363,10 @@ exports.getDashboard = async (req, res) => {
       charts,
       users: usersData,
       activity,
-      activePage: 'dashboard'
+      activePage: 'dashboard',
+      activeRange,
+      fromDate: from || '',
+      toDate: to || ''
     });
   } catch (err) {
     console.error('Dashboard error', err);

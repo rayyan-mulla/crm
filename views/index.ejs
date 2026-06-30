@@ -73,7 +73,37 @@
 
 <div class="container py-4">
 
-  <h3 class="mb-4">Welcome, <%= user.fullName %></h3>
+  <!-- Header with Dropdown Filter & Custom Date Inputs -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <h3 class="m-0">Welcome, <%= user.fullName %></h3>
+    
+    <form id="filterForm" method="GET" action="" class="d-flex align-items-center gap-2 flex-wrap">
+      <!-- Custom Date Fields Container -->
+      <div id="customDateFields" class="d-flex align-items-center gap-2 <%= activeRange === 'custom' ? '' : 'd-none' %>">
+        <div class="d-flex align-items-center gap-1">
+          <label class="small text-muted">From:</label>
+          <input type="date" name="from" id="fromDate" class="form-control form-control-sm" value="<%= typeof fromDate !== 'undefined' ? fromDate : '' %>">
+        </div>
+        <div class="d-flex align-items-center gap-1">
+          <label class="small text-muted">To:</label>
+          <input type="date" name="to" id="toDate" class="form-control form-control-sm" value="<%= typeof toDate !== 'undefined' ? toDate : '' %>">
+        </div>
+        <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+      </div>
+
+      <!-- Main Filter Dropdown -->
+      <div>
+        <select name="range" id="rangeSelect" class="form-select form-select-sm" style="min-width: 200px;" onchange="handleRangeChange(this.value)">
+          <option value="current_month" <%= activeRange === 'current_month' ? 'selected' : '' %>>Current Month</option>
+          <option value="last_month" <%= activeRange === 'last_month' ? 'selected' : '' %>>Last Month</option>
+          <option value="current_fy" <%= activeRange === 'current_fy' ? 'selected' : '' %>>Current Financial Year</option>
+          <option value="last_fy" <%= activeRange === 'last_fy' ? 'selected' : '' %>>Last Financial Year</option>
+          <option value="all_time" <%= activeRange === 'all_time' ? 'selected' : '' %>>All Time</option>
+          <option value="custom" <%= activeRange === 'custom' ? 'selected' : '' %>>Custom Range</option>
+        </select>
+      </div>
+    </form>
+  </div>
 
   <!-- Summary Cards -->
   <div class="row g-3 mb-4 small-cards">
@@ -332,6 +362,23 @@
   </div>
 
 </div>
+
+<!-- Script to toggle fields and handle submission -->
+<script>
+  function handleRangeChange(value) {
+    const customFields = document.getElementById('customDateFields');
+    if (value === 'custom') {
+      // Unhide fields instead of executing an immediate reload
+      customFields.classList.remove('d-none');
+    } else {
+      customFields.classList.add('d-none');
+      // Clear inputs so they aren't passed over the URL redundantly
+      document.getElementById('fromDate').value = '';
+      document.getElementById('toDate').value = '';
+      document.getElementById('filterForm').submit();
+    }
+  }
+</script>
 
 <!-- Scripts for Charts -->
 <script>
