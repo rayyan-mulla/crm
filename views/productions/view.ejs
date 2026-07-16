@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Production Detail - Olive Chairs ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+<%- include('../partials/navbar', { user, activePage }) %>
+
+<div class="container py-5">
+
+    <!-- HEADER -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <%= production.productionNo %>
+                </h4>
+                <span class="badge <%= production.status === 'COMPLETED' ? 'bg-success' : production.status === 'CANCELLED' ? 'bg-danger' : 'bg-warning text-dark' %>">
+                    <%= production.status %>
+                </span>
+            </div>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <small class="text-muted">Created By</small>
+                    <div><%= production.createdBy?.fullName || '-' %></div>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Created At</small>
+                    <div>
+                        <%= new Date(production.createdAt).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                        }).replace('am', 'AM').replace('pm', 'PM') %>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Updated By</small>
+                    <div><%= production.updatedBy?.fullName || '-' %></div>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted">Updated At</small>
+                    <div>
+                        <%= production.updatedAt
+                            ? new Date(production.updatedAt).toLocaleString('en-IN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            }).replace('am', 'AM').replace('pm', 'PM')
+                            : '-' %>
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <small class="text-muted">Production Date</small>
+                    <div>
+                        <%= new Date(production.date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                        }) %>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted">Production Type</small>
+                    <div><%= production.type || '-' %></div>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted">Supervisor</small>
+                    <div><%= production.supervisor?.fullName || '-' %></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRODUCTION ITEMS -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="mb-3">Production Items</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Type</th>
+                            <th>Item</th>
+                            <th>Color</th>
+                            <th>Target Qty</th>
+                            <th>Produced Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <% production.items.forEach(item => { %>
+                        <tr>
+                            <td>
+                                <span class="badge <%= item.itemType === 'Chair' ? 'bg-primary' : 'bg-secondary' %>">
+                                    <%= item.itemType === 'SubAssembly' ? 'Sub-Assembly' : item.itemType %>
+                                </span>
+                            </td>
+                            <td>
+                                <%= item.itemType === 'Chair' ? item.chair?.modelName : item.subAssembly?.name %>
+                            </td>
+                            <td>
+                                <% if (item.itemType === 'Chair') { %>
+                                    <%
+                                        let color = '-';
+                                        const found = item.chair?.colors?.find(c => c._id.toString() === item.chairColor?.toString());
+                                        if (found) color = found.name;
+                                    %>
+                                    <%= color %>
+                                <% } else { %>
+                                    -
+                                <% } %>
+                            </td>
+                            <td><%= item.quantityTarget %></td>
+                            <td class="fw-bold text-success"><%= item.quantityProduced %></td>
+                        </tr>
+                    <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- COMPONENTS CONSUMED -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="mb-4">Components Consumed</h5>
+            <% production.items.forEach(item => { %>
+                <div class="border rounded p-3 mb-4">
+                    <h6 class="mb-3">
+                        <%= item.itemType === 'Chair' ? item.chair?.modelName : item.subAssembly?.name %> 
+                        <span class="text-muted small">
+                            (<%= item.itemType === 'SubAssembly' ? 'Sub-Assembly' : item.itemType %>)
+                        </span>
+                    </h6>
+
+                    <% if (item.componentsUsed && item.componentsUsed.length) { %>
+                        <table class="table table-sm table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Component</th>
+                                    <th>Type</th>
+                                    <th>Quantity Consumed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <% item.componentsUsed.forEach(component => { %>
+                                <tr>
+                                    <td><%= component.name %></td>
+                                    <td>
+                                        <% 
+                                            let displayType = component.componentType || '-';
+                                            if (displayType === 'sparePart') displayType = 'Spare Part';
+                                            else if (displayType === 'rawMaterial') displayType = 'Raw Material';
+                                            else if (displayType === 'SubAssembly') displayType = 'Sub-Assembly';
+                                        %>
+                                        <%= displayType %>
+                                    </td>
+                                    <td><%= component.quantityConsumed %></td>
+                                </tr>
+                            <% }) %>
+                            </tbody>
+                        </table>
+                    <% } else { %>
+                        <p class="text-muted mb-0">No components consumed.</p>
+                    <% } %>
+                </div>
+            <% }) %>
+        </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="mb-3">Summary</h5>
+            <div class="d-flex justify-content-end">
+                <div style="min-width: 300px;">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td class="text-muted">Items Produced</td>
+                            <td class="text-end fw-semibold"><%= production.items.length %></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Total Target Quantity</td>
+                            <td class="text-end fw-semibold"><%= production.items.reduce((sum, i) => sum + i.quantityTarget, 0) %></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Total Produced Quantity</td>
+                            <td class="text-end font-monospace fw-bold text-success">
+                                <%= production.items.reduce((sum, i) => sum + i.quantityProduced, 0) %>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="mb-3">Notes</h5>
+            <% if (production.notes) { %>
+                <div class="border rounded p-3 bg-light">
+                    <%= production.notes %>
+                </div>
+            <% } else { %>
+                <p class="text-muted">No notes added.</p>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="d-flex justify-content-end">
+        <a href="/production/productions/<%= production._id %>/edit" class="btn btn-primary">
+            Edit Production
+        </a>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

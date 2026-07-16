@@ -69,6 +69,7 @@ const purchaseRoutes = require('./routes/purchases');
 const vendorPaymentRoutes = require('./routes/vendorPayments');
 const productCategoryRoutes = require('./routes/productCategories');
 const subAssemblyRoutes = require('./routes/subAssemblies');
+const productionRoutes = require('./routes/productions');
 
 app.use('/', indexRouter);
 app.use('/leads', leadsRouter);
@@ -86,6 +87,7 @@ app.use('/purchasing/purchases', purchaseRoutes);
 app.use('/purchasing/vendor-payments', vendorPaymentRoutes);
 app.use('/production/product-categories', productCategoryRoutes);
 app.use('/production/sub-assemblies', subAssemblyRoutes);
+app.use('/production/productions', productionRoutes);
 
 // --- Seeds at startup ---
 (async () => {
