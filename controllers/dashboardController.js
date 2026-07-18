@@ -29,18 +29,17 @@ exports.getDashboard = async (req, res) => {
 
     if (activeRange === 'current_month') {
       const startOfMonth = new Date(currentYear, currentMonth, 1);
-      dateFilter = { updatedAt: { $gte: startOfMonth } };
+      dateFilter = { $gte: startOfMonth };
 
     } else if (activeRange === 'last_month') {
       const startOfLastMonth = new Date(currentYear, currentMonth - 1, 1);
       const endOfLastMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
-      dateFilter = { updatedAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } };
+      dateFilter = { $gte: startOfLastMonth, $lte: endOfLastMonth };
 
     } else if (activeRange === 'current_fy') {
-      // If current month is Jan, Feb, or Mar, FY started in the previous calendar year
       const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
       const startOfFY = new Date(fyStartYear, 3, 1); // April 1st
-      dateFilter = { updatedAt: { $gte: startOfFY } };
+      dateFilter = { $gte: startOfFY };
 
     } else if (activeRange === 'last_fy') {
       const currentFYStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
@@ -48,19 +47,30 @@ exports.getDashboard = async (req, res) => {
       
       const startOfLastFY = new Date(lastFYStartYear, 3, 1); // April 1st of last year
       const endOfLastFY = new Date(currentFYStartYear, 3, 0, 23, 59, 59, 999); // March 31st of this year
-      dateFilter = { updatedAt: { $gte: startOfLastFY, $lte: endOfLastFY } };
+      dateFilter = { $gte: startOfLastFY, $lte: endOfLastFY };
 
     } else if (activeRange === 'custom' && from) {
       const startCustom = new Date(from);
       startCustom.setHours(0, 0, 0, 0);
-      dateFilter = { updatedAt: { $gte: startCustom } };
+      dateFilter = { $gte: startCustom };
       
       if (to) {
         const endCustom = new Date(to);
         endCustom.setHours(23, 59, 59, 999);
-        dateFilter.updatedAt.$lte = endCustom;
+        dateFilter.$lte = endCustom;
       }
-    } // 'all_time' leaves dateFilter as empty {}
+    }
+
+    // Build conditional query filters depending on whether a date filter is applied
+    let leadQueryCondition = {};
+    if (Object.keys(dateFilter).length > 0) {
+      leadQueryCondition = {
+        $or: [
+          { updatedAt: dateFilter },
+          { statusHistory: { $elemMatch: { status: 'Deal Done', createdAt: dateFilter } } }
+        ]
+      };
+    }
 
     const summary = {
       totalLeads: 0,
@@ -100,8 +110,7 @@ exports.getDashboard = async (req, res) => {
 
     // ================== ADMIN ==================
     if (user.role === 'admin') {
-      // Inject date filter into the MongoDB query
-      const allLeads = await Lead.find(dateFilter)
+      const allLeads = await Lead.find(leadQueryCondition)
         .populate('assignedTo', 'fullName')
         .populate('normalizedRequirements.chair', 'modelName colors')
         .lean();
@@ -157,12 +166,22 @@ exports.getDashboard = async (req, res) => {
         };
       });
 
-      // Chair & revenue analytics (deal done only)
-      const dealDoneWithReqs = allLeads.filter(
-        l => l.status === 'Deal Done' &&
-            Array.isArray(l.normalizedRequirements) &&
-            l.normalizedRequirements.length
-      );
+      // Filter deal done list safely checking actual history entries
+      const dealDoneWithReqs = allLeads.filter(l => {
+        if (l.status !== 'Deal Done') return false;
+        if (!Array.isArray(l.normalizedRequirements) || !l.normalizedRequirements.length) return false;
+        
+        // If date range filter active, ensure the 'Deal Done' timestamp fits within limits
+        if (Object.keys(dateFilter).length > 0) {
+          const dealDoneHistory = l.statusHistory?.find(h => h.status === 'Deal Done');
+          if (dealDoneHistory) {
+            const histTime = new Date(dealDoneHistory.createdAt).getTime();
+            if (dateFilter.$gte && histTime < new Date(dateFilter.$gte).getTime()) return false;
+            if (dateFilter.$lte && histTime > new Date(dateFilter.$lte).getTime()) return false;
+          }
+        }
+        return true;
+      });
 
       const chairsByUser = {};
       const revenueByUser = {};
@@ -186,12 +205,14 @@ exports.getDashboard = async (req, res) => {
       charts.revenueByUser = { labels: Object.keys(revenueByUser), data: Object.values(revenueByUser) };
       charts.chairsByModel = { labels: Object.keys(chairsByModel), data: Object.values(chairsByModel) };
 
-      // Monthly trend
+      // Monthly trend using statusHistory timestamp
       const monthlyStats = {};
       for (const l of dealDoneWithReqs) {
+        const dealDoneHistory = l.statusHistory?.find(h => h.status === 'Deal Done');
+        const d = dealDoneHistory ? new Date(dealDoneHistory.createdAt) : new Date(l.updatedAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        
         for (const req of l.normalizedRequirements) {
-          const d = new Date(l.updatedAt);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           if (!monthlyStats[key]) monthlyStats[key] = { chairs: 0, revenue: 0 };
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
@@ -219,10 +240,9 @@ exports.getDashboard = async (req, res) => {
       // ================== USER ==================
       const userObjectId = new mongoose.Types.ObjectId(user.id);
       
-      // Combine date logic with user assignment security restriction
       const userQuery = {
         $and: [
-          dateFilter,
+          ...(Object.keys(leadQueryCondition).length > 0 ? [leadQueryCondition] : []),
           {
             $or: [
               { assignedTo: userObjectId },
@@ -275,11 +295,20 @@ exports.getDashboard = async (req, res) => {
       }];
 
       // Chair & revenue analytics
-      const dealDoneWithReqs = myLeads.filter(
-        l => l.status === 'Deal Done' &&
-            Array.isArray(l.normalizedRequirements) &&
-            l.normalizedRequirements.length
-      );
+      const dealDoneWithReqs = myLeads.filter(l => {
+        if (l.status !== 'Deal Done') return false;
+        if (!Array.isArray(l.normalizedRequirements) || !l.normalizedRequirements.length) return false;
+        
+        if (Object.keys(dateFilter).length > 0) {
+          const dealDoneHistory = l.statusHistory?.find(h => h.status === 'Deal Done');
+          if (dealDoneHistory) {
+            const histTime = new Date(dealDoneHistory.createdAt).getTime();
+            if (dateFilter.$gte && histTime < new Date(dateFilter.$gte).getTime()) return false;
+            if (dateFilter.$lte && histTime > new Date(dateFilter.$lte).getTime()) return false;
+          }
+        }
+        return true;
+      });
 
       const chairsByUser = {};
       const revenueByUser = {};
@@ -303,12 +332,14 @@ exports.getDashboard = async (req, res) => {
       charts.revenueByUser = { labels: Object.keys(revenueByUser), data: Object.values(revenueByUser) };
       charts.chairsByModel = { labels: Object.keys(chairsByModel), data: Object.values(chairsByModel) };
 
-      // Monthly trend
+      // Monthly trend using statusHistory timestamp
       const monthlyStats = {};
       for (const l of dealDoneWithReqs) {
+        const dealDoneHistory = l.statusHistory?.find(h => h.status === 'Deal Done');
+        const d = dealDoneHistory ? new Date(dealDoneHistory.createdAt) : new Date(l.updatedAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        
         for (const req of l.normalizedRequirements) {
-          const d = new Date(l.updatedAt);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           if (!monthlyStats[key]) monthlyStats[key] = { chairs: 0, revenue: 0 };
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
