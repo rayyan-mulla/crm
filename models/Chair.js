@@ -13,7 +13,7 @@ const ComponentSchema = new mongoose.Schema({
   componentType: { type: String, enum: ['sparePart', 'subAssembly'], required: true },
   item: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: 'components.componentModel' },
   componentModel: { type: String, enum: ['SparePart', 'SubAssembly'], required: true },
-  quantity: { type: Number, required: true, min: 1 }
+  quantity: { type: Number, required: true, min: 0.01 }
 }, { _id: true });
 
 const ChairSchema = new mongoose.Schema({

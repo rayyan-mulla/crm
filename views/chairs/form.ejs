@@ -71,8 +71,7 @@
             <!-- Base Price -->
             <div class="col-md-3">
               <div class="input-group">
-                <input class="form-control basePrice" name="colorPrice" placeholder="Base Price" type="number" min="0"
-                required value="<%= col.basePrice %>" />
+                <input class="form-control basePrice" name="colorPrice" placeholder="Base Price" type="number" min="0" step="0.01" inputmode="decimal" required value="<%= col.basePrice %>" />
                 <div class="input-group-text">
                   <input class="form-check-input mt-0 gstCheck" type="checkbox" name="colorGST"
                     <%= col.gstApplicable ? 'checked' : '' %> />
@@ -137,7 +136,7 @@
             </div>
 
             <div class="col-md-2">
-              <input type="number" name="componentQty" class="form-control" min="1" value="<%= component.quantity || 1 %>" required>
+              <input type="number" name="componentQty" class="form-control" min="0.01" step="0.01" inputmode="decimal" value="<%= component.quantity || 1 %>" required>
             </div>
 
             <div class="col-md-1 text-end">
@@ -208,7 +207,7 @@
 
         <div class="col-md-3">
           <div class="input-group">
-            <input class="form-control basePrice" name="colorPrice" placeholder="Base Price" type="number" min="0" required />
+            <input class="form-control basePrice" name="colorPrice" placeholder="Base Price" type="number" min="0" step="0.01" inputmode="decimal" required />
             <div class="input-group-text">
               <input class="form-check-input mt-0 gstCheck" type="checkbox" name="colorGST" value="true" />
               <small class="ms-1">GST</small>
@@ -317,7 +316,7 @@
           </select>
         </div>
         <div class="col-md-2">
-          <input type="number" name="componentQty" class="form-control" value="1" min="1" required>
+          <input type="number" name="componentQty" class="form-control" value="0.01" min="0.01" step="0.01" inputmode="decimal" required>
         </div>
         <div class="col-md-1 text-end">
           <button type="button" class="btn btn-outline-danger removeComponent">✕</button>
