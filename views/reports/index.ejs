@@ -1,3 +1,16 @@
+<%
+function displaySource(source) {
+  const map = {
+    google_sheet: "Google Sheets",
+    meta: "Meta",
+    indiamart: "IndiaMART",
+    manual: "Manual Entry",
+    excel_upload: "Excel Upload",
+  };
+  return map[source] || source;
+}
+%>
+
 <% function formatDate(value) {
   if (!value) return '-';
   const d = new Date(value);
@@ -86,38 +99,6 @@
       </div>
 
       <div class="col-md-3">
-        <select name="assignedTo"
-          class="form-select form-select-sm">
-          <option value="">Assigned To</option>
-          <% users.forEach(u => { %>
-            <option value="<%= u._id %>"
-              <%= String(query.assignedTo) === String(u._id) ? "selected" : "" %>>
-              <%= u.fullName %>
-            </option>
-          <% }) %>
-        </select>
-      </div>
-
-      <!-- Row 2 -->
-      <!-- <div class="col-md-3">
-        <select name="source"
-          class="form-select form-select-sm">
-          <option value="">Source</option>
-          <option value="meta" <%= query.source === "meta" ? "selected" : "" %>>Meta</option>
-          <option value="google_sheet" <%= query.source === "google_sheet" ? "selected" : "" %>>Google Sheet</option>
-          <option value="manual" <%= query.source === "manual" ? "selected" : "" %>>Manual</option>
-          <option value="excel_upload" <%= query.source === "excel_upload" ? "selected" : "" %>>Excel Upload</option>
-          <option value="indiamart" <%= query.source === "indiamart" ? "selected" : "" %>>IndiaMART</option>
-        </select>
-      </div> -->
-      <div class="col-md-3">
-        <input name="leadSource"
-          class="form-control form-control-sm"
-          placeholder="Lead source (e.g. Meta Ads, Referrals)"
-          value="<%= query.leadSource || '' %>">
-      </div>
-
-      <div class="col-md-3">
         <select name="model"
           class="form-select form-select-sm">
           <option value="">Chair Model</option>
@@ -125,6 +106,42 @@
             <option value="<%= m %>"
               <%= query.model === m ? "selected" : "" %>>
               <%= m %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="col-md-2">
+        <select name="source" class="form-select form-select-sm">
+          <option value="">Source</option>
+          <option value="meta" <%= query.source === "meta" ? "selected" : "" %>>Meta</option>
+          <option value="google_sheet" <%= query.source === "google_sheet" ? "selected" : "" %>>Google Sheet</option>
+          <option value="manual" <%= query.source === "manual" ? "selected" : "" %>>Manual</option>
+          <option value="excel_upload" <%= query.source === "excel_upload" ? "selected" : "" %>>Excel Upload</option>
+          <option value="indiamart" <%= query.source === "indiamart" ? "selected" : "" %>>IndiaMART</option>
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <select name="leadSource" class="form-select form-select-sm" data-selected="<%= query.leadSource || '' %>">
+          <option value="">Lead Source</option>
+          <option value="IndiaMART" <%= query.leadSource === 'IndiaMART' ? 'selected' : '' %>>IndiaMART</option>
+          <option value="Referral" <%= query.leadSource === 'Referral' ? 'selected' : '' %>>Referral</option>
+          <option value="RC" <%= query.leadSource === 'RC' ? 'selected' : '' %>>RC</option>
+          <option value="Direct" <%= query.leadSource === 'Direct' ? 'selected' : '' %>>Direct</option>
+          <option value="Walk-In" <%= query.leadSource === 'Walk-In' ? 'selected' : '' %>>Walk-In</option>
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <select name="assignedTo"
+          class="form-select form-select-sm">
+          <option value="">Assigned To</option>
+          <% users.forEach(u => { %>
+            <option value="<%= u._id %>"
+              <%= String(query.assignedTo) === String(u._id) ? "selected" : "" %>>
+              <%= u.fullName %>
             </option>
           <% }) %>
         </select>
@@ -303,7 +320,7 @@
       <input type="hidden" name="fromDate" value="<%= query.fromDate || '' %>">
       <input type="hidden" name="toDate" value="<%= query.toDate || '' %>">
       <input type="hidden" name="assignedTo" value="<%= query.assignedTo || '' %>">
-      <!-- <input type="hidden" name="source" value="<%= query.source || '' %>"> -->
+      <input type="hidden" name="source" value="<%= query.source || '' %>">
       <input type="hidden" name="leadSource" value="<%= query.leadSource || '' %>">
       <input type="hidden" name="model" value="<%= query.model || '' %>">
       <input type="hidden" name="showAnalytics" value="<%= query.showAnalytics || '' %>">
@@ -340,7 +357,7 @@
               <th>Total</th>
               <th>Cost</th>
               <th>Profit</th>
-              <th>Lead Source</th>
+              <th>Source</th>
             </tr>
           </thead>
 
@@ -373,9 +390,17 @@
                   ₹<%= Number(r.profit || 0).toLocaleString('en-IN') %>
                 </td>
                 <td>
-                  <span class="badge bg-light border text-dark">
-                    <%= r.source || '-' %>
+                  <!-- Primary Context Label -->
+                  <span class="badge bg-light border text-dark text-capitalize">
+                    <%= displaySource(r.source) %>
                   </span>
+                  
+                  <!-- Sub-Platform nested indicator for Manual listings -->
+                  <% if (r.leadSource) { %>
+                    <div class="small text-muted mt-1 ps-1" style="font-size: 0.785rem;">
+                      <i class="bi bi-arrow-return-right me-1 text-primary"></i><%= r.leadSource %>
+                    </div>
+                  <% } %>
                 </td>
               </tr>
             <% }) %>
@@ -395,7 +420,7 @@
                 if (query.fromDate)      qs += `&fromDate=${encodeURIComponent(query.fromDate)}`;
                 if (query.toDate)        qs += `&toDate=${encodeURIComponent(query.toDate)}`;
                 if (query.assignedTo)    qs += `&assignedTo=${encodeURIComponent(query.assignedTo)}`;
-                <!-- if (query.source)        qs += `&source=${encodeURIComponent(query.source)}`; -->
+                if (query.source)        qs += `&source=${encodeURIComponent(query.source)}`;
                 if (query.leadSource)    qs += `&leadSource=${encodeURIComponent(query.leadSource)}`;
                 if (query.model)         qs += `&model=${encodeURIComponent(query.model)}`;
                 if (query.showAnalytics) qs += `&showAnalytics=${encodeURIComponent(query.showAnalytics)}`;

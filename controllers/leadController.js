@@ -178,7 +178,13 @@ exports.listLeads = async (req, res) => {
 };
 
 exports.getCreate = (req, res) => {
-  res.render('leads/create', { error: null });
+  res.render('leads/create', {
+    lead: null,
+    user: req.session.user,
+    activePage: 'leads',
+    showBack: true,
+    error: null 
+  });
 };
 
 exports.postCreate = async (req, res) => {
@@ -187,8 +193,10 @@ exports.postCreate = async (req, res) => {
       date,
       customer_name,
       contact_number,
+      alternate_number,
       email_id,
       city,
+      customerType,
       requirement,
       leadSource
     } = req.body;
@@ -199,8 +207,10 @@ exports.postCreate = async (req, res) => {
       date: date ? new Date(date) : new Date(),
       customer_name,
       contact_number,
+      alternate_number: alternate_number || null,
       email_id,
       city,
+      customerType: customerType || 'End User',
       requirement,
       source: 'manual',
       leadSource: leadSource || null,
@@ -225,8 +235,11 @@ exports.postCreate = async (req, res) => {
   } catch (err) {
     console.error('postCreate lead error', err);
     res.render('leads/create', {
+      lead: req.body,
       error: 'Could not create lead',
-      user: req.session.user
+      user: req.session.user,
+      activePage: 'leads',
+      showBack: true
     });
   }
 };

@@ -1,58 +1,117 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Create Lead - Olive Chairs</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= typeof mode !== 'undefined' && mode === 'edit' ? 'Edit Lead' : 'New Lead' %> - Olive Chairs ERP</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
 <body>
+<%- include('../partials/navbar', { user, activePage: 'leads' }) %>
+
 <div class="container py-5">
-  <div class="col-md-8 mx-auto">
-    <div class="card shadow-sm">
+  <h3 class="mb-4">
+    <%= typeof mode !== 'undefined' && mode === 'edit' ? 'Edit Lead' : 'New Lead' %>
+  </h3>
+
+  <form method="POST" action="<%= typeof mode !== 'undefined' && mode === 'edit' ? '/leads/' + lead._id + '/edit' : '/leads/create' %>">
+    
+    <!-- Explicit manual creation tracker fallback -->
+    <input type="hidden" name="source" value="<%= lead?.source || 'manual' %>" />
+
+    <!-- LEAD PARAMETERS CARD -->
+    <div class="card shadow-sm p-3 mb-4">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Lead Details</h5>
+      </div>
       <div class="card-body">
-        <h4>Create Lead</h4>
-        <form action="/leads/create" method="post">
-          <div class="mb-3">
-            <label class="form-label">Date</label>
-            <input type="date" name="date" class="form-control" required>
-          </div>    
-          <div class="mb-3">
-            <label class="form-label">Customer Name</label>
-            <input type="text" name="customer_name" class="form-control" required />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Contact Number</label>
-            <input type="text" name="contact_number" class="form-control" required />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" name="email_id" class="form-control" />
+        <div class="row g-3">
+          
+          <div class="col-md-3">
+            <label class="form-label">Lead Date</label>
+            <input type="date" name="date" id="leadDate" class="form-control"
+              value="<%= lead?.date ? new Date(lead.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0] %>" required>
           </div>
 
-          <div class="mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Lead Source</label>
+            <select class="form-select" id="leadSource" name="leadSource" required>
+              <option value="" disabled <%= !lead?.leadSource ? 'selected' : '' %>>Select Source</option>
+              <option value="IndiaMART" <%= lead?.leadSource === 'IndiaMART' ? 'selected' : '' %>>IndiaMART</option>
+              <option value="Referral" <%= lead?.leadSource === 'Referral' ? 'selected' : '' %>>Referral</option>
+              <option value="RC" <%= lead?.leadSource === 'RC' ? 'selected' : '' %>>RC</option>
+              <option value="Direct" <%= lead?.leadSource === 'Direct' ? 'selected' : '' %>>Direct</option>
+              <option value="Walk-In" <%= lead?.leadSource === 'Walk-In' ? 'selected' : '' %>>Walk-In</option>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Customer Type</label>
+            <select class="form-select" name="customerType">
+              <option value="End User" <%= lead?.customerType === 'End User' || !lead?.customerType ? 'selected' : '' %>>End User</option>
+              <option value="Reseller" <%= lead?.customerType === 'Reseller' ? 'selected' : '' %>>Reseller</option>
+            </select>
+          </div>
+
+          <div class="col-md-3">
             <label class="form-label">City</label>
-            <input type="text" name="city" class="form-control" />
+            <input type="text" name="city" class="form-control" placeholder="e.g., Mumbai, Delhi, Bangalore" value="<%= lead?.city || '' %>">
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Requirement</label>
-            <textarea name="requirement" class="form-control" rows="3" required></textarea>
-          </div>
-
-          <div class="mb-3">
-            <label for="leadSource" class="form-label">Lead Source</label>
-            <input type="text" class="form-control" id="leadSource" name="leadSource" placeholder="e.g. Indiamart, Referral, Walk-in" />
-          </div>
-
-          <div class="d-grid">
-            <button class="btn btn-primary">Create Lead</button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
-  </div>
+
+    <!-- CUSTOMER PROFILE CARD -->
+    <div class="card shadow-sm p-3 mb-4">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Customer Contact Details</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          
+          <div class="col-md-3">
+            <label class="form-label">Customer Name</label>
+            <input type="text" name="customer_name" class="form-control" placeholder="e.g., Rajesh Kumar / Acma Enterprises" value="<%= lead?.customer_name || '' %>" required />
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Contact Number</label>
+            <input type="text" name="contact_number" class="form-control" placeholder="e.g., +91 98765 43210" value="<%= lead?.contact_number || '' %>" required />
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Alternate Number</label>
+            <input type="text" name="alternate_number" class="form-control" placeholder="e.g., Landline or secondary contact" value="<%= lead?.alternate_number || '' %>" />
+          </div>
+
+          <div class="col-3">
+            <label class="form-label">Email ID</label>
+            <input type="email" name="email_id" class="form-control" placeholder="e.g., purchase@acma.com" value="<%= lead?.email_id || '' %>" />
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- REQUIREMENT BLOCK -->
+    <div class="card shadow-sm p-3 mt-4">
+      <div class="card-body">
+        <label class="form-label">Requirement Details</label>
+        <textarea name="requirement" class="form-control" rows="4" placeholder="Mention item details, models (e.g., Ergonomic Mesh, Executive High-Back), quantity needed, target pricing, or custom modification notes..." required><%= lead?.requirement || '' %></textarea>
+      </div>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div class="text-end mt-4">
+      <button type="submit" class="btn btn-primary">
+        <%= typeof mode !== 'undefined' && mode === 'edit' ? 'Update Lead' : 'Save Lead' %>
+      </button>
+    </div>
+  </form>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

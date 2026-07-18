@@ -20,6 +20,7 @@ async function buildReportData(query){
     fromDate,
     toDate,
     assignedTo,
+    source,
     leadSource,
     search
   } = query;
@@ -51,6 +52,23 @@ async function buildReportData(query){
     })
     .lean();
 
+  // 1. Core Source Filter (Meta, Google Sheets, Manual, etc.)
+  if (source) {
+    invoices = invoices.filter(inv => {
+      const invSource = (inv.lead?.source || 'Unknown').toLowerCase();
+      return invSource === source.toLowerCase();
+    });
+  }
+
+  // 2. Global Lead Source Platform Filter (Independent of main source)
+  if (leadSource) {
+    invoices = invoices.filter(inv => {
+      const invLeadSource = (inv.lead?.leadSource || '').toLowerCase();
+      return invLeadSource.includes(leadSource.toLowerCase());
+    });
+  }
+
+  // 3. Assigned Person Filter
   if(assignedTo){
     invoices = invoices.filter(inv => {
       const targetUserId = inv.lead?.assignedTo?._id || inv.lead?.assignedTo || inv.createdBy?._id;
@@ -58,13 +76,7 @@ async function buildReportData(query){
     });
   }
 
-  if(leadSource){
-    invoices = invoices.filter(
-      inv => inv.lead?.leadSource && 
-        inv.lead.leadSource.toLowerCase().includes(leadSource.toLowerCase())
-    );
-  }
-
+  // 4. Search Filter
   if(search){
     invoices = invoices.filter(
       inv => (inv.billingAddress?.name || inv.lead?.customer_name || '')
@@ -100,7 +112,8 @@ async function buildReportData(query){
 
   for(const inv of invoices){
     const userName = inv.lead?.assignedTo?.fullName || inv.createdBy?.fullName || 'Unknown';
-    const src = inv.lead?.leadSource || inv.lead?.source || 'Unknown';
+    const rawSource = inv.lead?.source || 'Unknown';
+    const rawLeadSource = inv.lead?.leadSource || '';
 
     const totalWithGST = Number(inv.grandTotal) || 0;
     const taxable = Number(inv.taxableAmount) || 0;
@@ -111,8 +124,10 @@ async function buildReportData(query){
     revenueByUser[userName] =
       (revenueByUser[userName] || 0) + totalWithGST;
 
-    revenueBySource[src] =
-      (revenueBySource[src] || 0) + totalWithGST;
+    // If a row has a specific leadSource sub-channel, group it under that platform label globally
+    const chartSourceLabel = rawLeadSource ? rawLeadSource : rawSource;
+    revenueBySource[chartSourceLabel] = 
+      (revenueBySource[chartSourceLabel] || 0) + totalWithGST;
 
     let invoiceCost = 0;
     let invoiceProfit = 0;
@@ -169,7 +184,8 @@ async function buildReportData(query){
       gst: gst,
       costUnit: invoiceCost,
       profit: invoiceProfit,
-      source: src
+      source: rawSource,
+      leadSource: rawLeadSource
     });
   }
 
