@@ -27,13 +27,28 @@ const CommunicationSchema = new mongoose.Schema({
 }, { _id: true });
 
 const RequirementItemSchema = new mongoose.Schema({
-  chair: { type: mongoose.Schema.Types.ObjectId, ref: 'Chair', required: true },
-  colorId: { type: mongoose.Schema.Types.ObjectId, required: true }, 
+  itemType: { 
+    type: String, 
+    enum: ['Chair', 'Spare Part', 'SubAssembly'], 
+    required: true,
+    default: 'Chair'
+  },
+  // Dynamic reference based on itemType
+  item: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    required: true, 
+    refPath: 'normalizedRequirements.itemType' 
+  },
+  // colorId remains used when itemType is 'Chair'
+  colorId: { 
+    type: mongoose.Schema.Types.ObjectId,
+    required: function() { return this.itemType === 'Chair'; }
+  }, 
   quantity: { type: Number, default: 1 },
-  unitPrice: { type: Number, required: true }, // agreed per-unit price
+  unitPrice: { type: Number, required: true }, 
   shippingUnit: { type: Number, default: 0 },
   gstApplicable: { type: Boolean, default: false },
-  totalPrice: { type: Number, required: true }, // auto-calculated
+  totalPrice: { type: Number, required: true }, 
   note: { type: String }
 }, { _id: true });
 

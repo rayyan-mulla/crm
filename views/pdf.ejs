@@ -197,9 +197,33 @@
   </thead>
   <tbody>
     <% pi.items.forEach((item, idx) => { %>
+      <% 
+        // 1. Determine Item Display Name with optional color
+        const hasColor = item.colorName && item.colorName !== '-' && item.colorName.trim() !== '';
+        const itemDisplayName = hasColor 
+          ? `${item.chairModel} - ${item.colorName}` 
+          : item.chairModel;
+
+        // 2. Determine Item Category
+        let categoryLabel = item.itemType || '';
+        if (!categoryLabel) {
+          if (hasColor || item.chairId) {
+            categoryLabel = 'Chair';
+          } else {
+            categoryLabel = 'Spare Part / Sub-Assembly';
+          }
+        } else if (categoryLabel === 'SubAssembly') {
+          categoryLabel = 'Sub-Assembly';
+        } else if (categoryLabel === 'SparePart') {
+          categoryLabel = 'Spare Part';
+        }
+      %>
       <tr>
         <td class="text-center"><%= idx + 1 %></td>
-        <td><%= item.chairModel %> - <%= item.colorName %></td>
+        <td>
+          <%= itemDisplayName %>
+          <!-- <span style="font-size: 11px; color: #555; font-weight: normal;">(<%= categoryLabel %>)</span> -->
+        </td>
         <td><%= item.hsnCode %></td>
         <td class="text-right">₹<%= item.unitPrice.toFixed(2) %></td>
         <td class="text-center"><%= item.quantity %></td>

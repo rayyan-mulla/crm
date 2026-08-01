@@ -2,6 +2,8 @@ const Lead = require('../models/Lead');
 const ProformaInvoice = require('../models/ProformaInvoice');
 const TaxInvoice = require('../models/TaxInvoice');
 const Chair = require('../models/Chair');
+const SparePart = require('../models/SparePart');
+const SubAssembly = require('../models/SubAssembly');
 const imageToBase64 = require('../utils/imageToBase64');
 const pdfGenerator = require('../utils/pdfGenerator');
 const mongoose = require('mongoose');
@@ -16,21 +18,53 @@ async function generateInvoiceNumber() {
   const lastInvoice = await TaxInvoice.findOne({
     invoiceNumber: { $regex: `^${prefix}` }
   })
-    .sort({ invoiceNumber: -1 }) // works due to zero padding
+    .sort({ invoiceNumber: -1 })
     .select('invoiceNumber')
     .lean();
 
   let nextSeq = 1;
 
   if (lastInvoice?.invoiceNumber) {
-    const lastSeq = parseInt(
-      lastInvoice.invoiceNumber.split('-').pop(),
-      10
-    );
+    const lastSeq = parseInt(lastInvoice.invoiceNumber.split('-').pop(), 10);
     nextSeq = lastSeq + 1;
   }
 
   return `${prefix}${String(nextSeq).padStart(3, '0')}`;
+}
+
+/**
+ * Deducts or restores stock for items in a Tax Invoice.
+ * @param {Array} items - Array of invoice item objects
+ * @param {'deduct' | 'restore'} mode - Action mode
+ */
+async function updateStockForItems(items, mode = 'deduct') {
+  const multiplier = mode === 'deduct' ? -1 : 1;
+
+  for (const item of items) {
+    const qty = (Number(item.quantity) || 0) * multiplier;
+    if (!qty || !item.item) continue;
+
+    const itemType = item.itemType || 'Chair';
+    const itemId = item.item;
+
+    if (itemType === 'Chair') {
+      if (item.colorId) {
+        // Update color-specific stock inside Chair document
+        await Chair.updateOne(
+          { _id: itemId, 'colors._id': item.colorId },
+          { $inc: { 'colors.$.stock': qty } }
+        );
+      }
+    } else if (itemType === 'SparePart' || itemType === 'Spare Part') {
+      await SparePart.findByIdAndUpdate(itemId, {
+        $inc: { stock: qty }
+      });
+    } else if (itemType === 'SubAssembly') {
+      await SubAssembly.findByIdAndUpdate(itemId, {
+        $inc: { stock: qty }
+      });
+    }
+  }
 }
 
 exports.generateFromPI = async (req, res) => {
@@ -42,12 +76,7 @@ exports.generateFromPI = async (req, res) => {
       return res.status(404).send('Proforma Invoice not found');
     }
 
-    // Count existing tax invoices for this PI
-    const invoiceCount = await TaxInvoice.countDocuments({
-      piId: pi._id
-    });
-
-    // Your own numbering logic
+    const invoiceCount = await TaxInvoice.countDocuments({ piId: pi._id });
     const invoiceNumber = await generateInvoiceNumber();
 
     const taxInvoice = await TaxInvoice.create({
@@ -77,11 +106,10 @@ exports.generateFromPI = async (req, res) => {
       createdBy: new mongoose.mongo.ObjectId(req.session.user.id)
     });
 
-    // Open PDF directly
-    return res.redirect(
-      `/leads/${pi.lead}/pi/${pi._id}/invoices`
-    );
+    // Deduct stock for all items added from PI
+    await updateStockForItems(taxInvoice.items, 'deduct');
 
+    return res.redirect(`/leads/${pi.lead}/pi/${pi._id}/invoices`);
   } catch (err) {
     console.error('Generate Tax Invoice Error:', err);
     return res.status(500).send('Failed to generate Tax Invoice');
@@ -112,7 +140,6 @@ exports.downloadPdf = async (req, res) => {
       filename: `${invoice.invoiceNumber}.pdf`,
       headerTitle: 'TAX INVOICE'
     });
-
   } catch (err) {
     console.error('TAX INVOICE PDF ERROR:', err);
     res.status(500).send(err.message);
@@ -131,6 +158,7 @@ exports.invoiceHistory = async (req, res) => {
 
   const invoices = await TaxInvoice.find({ piId })
     .populate('createdBy', 'fullName')
+    .populate('updatedBy', 'fullName')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -156,7 +184,6 @@ exports.editForm = async (req, res) => {
     const { leadId, invoiceId } = req.params;
     const user = req.session.user;
 
-    // 🛡️ Admin check: Only admin can view the edit form for a Tax Invoice
     if (user?.role !== 'admin') {
       return res.status(403).send('Not authorized. Only administrators can edit Tax Invoices.');
     }
@@ -172,13 +199,15 @@ exports.editForm = async (req, res) => {
     if (!lead) return res.status(404).send('Lead not found');
 
     const chairs = await Chair.find().lean();
+    const spareParts = await SparePart.find().lean();
+    const subAssemblies = await SubAssembly.find().lean();
 
-    // We pass the invoice document context to the view under variable name 'pi' 
-    // so it perfectly matches your duplicated layout mechanics without changes.
     res.render('invoice/edit', {
-      invoice: invoice, 
+      invoice,
       lead,
       chairs,
+      spareParts,
+      subAssemblies,
       user,
       activePage: 'proformaInvoice',
       showBack: true
@@ -194,7 +223,6 @@ exports.update = async (req, res) => {
     const { leadId, piId, invoiceId } = req.params;
     const user = req.session.user;
 
-    // 🛡️ Guard execution layer to admin only
     if (user?.role !== 'admin') {
       return res.status(403).send('Not authorized.');
     }
@@ -203,6 +231,11 @@ exports.update = async (req, res) => {
     if (!invoice) return res.status(404).send('Tax Invoice not found');
     if (invoice.status === 'DELETED') {
       return res.status(400).send('Deleted Tax Invoices cannot be edited.');
+    }
+
+    // Step A: Restore original stock balance before saving updates
+    if (invoice.items && invoice.items.length > 0) {
+      await updateStockForItems(invoice.items, 'restore');
     }
 
     // 1. Address Updates
@@ -215,40 +248,71 @@ exports.update = async (req, res) => {
       ? req.body.items
       : Object.values(req.body.items || {});
 
-    const existingItemsById = new Map(
-      invoice.items.map(item => [
-        String(item._id),
-        { shippingUnit: item.shippingUnit || 0 }
-      ])
-    );
-
     invoice.items = [];
 
     for (const i of itemsFromForm) {
-      if (!i.chairId || !i.colorId) continue;
+      const itemType = i.itemType || 'Chair';
+      const selectedId = i.chair || i.subAssembly || i.chairId || i.item;
 
-      const chair = await Chair.findById(i.chairId).lean();
-      if (!chair) continue;
+      if (!selectedId) continue;
 
-      const color = chair.colors.find(c => String(c._id) === String(i.colorId));
-      if (!color) continue;
+      let itemDoc = null;
+      let chairModel = 'Item';
+      let hsnCode = '94036000';
+      let colorId = null;
+      let colorName = '-';
 
-      const preserved = i.itemId ? existingItemsById.get(String(i.itemId)) : null;
+      if (itemType === 'Chair') {
+        itemDoc = await Chair.findById(selectedId).lean();
+        if (!itemDoc) continue;
+
+        chairModel = itemDoc.modelName || 'Chair';
+        hsnCode = itemDoc.hsnCode || '94036000';
+
+        if (i.colorId && itemDoc.colors) {
+          const color = itemDoc.colors.find(
+            c => String(c._id) === String(i.colorId)
+          );
+          if (color) {
+            colorId = color._id;
+            colorName = color.name;
+          }
+        }
+      } else if (itemType === 'SparePart' || itemType === 'Spare Part') {
+        itemDoc = await SparePart.findById(selectedId).lean();
+        if (!itemDoc) continue;
+
+        chairModel = itemDoc.partName || itemDoc.name || 'Spare Part';
+        hsnCode = itemDoc.hsnCode || '94036000';
+      } else if (itemType === 'SubAssembly') {
+        itemDoc = await SubAssembly.findById(selectedId).lean();
+        if (!itemDoc) continue;
+
+        chairModel = itemDoc.name || itemDoc.partName || 'Sub-Assembly';
+        hsnCode = itemDoc.hsnCode || '94036000';
+      }
 
       const item = {
-        chairId: chair._id,
-        chairModel: chair.modelName,
-        hsnCode: chair.hsnCode || '94036000',
-        colorId: color._id,
-        colorName: color.name,
-        quantity: Number(i.quantity),
-        unitPrice: Number(i.unitPrice),
+        itemType,
+        item: itemDoc._id,
+        chairModel,
+        hsnCode,
+        colorId,
+        colorName,
+        quantity: Number(i.quantity) || 1,
+        unitPrice: Number(i.unitPrice) || 0,
         shippingUnit: Number(i.shippingUnit || 0)
       };
 
-      if (i.itemId) item._id = i.itemId;
+      if (i.itemId) {
+        item._id = i.itemId;
+      }
+
       invoice.items.push(item);
     }
+
+    // Step B: Deduct stock for updated line items
+    await updateStockForItems(invoice.items, 'deduct');
 
     // 3. Financial Recalculation Engine
     const COMPANY_STATE = 'Maharashtra';
@@ -257,11 +321,13 @@ exports.update = async (req, res) => {
 
     const billingState = (req.body.billing?.state || '').trim();
     invoice.gstType = gstEnabled
-      ? (billingState === COMPANY_STATE ? 'CGST_SGST' : 'IGST')
+      ? billingState === COMPANY_STATE
+        ? 'CGST_SGST'
+        : 'IGST'
       : 'NONE';
 
     const taxableAmount = invoice.items.reduce(
-      (sum, i) => sum + (i.unitPrice * i.quantity),
+      (sum, i) => sum + (i.unitPrice + i.shippingUnit) * i.quantity,
       0
     );
 
@@ -291,6 +357,8 @@ exports.update = async (req, res) => {
     invoice.installationType = req.body.installationType || 'FREE';
     invoice.notes = req.body.notes;
 
+    invoice.updatedBy = new mongoose.mongo.ObjectId(req.session.user.id)
+
     await invoice.save();
 
     res.redirect(`/leads/${leadId}/pi/${piId}/invoices`);
@@ -304,7 +372,6 @@ exports.deleteInvoice = async (req, res) => {
   try {
     const { id } = req.params;
     const { deleteReason } = req.body;
-    const user = req.user;
 
     if (!deleteReason || !deleteReason.trim()) {
       return res.status(400).send('Delete reason is required');
@@ -319,17 +386,18 @@ exports.deleteInvoice = async (req, res) => {
       return res.status(400).send('Invoice already deleted');
     }
 
+    // Restore inventory when invoice is deleted
+    if (invoice.items && invoice.items.length > 0) {
+      await updateStockForItems(invoice.items, 'restore');
+    }
+
     invoice.status = 'DELETED';
     invoice.deletedAt = new Date();
     invoice.deleteReason = deleteReason.trim();
 
     await invoice.save();
 
-    // Redirect back to invoice history of the PI
-    return res.redirect(
-      `/leads/${invoice.lead}/pi/${invoice.piId}/invoices`
-    );
-
+    return res.redirect(`/leads/${invoice.lead}/pi/${invoice.piId}/invoices`);
   } catch (err) {
     console.error('DELETE TAX INVOICE ERROR:', err);
     res.status(500).send('Failed to delete invoice');

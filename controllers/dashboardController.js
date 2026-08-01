@@ -112,7 +112,7 @@ exports.getDashboard = async (req, res) => {
     if (user.role === 'admin') {
       const allLeads = await Lead.find(leadQueryCondition)
         .populate('assignedTo', 'fullName')
-        .populate('normalizedRequirements.chair', 'modelName colors')
+        .populate('normalizedRequirements.item')
         .lean();
 
       // Summary
@@ -189,8 +189,11 @@ exports.getDashboard = async (req, res) => {
 
       for (const l of dealDoneWithReqs) {
         for (const req of l.normalizedRequirements) {
+
+          if (req.itemType !== 'Chair') continue;
+
           const userName = l.assignedTo?.fullName || 'Unassigned';
-          const modelName = req.chair?.modelName || 'Unknown Model';
+          const modelName = req.item?.modelName || 'Unknown Model';
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
           const totalAmount = unit * qty;

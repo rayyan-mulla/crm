@@ -12,6 +12,37 @@ const AddressSchema = new mongoose.Schema({
   gstin: String
 }, { _id: false });
 
+const ProformaInvoiceItemSchema = new mongoose.Schema({
+  itemType: {
+    type: String,
+    enum: ['Chair', 'SparePart', 'SubAssembly'],
+    required: true,
+    default: 'Chair'
+  },
+  // Dynamic reference based on itemType
+  item: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'items.itemType'
+  },
+  // Saved snapshot field for item name/model
+  chairModel: String, // Keeping field name for backwards compatibility, or acts as modelName / itemName
+  hsnCode: String,
+  
+  // Color fields remain applicable when itemType is 'Chair'
+  colorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
+  colorName: {
+    type: String,
+    default: '-'
+  },
+  
+  quantity: { type: Number, required: true, default: 1 },
+  unitPrice: { type: Number, required: true },
+  shippingUnit: { type: Number, default: 0 }
+}, { _id: true });
+
 const ProformaInvoiceSchema = new mongoose.Schema({
   lead: {
     type: mongoose.Schema.Types.ObjectId,
@@ -43,15 +74,7 @@ const ProformaInvoiceSchema = new mongoose.Schema({
     sgst: Number
   },
 
-  items: [{
-    chairModel: String,
-    hsnCode: String,
-    colorId: mongoose.Schema.Types.ObjectId,
-    colorName: String,
-    quantity: Number,
-    unitPrice: Number,
-    shippingUnit: Number
-  }],
+  items: [ProformaInvoiceItemSchema],
 
   taxableAmount: Number,
   gstAmount: Number,
@@ -75,9 +98,9 @@ const ProformaInvoiceSchema = new mongoose.Schema({
     ref: 'User'
   },
 
-  createdAt: {
-    type: Date,
-    default: Date.now
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
 
   status: {
@@ -95,6 +118,6 @@ const ProformaInvoiceSchema = new mongoose.Schema({
     type: String,
     trim: true
   }
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('ProformaInvoice', ProformaInvoiceSchema);

@@ -2,6 +2,8 @@
 const Lead = require('../models/Lead');
 const User = require('../models/User');
 const Chair = require('../models/Chair');
+const SparePart = require('../models/SparePart'); 
+const SubAssembly = require('../models/SubAssembly');
 const WhatsappNumber = require('../models/WhatsappNumber');
 const Chat = require('../models/Chat');
 const { getSheetRows } = require('../utils/googleSheets'); // optional, used by import
@@ -284,7 +286,8 @@ exports.getLead = async (req, res) => {
       .populate('assignedTo', 'fullName username role')
       .populate('notes.user', 'fullName username')
       .populate('statusHistory.changedBy', 'fullName username')
-      .populate('normalizedRequirements.chair')
+      .populate('normalizedRequirements.item')
+      .populate('normalizedRequirements.colorId')
       .lean();
 
     if (!lead) return res.redirect('/leads');
@@ -877,18 +880,19 @@ exports.sampleExcel = (req, res) => {
 exports.requirementForm = async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id)
-      .populate('normalizedRequirements.chair')
+      .populate('normalizedRequirements.item')
       .lean();
 
     if (!lead) return res.redirect('/leads');
 
     const chairs = await Chair.find({ isActive: true }).lean();
+    const spareParts = await SparePart.find({ isActive: true }).lean();
+    const subAssemblies = await SubAssembly.find({ isActive: true }).lean();
 
     let requirement = null;
     let mode = "add";
 
     if (req.params.reqId) {
-      // Editing case
       requirement = lead.normalizedRequirements.find(
         r => r._id.toString() === req.params.reqId
       );
@@ -900,6 +904,8 @@ exports.requirementForm = async (req, res) => {
       lead,
       requirement,
       chairs,
+      spareParts,
+      subAssemblies,
       mode,
       user: req.session.user,
       activePage: 'leadsDetail',
@@ -914,60 +920,94 @@ exports.requirementForm = async (req, res) => {
 // Handle create or update in one place
 exports.saveRequirement = async (req, res) => {
   try {
-    if (req.params.reqId) {
-      // ✅ update case (single)
-      const { chairId, colorId, quantity, unitPrice, shippingUnit, note } = req.body;
+    const isEditMode = Boolean(req.params.reqId);
+
+    if (isEditMode) {
+      // ✅ Update Case (Single Row Edit)
+      const {
+        itemType,
+        chair,
+        subAssembly,
+        chairColor,
+        quantity,
+        unitPrice,
+        shippingUnit,
+        notes
+      } = req.body;
+
+      // Map raw form itemType to Schema Enum
+      let schemaItemType = 'Chair';
+      if (itemType === 'SubAssembly') schemaItemType = 'SubAssembly';
+      if (itemType === 'SparePart') schemaItemType = 'SparePart';
+
+      // Get correct itemId depending on type
+      const itemId = schemaItemType === 'Chair' ? chair : subAssembly;
+
       const qty = parseInt(quantity) || 1;
       const unit = parseFloat(unitPrice) || 0;
       const ship = parseFloat(shippingUnit) || 0;
-
-      const gstApplicable = req.body.gstApplicable === 'true';
+      const gstApplicable = req.body.gstApplicable === 'true' || req.body.gstApplicable === true;
 
       const unitWithGst = gstApplicable ? unit * 1.18 : unit;
-      const total = Math.round(unitWithGst * qty);
+      const total = Number((unitWithGst * qty).toFixed(2));
+
+      const updatePayload = {
+        "normalizedRequirements.$.itemType": schemaItemType,
+        "normalizedRequirements.$.item": itemId,
+        "normalizedRequirements.$.quantity": qty,
+        "normalizedRequirements.$.unitPrice": unit,
+        "normalizedRequirements.$.shippingUnit": ship,
+        "normalizedRequirements.$.gstApplicable": gstApplicable,
+        "normalizedRequirements.$.totalPrice": total,
+        "normalizedRequirements.$.note": notes || ""
+      };
+
+      if (schemaItemType === 'Chair' && chairColor) {
+        updatePayload["normalizedRequirements.$.colorId"] = chairColor;
+      } else {
+        updatePayload["normalizedRequirements.$.colorId"] = null;
+      }
 
       await Lead.updateOne(
         { _id: req.params.id, "normalizedRequirements._id": req.params.reqId },
-        {
-          $set: {
-            "normalizedRequirements.$.chair": chairId,
-            "normalizedRequirements.$.colorId": colorId,
-            "normalizedRequirements.$.quantity": qty,
-            "normalizedRequirements.$.unitPrice": unit,
-            "normalizedRequirements.$.shippingUnit": ship,
-            "normalizedRequirements.$.gstApplicable": gstApplicable,
-            "normalizedRequirements.$.totalPrice": total,
-            "normalizedRequirements.$.note": note
-          }
-        }
+        { $set: updatePayload }
       );
+
     } else {
-      // ✅ add case (multiple requirements from array)
-      const requirements = req.body.requirements || [];
+      // ✅ Add Case (Multiple Bulk Items from req.body.items)
+      const rawItems = req.body.items || [];
+      const itemsList = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
 
-      const reqs = Object.values(requirements).map(r => {
-        const qty = parseInt(r.quantity) || 1;
-        const unit = parseFloat(r.unitPrice) || 0;
-        const ship = parseFloat(r.shippingUnit) || 0;
+      const reqs = itemsList
+        .filter(item => item && (item.chair || item.subAssembly)) // Filter out empty selections
+        .map(r => {
+          let schemaItemType = 'Chair';
+          if (r.itemType === 'SubAssembly') schemaItemType = 'SubAssembly';
+          if (r.itemType === 'SparePart') schemaItemType = 'SparePart';
 
-        const gstApplicable = r.gstApplicable === 'true';
+          const itemId = schemaItemType === 'Chair' ? r.chair : r.subAssembly;
+          const qty = parseInt(r.quantity) || 1;
+          const unit = parseFloat(r.unitPrice) || 0;
+          const ship = parseFloat(r.shippingUnit) || 0;
+          const gstApplicable = r.gstApplicable === 'true' || r.gstApplicable === true;
 
-        const unitWithGst = gstApplicable ? unit * 1.18 : unit;
-        const total = Math.round(unitWithGst * qty);
+          const unitWithGst = gstApplicable ? unit * 1.18 : unit;
+          const total = Number((unitWithGst * qty).toFixed(2));
 
-        return {
-          chair: r.chairId,
-          colorId: r.colorId,
-          quantity: qty,
-          unitPrice: unit,
-          shippingUnit: ship,
-          gstApplicable,
-          totalPrice: total,
-          note: r.note || ""
-        };
-      });
+          return {
+            itemType: schemaItemType,
+            item: itemId,
+            colorId: (schemaItemType === 'Chair' && r.chairColor) ? r.chairColor : null,
+            quantity: qty,
+            unitPrice: unit,
+            shippingUnit: ship,
+            gstApplicable,
+            totalPrice: total,
+            note: req.body.notes || ""
+          };
+        });
 
-      if (reqs.length) {
+      if (reqs.length > 0) {
         await Lead.findByIdAndUpdate(req.params.id, {
           $push: { normalizedRequirements: { $each: reqs } }
         });
@@ -976,8 +1016,8 @@ exports.saveRequirement = async (req, res) => {
 
     res.redirect(`/leads/${req.params.id}`);
   } catch (err) {
-    console.error("saveRequirement error", err);
-    res.status(500).send("Server error");
+    console.error("saveRequirement error:", err);
+    res.status(500).send("Server error saving requirements");
   }
 };
 

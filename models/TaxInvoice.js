@@ -12,8 +12,38 @@ const AddressSchema = new mongoose.Schema({
   gstin: String
 }, { _id: false });
 
-const TaxInvoiceSchema = new mongoose.Schema({
+const TaxInvoiceItemSchema = new mongoose.Schema({
+  itemType: {
+    type: String,
+    enum: ['Chair', 'SparePart', 'SubAssembly'],
+    required: true,
+    default: 'Chair'
+  },
+  // Dynamic reference based on itemType
+  item: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'items.itemType'
+  },
+  // Snapshot field for item model/part name
+  chairModel: String,
+  hsnCode: String,
 
+  // Color fields applicable when itemType is 'Chair'
+  colorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
+  colorName: {
+    type: String,
+    default: '-'
+  },
+
+  quantity: { type: Number, required: true, default: 1 },
+  unitPrice: { type: Number, required: true },
+  shippingUnit: { type: Number, default: 0 }
+}, { _id: true });
+
+const TaxInvoiceSchema = new mongoose.Schema({
   piId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ProformaInvoice',
@@ -48,6 +78,7 @@ const TaxInvoiceSchema = new mongoose.Schema({
   shippingAddress: AddressSchema,
 
   gstEnabled: Boolean,
+
   gstType: {
     type: String,
     enum: ['IGST', 'CGST_SGST', 'NONE']
@@ -59,15 +90,7 @@ const TaxInvoiceSchema = new mongoose.Schema({
     sgst: Number
   },
 
-  items: [{
-    chairModel: String,
-    hsnCode: String,
-    colorId: mongoose.Schema.Types.ObjectId,
-    colorName: String,
-    quantity: Number,
-    unitPrice: Number,
-    shippingUnit: Number
-  }],
+  items: [TaxInvoiceItemSchema],
 
   taxableAmount: Number,
   gstAmount: Number,
@@ -98,9 +121,9 @@ const TaxInvoiceSchema = new mongoose.Schema({
     ref: 'User'
   },
 
-  createdAt: {
-    type: Date,
-    default: Date.now
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
 
   deletedAt: {
@@ -111,7 +134,6 @@ const TaxInvoiceSchema = new mongoose.Schema({
     type: String,
     trim: true
   }
-
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('TaxInvoice', TaxInvoiceSchema);

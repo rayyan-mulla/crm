@@ -1,6 +1,8 @@
 const Lead = require('../models/Lead');
 const ProformaInvoice = require('../models/ProformaInvoice');
 const Chair = require('../models/Chair');
+const SparePart = require('../models/SparePart');
+const SubAssembly = require('../models/SubAssembly');
 const mongoose = require('mongoose');
 const imageToBase64 = require('../utils/imageToBase64');
 const pdfGenerator = require('../utils/pdfGenerator');
@@ -16,7 +18,7 @@ async function generatePiNumber() {
   const lastPi = await ProformaInvoice.findOne({
     piNumber: { $regex: `^${prefix}` }
   })
-    .sort({ piNumber: -1 }) // works because of zero-padding
+    .sort({ piNumber: -1 })
     .select('piNumber')
     .lean();
 
@@ -37,8 +39,9 @@ exports.createForm = async (req, res) => {
     return res.status(400).send('Invalid lead');
   }
 
+  // FIXED: Populating .item instead of .chair
   const lead = await Lead.findById(leadId)
-    .populate('normalizedRequirements.chair')
+    .populate('normalizedRequirements.item')
     .lean();
 
   if (!lead) return res.status(404).send('Lead not found');
@@ -53,8 +56,9 @@ exports.createForm = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
+    // FIXED: Populating .item instead of .chair
     const lead = await Lead.findById(req.params.id)
-      .populate('normalizedRequirements.chair')
+      .populate('normalizedRequirements.item')
       .lean();
 
     if (!lead) return res.status(404).send('Lead not found');
@@ -78,19 +82,31 @@ exports.create = async (req, res) => {
       ? req.body.billing
       : req.body.shipping;
 
+    // Support for Chair, SparePart, and SubAssembly items
     const items = lead.normalizedRequirements.map(r => {
-      const color = r.chair.colors.find(
-        c => c._id.toString() === r.colorId.toString()
-      );
+      const isChair = r.itemType === 'Chair';
+      const populatedItem = r.item || {};
+
+      let colorName = '-';
+      if (isChair && populatedItem.colors && r.colorId) {
+        const color = populatedItem.colors.find(
+          c => c._id.toString() === r.colorId.toString()
+        );
+        if (color) colorName = color.name;
+      }
+
+      const modelOrName = populatedItem.modelName || populatedItem.partName || populatedItem.name || 'Item';
 
       return {
-        chairModel: r.chair.modelName,
-        hsnCode: r.chair.hsnCode || '94036000',
-        colorId: r.colorId,            
-        colorName: color?.name || '-',
+        itemType: r.itemType || 'Chair',
+        item: r.item?._id || r.item,
+        chairModel: modelOrName,
+        hsnCode: populatedItem.hsnCode || '94036000',
+        colorId: r.colorId || null,
+        colorName,
         quantity: r.quantity,
         unitPrice: r.unitPrice,
-        shippingUnit: r.shippingUnit
+        shippingUnit: r.shippingUnit || 0
       };
     });
 
@@ -110,8 +126,7 @@ exports.create = async (req, res) => {
       }
     }
 
-    const gstAmount =
-      gstBreakup.igst + gstBreakup.cgst + gstBreakup.sgst;
+    const gstAmount = gstBreakup.igst + gstBreakup.cgst + gstBreakup.sgst;
 
     const pi = await ProformaInvoice.create({
       lead: lead._id,
@@ -153,6 +168,7 @@ exports.history = async (req, res) => {
 
     const piHistory = await ProformaInvoice.find({ lead: leadId })
       .populate('createdBy', 'fullName')
+      .populate('updatedBy', 'fullName')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -210,36 +226,45 @@ exports.downloadPdf = async (req, res) => {
 };
 
 exports.editForm = async (req, res) => {
-  const { leadId, piId } = req.params;
+  try {
+    const { leadId, piId } = req.params;
 
-  const pi = await ProformaInvoice.findById(piId).lean();
-  if (!pi) return res.status(404).send('PI not found');
+    const pi = await ProformaInvoice.findById(piId).lean();
+    if (!pi) return res.status(404).send('PI not found');
 
-  const lead = await Lead.findById(leadId).lean();
-  if (!lead) return res.status(404).send('Lead not found');
+    const lead = await Lead.findById(leadId).lean();
+    if (!lead) return res.status(404).send('Lead not found');
 
-  const chairs = await Chair.find().lean();
+    const chairs = await Chair.find().lean();
+    const spareParts = await SparePart.find().lean();
+    const subAssemblies = await SubAssembly.find().lean();
 
-  const user = req.session.user;
+    const user = req.session.user;
 
-  const isAdmin = user.role === 'admin';
-  const isAssignedUser =
-    lead.assignedTo &&
-    user?.id &&
-    lead.assignedTo.toString() === user.id.toString();
+    const isAdmin = user.role === 'admin';
+    const isAssignedUser =
+      lead.assignedTo &&
+      user?.id &&
+      lead.assignedTo.toString() === user.id.toString();
 
-  if (!isAdmin && !isAssignedUser) {
-    return res.status(403).send('Not authorized to edit this PI');
+    if (!isAdmin && !isAssignedUser) {
+      return res.status(403).send('Not authorized to edit this PI');
+    }
+
+    res.render('pi/edit', {
+      pi,
+      lead,
+      chairs,
+      spareParts,
+      subAssemblies,
+      user,
+      activePage: 'proformaInvoice',
+      showBack: true
+    });
+  } catch (err) {
+    console.error('PI EDIT FORM ERROR:', err);
+    res.status(500).send(err.message);
   }
-
-  res.render('pi/edit', {
-    pi,
-    lead,
-    chairs,
-    user,
-    activePage: 'proformaInvoice',
-    showBack: true
-  });
 };
 
 exports.update = async (req, res) => {
@@ -249,7 +274,6 @@ exports.update = async (req, res) => {
     const pi = await ProformaInvoice.findById(piId);
     if (!pi) return res.status(404).send('PI not found');
 
-    // ⛔ Prevent editing deleted PI
     if (pi.status === 'DELETED') {
       return res.status(400).send('Deleted PI cannot be edited');
     }
@@ -270,7 +294,7 @@ exports.update = async (req, res) => {
     }
 
     /* ===============================
-       ADDRESS UPDATES
+    ADDRESS UPDATES
     =============================== */
     pi.billingAddress = req.body.billing;
 
@@ -280,59 +304,78 @@ exports.update = async (req, res) => {
       : req.body.shipping;
 
     /* ===============================
-      ITEMS UPDATE (SNAPSHOT)
+    ITEMS UPDATE (MULTI-TYPE SUPPORT)
     =============================== */
     const itemsFromForm = Array.isArray(req.body.items)
       ? req.body.items
       : Object.values(req.body.items || {});
 
-    const existingItemsById = new Map(
-      pi.items.map(item => [
-        String(item._id),
-        {
-          shippingUnit: item.shippingUnit || 0
-        }
-      ])
-    );
-
     pi.items = [];
 
     for (const i of itemsFromForm) {
-      if (!i.chairId || !i.colorId) continue;
+      const itemType = i.itemType || 'Chair';
+      const selectedId = i.chair || i.subAssembly || i.chairId || i.item;
 
-      const chair = await Chair.findById(i.chairId).lean();
-      if (!chair) continue;
+      if (!selectedId) continue;
 
-      const color = chair.colors.find(
-        c => String(c._id) === String(i.colorId)
-      );
-      if (!color) continue;
+      let itemDoc = null;
+      let chairModel = 'Item';
+      let hsnCode = '94036000';
+      let colorId = null;
+      let colorName = '-';
 
-      const preserved = i.itemId
-        ? existingItemsById.get(String(i.itemId))
-        : null;
+      if (itemType === 'Chair') {
+        itemDoc = await Chair.findById(selectedId).lean();
+        if (!itemDoc) continue;
+
+        chairModel = itemDoc.modelName || 'Chair';
+        hsnCode = itemDoc.hsnCode || '94036000';
+
+        if (i.colorId && itemDoc.colors) {
+          const color = itemDoc.colors.find(
+            c => String(c._id) === String(i.colorId)
+          );
+          if (color) {
+            colorId = color._id;
+            colorName = color.name;
+          }
+        }
+      } else if (itemType === 'SparePart' || itemType === 'Spare Part') {
+        itemDoc = await SparePart.findById(selectedId).lean();
+        if (!itemDoc) continue;
+
+        chairModel = itemDoc.partName || itemDoc.name || 'Spare Part';
+        hsnCode = itemDoc.hsnCode || '94036000';
+      } else if (itemType === 'SubAssembly') {
+        itemDoc = await SubAssembly.findById(selectedId).lean();
+        if (!itemDoc) continue;
+
+        chairModel = itemDoc.name || itemDoc.partName || 'Sub-Assembly';
+        hsnCode = itemDoc.hsnCode || '94036000';
+      }
 
       const item = {
-        chairId: chair._id,
-        chairModel: chair.modelName,
-        hsnCode: chair.hsnCode || '94036000',
-        colorId: color._id,
-        colorName: color.name,
-        quantity: Number(i.quantity),
-        unitPrice: Number(i.unitPrice),
+        itemType,
+        item: itemDoc._id,
+        chairId: itemType === 'Chair' ? itemDoc._id : null,
+        chairModel,
+        hsnCode,
+        colorId,
+        colorName,
+        quantity: Number(i.quantity) || 1,
+        unitPrice: Number(i.unitPrice) || 0,
         shippingUnit: Number(i.shippingUnit || 0)
       };
 
       if (i.itemId) {
-        item._id = i.itemId; // only assign if it exists
+        item._id = i.itemId;
       }
 
       pi.items.push(item);
-
     }
 
     /* ===============================
-       GST LOGIC (RECALCULATED)
+    GST LOGIC (RECALCULATED)
     =============================== */
     const COMPANY_STATE = 'Maharashtra';
     const gstEnabled = !!req.body.gstEnabled;
@@ -347,7 +390,7 @@ exports.update = async (req, res) => {
       : 'NONE';
 
     /* ===============================
-       RE-CALCULATE TOTALS
+    RE-CALCULATE TOTALS
     =============================== */
     const taxableAmount = pi.items.reduce(
       (sum, i) => sum + (i.unitPrice * i.quantity),
@@ -365,8 +408,7 @@ exports.update = async (req, res) => {
       }
     }
 
-    const gstAmount =
-      gstBreakup.igst + gstBreakup.cgst + gstBreakup.sgst;
+    const gstAmount = gstBreakup.igst + gstBreakup.cgst + gstBreakup.sgst;
 
     pi.taxableAmount = taxableAmount;
     pi.gstBreakup = gstBreakup;
@@ -374,13 +416,15 @@ exports.update = async (req, res) => {
     pi.grandTotal = taxableAmount + gstAmount;
 
     /* ===============================
-       META FIELDS
+    META FIELDS
     =============================== */
     pi.poNumber = req.body.poNumber;
     pi.paymentMode = req.body.paymentMode;
     pi.estimatedDelivery = req.body.estimatedDelivery;
-    pi.installationType = req.body.installationType || 'FREE',
+    pi.installationType = req.body.installationType || 'FREE';
     pi.notes = req.body.notes;
+
+    pi.updatedBy = new mongoose.mongo.ObjectId(req.session.user.id)
 
     await pi.save();
 

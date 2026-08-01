@@ -64,6 +64,7 @@
               <th class="text-end">Total</th>
               <th>GST Type</th>
               <th>Created By</th>
+              <th>Updated By</th>
               <th class="text-end">Action</th>
             </tr>
           </thead>
@@ -118,6 +119,10 @@
 
                 <td>
                   <%= inv.createdBy?.fullName || 'System' %>
+                </td>
+
+                <td>
+                  <%= inv.updatedBy?.fullName || '-' %>
                 </td>
 
                 <td class="text-end">

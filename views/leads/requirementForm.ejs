@@ -1,294 +1,415 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title><%= mode === 'add' ? 'Add Requirements' : 'Edit Requirement' %> - Olive Chairs CRM</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= mode === 'edit' ? 'Edit Requirement' : 'Add Requirements' %> - Olive Chairs ERP</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
   <style>
-    .req-row { 
-      background: #f8f9fa; 
-      border-radius: 8px; 
-      padding: 15px; 
-    }
+    .remove-row { cursor: pointer; }
+    .item-card { background: #fafafa; }
   </style>
 </head>
 <body>
 <%- include('../partials/navbar', { user, activePage }) %>
 
-<div class="container py-4">
-  <h3 class="mb-3">
-    <%= mode === 'add' ? 'Add Requirements' : 'Edit Requirement' %> for <%= lead.customer_name %>
+<div class="container py-5">
+  <h3 class="mb-4">
+    <%= mode === 'edit' ? 'Edit Requirement' : 'New Requirements' %>
   </h3>
 
-  <form action="<%= mode === 'add' 
-      ? `/leads/${lead._id}/requirement/add` 
-      : `/leads/${lead._id}/requirement/${requirement._id}/edit` %>" 
-    method="post" class="card shadow-sm p-4">
+  <form method="POST" action="<%= mode === 'edit' ? '/leads/' + lead._id + '/requirement/' + requirement._id + '/edit' : '/leads/' + lead._id + '/requirement/add' %>">
 
-    <div id="requirementsContainer" class="vstack gap-3">
-      
-      <% if (mode === 'edit') { %>
-        <!-- Single row for edit -->
-        <div class="req-row">
-          <div class="mb-3">
-            <label class="form-label">Chair Model</label>
-            <select name="chairId" class="form-select chairSelect" required>
-              <% chairs.forEach(c => { %>
-                <option value="<%= c._id %>" <%= requirement.chair._id.toString() === c._id.toString() ? 'selected' : '' %>>
-                  <%= c.modelName %>
-                </option>
-              <% }) %>
-            </select>
+    <!-- DETAILS CARD -->
+    <div class="card shadow-sm p-3 mb-4">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Requirement Details</h5>
+        <% if (lead.status) { %>
+          <span class="badge bg-secondary"><%= lead.status %></span>
+        <% } %>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          
+          <div class="col-md-3">
+            <small class="text-muted d-block">Customer Name</small>
+            <div><%= lead.customer_name || '-' %></div>
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Color</label>
-            <select name="colorId" class="form-select colorSelect" data-selected-color="<%= requirement.colorId.toString() %>" required>
-              <option value="">-- Select Color --</option>
-            </select>
-          </div>
-
-          <div class="mb-3 row">
-            <div class="col-md-3">
-              <label class="form-label">Quantity</label>
-              <input type="number" name="quantity" class="form-control qty" min="1" value="<%= requirement.quantity %>" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Unit Price (₹)</label>
-              <div class="input-group">
-                <input type="number" name="unitPrice" class="form-control unit" min="0" step="1" value="<%= requirement.unitPrice %>" required>
-                <div class="input-group-text">
-                  <input class="form-check-input mt-0 gstCheck" type="checkbox" name="gstApplicable" value="true" <%= requirement.gstApplicable ? 'checked' : '' %>>
-                  <small class="ms-1">GST</small>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Shipping/Unit (₹)</label>
-              <input type="number" name="shippingUnit" class="form-control ship" min="0" step="1" value="<%= requirement.shippingUnit || 0 %>" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Total Price (₹)</label>
-              <input type="text" class="form-control total" value="<%= requirement.totalPrice %>" readonly>
+          <div class="col-md-2">
+            <small class="text-muted d-block">Customer Type</small>
+            <div>
+              <span class="badge <%= lead.customerType === 'Reseller' ? 'bg-primary' : 'bg-light text-dark border' %>">
+                <%= lead.customerType || 'End User' %>
+              </span>
             </div>
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Note</label>
-            <textarea name="note" class="form-control" rows="2"><%= requirement.note %></textarea>
+          <div class="col-md-3">
+            <small class="text-muted d-block">Contact Number</small>
+            <div><%= lead.contact_number || '-' %></div>
           </div>
+
+          <div class="col-md-2">
+            <small class="text-muted d-block">Email</small>
+            <div><%= lead.email_id || '-' %></div>
+          </div>
+
+          <div class="col-md-2">
+            <small class="text-muted d-block">City</small>
+            <div><%= lead.city || '-' %></div>
+          </div>
+
         </div>
-      <% } else { %>
-        <!-- First empty row in add mode -->
-        <div class="req-row">
-          <div class="mb-3">
-            <label class="form-label">Chair Model</label>
-            <select name="requirements[0][chairId]" class="form-select chairSelect" required>
-              <option value="">-- Select Model --</option>
-              <% chairs.forEach(c => { %>
-                <option value="<%= c._id %>"><%= c.modelName %></option>
-              <% }) %>
-            </select>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Color</label>
-            <select name="requirements[0][colorId]" class="form-select colorSelect" required>
-              <option value="">-- Select Color --</option>
-            </select>
-          </div>
-
-          <div class="mb-3 row">
-            <div class="col-md-3">
-              <label class="form-label">Quantity</label>
-              <input type="number" name="requirements[0][quantity]" class="form-control qty" min="1" value="1" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Unit Price (₹)</label>
-              <div class="input-group">
-                <input type="number" name="requirements[0][unitPrice]" class="form-control unit" min="0" step="1" required>
-                <div class="input-group-text">
-                  <input class="form-check-input mt-0 gstCheck" type="checkbox" name="requirements[0][gstApplicable]" value="true">
-                  <small class="ms-1">GST</small>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Shipping/Unit (₹)</label>
-              <input type="number" name="requirements[0][shippingUnit]" class="form-control ship" min="0" step="1" value="0" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Total Price (₹)</label>
-              <input type="text" class="form-control total" readonly>
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Note</label>
-            <textarea name="requirements[0][note]" class="form-control" rows="2"></textarea>
-          </div>
-        </div>
-      <% } %>
+      </div>
     </div>
 
-    <!-- Add more requirements button -->
-    <% if (mode === 'add') { %>
-      <button type="button" id="addRequirement" class="btn btn-outline-primary my-3">+ Add More Requirement</button>
-    <% } %>
+    <!-- ITEMS CARD -->
+    <div class="card shadow-sm p-3">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Requirement Items</h5>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="addRow">+ Add Item</button>
+      </div>
 
-    <div class="d-flex justify-content-end mt-3">
-      <a href="/leads/<%= lead._id %>" class="btn btn-secondary me-2">Cancel</a>
-      <button class="btn btn-<%= mode === 'add' ? 'success' : 'primary' %>">
-        <%= mode === 'add' ? 'Add Requirements' : 'Save Changes' %>
-      </button>
+      <div class="card-body">
+        <div id="itemsContainer">
+          <% const itemsData = mode === 'edit' ? [requirement] : (requirement?.items?.length ? requirement.items : [{}]); %>
+          <% itemsData.forEach((item, index) => { %>
+            
+            <div class="item-card border rounded p-3 mb-3">
+              <div class="row g-2 align-items-end">
+                
+                <!-- Type Selection -->
+                <div class="col-md-2">
+                  <label class="form-label">Type</label>
+                  <select class="form-select itemType" name="<%= mode === 'edit' ? 'itemType' : `items[${index}][itemType]` %>">
+                    <option value="SubAssembly" <%= item.itemType === 'SubAssembly' ? 'selected' : '' %>>Sub-Assembly</option>
+                    <option value="Chair" <%= item.itemType === 'Chair' ? 'selected' : '' %>>Chair</option>
+                    <option value="SparePart" <%= item.itemType === 'SparePart' ? 'selected' : '' %>>Spare Part</option>
+                  </select>
+                </div>
+
+                <!-- Sub-Assembly / Spare Part Select Wrapper -->
+                <div class="col-md-4 subAssemblyWrapper <%= item.itemType === 'Chair' ? 'd-none' : '' %>">
+                  <label class="form-label itemSelectLabel">
+                    <%= item.itemType === 'SparePart' ? 'Spare Part' : 'Sub-Assembly' %>
+                  </label>
+
+                  <select class="form-select subAssemblySelect" name="<%= mode === 'edit' ? (item.itemType === 'SparePart' ? 'sparePart' : 'subAssembly') : `items[${index}][${item.itemType === 'SparePart' ? 'sparePart' : 'subAssembly'}]` %>">
+                    <option value="">Select Item</option>
+
+                    <% 
+                      const isSpare = item.itemType === 'SparePart';
+                      const list = isSpare ? (typeof spareParts !== 'undefined' ? spareParts : []) : (typeof subAssemblies !== 'undefined' ? subAssemblies : []);
+                      const selectedId = (item.sparePart?._id || item.sparePart || item.subAssembly?._id || item.subAssembly || item.item?._id || item.item)?.toString();
+                    %>
+
+                    <% list.forEach(opt => { %>
+                      <% 
+                        // Resolve field names (partName vs name, finalCost/baseCost vs basePrice/price)
+                        const displayName = opt.partName || opt.name || 'Unnamed Item';
+                        const displayPrice = opt.baseCost || opt.basePrice || opt.finalCost || opt.price || 0;
+                      %>
+                      <option value="<%= opt._id %>" data-price="<%= displayPrice %>" <%= selectedId === opt._id.toString() ? 'selected' : '' %>>
+                        <%= displayName %> <%= displayPrice ? '(₹' + displayPrice + ')' : '' %>
+                      </option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <!-- Chair Select Wrapper -->
+                <div class="col-md-2 chairWrapper <%= item.itemType === 'Chair' ? '' : 'd-none' %>">
+                  <label class="form-label">Item</label>
+                  <select class="form-select chairSelect" name="<%= mode === 'edit' ? 'chair' : `items[${index}][chair]` %>">
+                    <option value="">Select Chair</option>
+                    <% const selectedChairId = (item.chair?._id || item.chair || item.item?._id || item.item)?.toString(); %>
+                    <% chairs.forEach(c => { %>
+                      <option value="<%= c._id %>" data-colors='<%- JSON.stringify(c.colors || []) %>' <%= selectedChairId === c._id.toString() ? 'selected' : '' %>>
+                        <%= c.modelName %>
+                      </option>
+                    <% }) %>
+                  </select>
+                </div>
+
+                <!-- Color Select Wrapper -->
+                <div class="col-md-2 colorWrapper <%= item.itemType === 'Chair' ? '' : 'd-none' %>">
+                  <label class="form-label">Color</label>
+                  <select class="form-select colorSelect" name="<%= mode === 'edit' ? 'chairColor' : `items[${index}][chairColor]` %>">
+                    <option value="">Select Color</option>
+                  </select>
+                </div>
+
+                <!-- Quantity Input -->
+                <div class="col-md-1">
+                  <label class="form-label">Qty</label>
+                  <input type="number" name="<%= mode === 'edit' ? 'quantity' : `items[${index}][quantity]` %>" class="form-control qty" value="<%= item.quantity || 1 %>" min="1" required>
+                </div>
+
+                <!-- Unit Price + GST Checkbox -->
+                <div class="col-md-2">
+                  <label class="form-label">Unit Price</label>
+                  <div class="input-group">
+                    <input type="number" name="<%= mode === 'edit' ? 'unitPrice' : `items[${index}][unitPrice]` %>" class="form-control unitPrice" value="<%= item.unitPrice || '' %>" placeholder="0" step="0.01">
+                    <div class="input-group-text">
+                      <input class="form-check-input mt-0 gstCheck" type="checkbox" name="<%= mode === 'edit' ? 'gstApplicable' : `items[${index}][gstApplicable]` %>" value="true" <%= item.gstApplicable ? 'checked' : '' %>>
+                      <small class="ms-1">GST</small>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Shipping Price -->
+                <div class="col-md-1">
+                  <label class="form-label">Shipping</label>
+                  <input type="number" name="<%= mode === 'edit' ? 'shippingUnit' : `items[${index}][shippingUnit]` %>" class="form-control shippingUnit" value="<%= item.shippingUnit || 0 %>" placeholder="0" step="0.01">
+                </div>
+
+                <!-- Total Price Field -->
+                <div class="col-md-1">
+                  <label class="form-label">Total</label>
+                  <input type="text" name="<%= mode === 'edit' ? 'totalPrice' : `items[${index}][totalPrice]` %>" class="form-control totalPrice bg-white" value="<%= item.totalPrice || '0' %>" readonly>
+                </div>
+
+                <!-- Remove Row Button -->
+                <div class="col-md-1 text-end">
+                  <button type="button" class="btn btn-outline-danger remove-row">✕</button>
+                </div>
+
+              </div>
+            </div>
+
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTES CARD -->
+    <div class="card shadow-sm p-3 mt-4">
+      <div class="card-body">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="3"><%= requirement?.notes || '' %></textarea>
+      </div>
+    </div>
+
+    <!-- SUBMIT BUTTON -->
+    <div class="text-end mt-4">
+      <button type="submit" class="btn btn-primary">Save Requirements</button>
     </div>
   </form>
 </div>
 
 <script>
-  const chairs = <%- JSON.stringify(chairs) %>;
-  const container = document.getElementById('requirementsContainer');
-  const addBtn = document.getElementById('addRequirement');
+  let rowIndex = <%= itemsData.length %>;
 
-  // counter for rows
-  let index = 1;
+  // Pass catalog items safely into Client JS
+  const chairs = <%- JSON.stringify(chairs || []) %>;
+  const subAssemblies = <%- JSON.stringify(subAssemblies || []) %>;
+  const spareParts = <%- JSON.stringify(spareParts || []) %>;
 
-  // Add new requirement row dynamically
-  addBtn?.addEventListener('click', () => {
-    const row = document.createElement('div');
-    row.className = 'req-row';
-    row.innerHTML = `
-      <div class="mb-3">
-        <label class="form-label">Chair Model</label>
-        <select name="requirements[${index}][chairId]" class="form-select chairSelect" required>
-          <option value="">-- Select Model --</option>
-          ${chairs.map(c => `<option value="${c._id}">${c.modelName}</option>`).join('')}
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Color</label>
-        <select name="requirements[${index}][colorId]" class="form-select colorSelect" required>
-          <option value="">-- Select Color --</option>
-        </select>
-      </div>
-      <div class="mb-3 row">
-        <div class="col-md-3">
-          <label class="form-label">Quantity</label>
-          <input type="number" name="requirements[${index}][quantity]" class="form-control qty" min="1" value="1" required>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Unit Price (₹)</label>
-          <div class="input-group">
-            <input type="number" name="requirements[${index}][unitPrice]" class="form-control unit" min="0" step="1" required>
-            <div class="input-group-text">
-              <input class="form-check-input mt-0 gstCheck" type="checkbox" name="requirements[${index}][gstApplicable]" value="true">
-              <small class="ms-1">GST</small>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Shipping/Unit (₹)</label>
-          <input type="number" name="requirements[${index}][shippingUnit]" class="form-control ship" min="0" step="1" value="0" required>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Total Price (₹)</label>
-          <input type="text" class="form-control total" readonly>
-        </div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Note</label>
-        <textarea name="requirements[${index}][note]" class="form-control" rows="2"></textarea>
-      </div>
-      <div class="text-end">
-        <button type="button" class="btn btn-sm btn-outline-danger removeReq">✕ Remove</button>
-      </div>
-    `;
-    container.appendChild(row);
-    index++;
-  });
+  /* CALCULATE TOTAL PRICE FOR ROW */
+  function calculateRowTotal(row) {
+    const qty = parseInt(row.querySelector('.qty')?.value) || 0;
+    const unitPrice = parseFloat(row.querySelector('.unitPrice')?.value) || 0;
+    const unitGst = row.querySelector('.gstCheck')?.checked || false;
 
-  // Remove requirement row
-  container.addEventListener('click', e => {
-    if (e.target.classList.contains('removeReq')) {
-      e.target.closest('.req-row')?.remove();
-    }
-  });
+    const effectiveUnit = unitGst ? (unitPrice * 1.18) : unitPrice;
+    const lineTotal = Math.round(effectiveUnit * qty);
 
-  // Populate colors when chair changes
-  container.addEventListener('change', e => {
-    if (!e.target.classList.contains('chairSelect')) return;
-
-    const row = e.target.closest('.req-row');
-    const chairId = e.target.value;
-    const colorSelect = row.querySelector('.colorSelect');
-    const selectedColor = colorSelect.dataset.selectedColor;
-
-    colorSelect.innerHTML = '<option value="">-- Select Color --</option>';
-
-    const chair = chairs.find(c => String(c._id) === String(chairId));
-    if (!chair || !chair.colors) return;
-
-    chair.colors.forEach(col => {
-      const base = col.basePrice || 0;
-      const hasGst = col.gstApplicable === true;
-      const final = hasGst ? Math.round(base * 1.18) : base;
-
-      const opt = document.createElement('option');
-      opt.value = col._id;
-      opt.textContent = hasGst
-        ? `${col.name} — ₹${base} + 18% GST = ₹${final}`
-        : `${col.name} — ₹${base} (No GST)`;
-
-      if (selectedColor && String(selectedColor) === String(col._id)) {
-        opt.selected = true;
-      }
-
-      colorSelect.appendChild(opt);
-    });
-  });
-
-  // Auto calculate total (qty * (unit + ship))
-  function calculateRow(row) {
-    const q = parseInt(row.querySelector('.qty').value) || 0;
-    const u = parseFloat(row.querySelector('.unit').value) || 0;
-    const s = parseFloat(row.querySelector('.ship').value) || 0;
-    const isGst = row.querySelector('.gstCheck').checked;
-
-    // Formula: ((Unit * 1.18 if GST) + Shipping) * Quantity
-    const unitWithGst = isGst ? (u * 1.18) : u;
-    
-    // Note: Added '+ s' back here so shipping is actually included in the total
-    const total = Math.round(unitWithGst * q);
-
-    row.querySelector('.total').value = total;
+    const totalInput = row.querySelector('.totalPrice');
+    if (totalInput) totalInput.value = lineTotal;
   }
 
-  // 2. Listen for typing (numbers/text)
-  container.addEventListener('input', e => {
-    const row = e.target.closest('.req-row');
-    if (row) calculateRow(row);
-  });
+  /* HELPER TO POPULATE COLOR OPTIONS FOR A CHAIR */
+  function populateColors(row, chairId, selectedColorId = null) {
+    const colorSelect = row.querySelector('.colorSelect');
+    if (!colorSelect) return;
 
-  // 3. Listen for toggles (checkboxes/select dropdowns)
-  container.addEventListener('change', e => {
-    const row = e.target.closest('.req-row');
-    if (row) calculateRow(row);
-  });
+    colorSelect.innerHTML = '<option value="">Select Color</option>';
+    if (!chairId) return;
 
-  // 4. Auto-trigger chair change on page load (EDIT MODE)
-  // This ensures colors are populated and the previously selected color
-  // is restored when editing an existing requirement.
-  // Note: `bubbles: true` is required because the change listener
-  // is attached to the container using event delegation.
-  document.querySelectorAll('.chairSelect').forEach(select => {
-    if (select.value) {
-      select.dispatchEvent(new Event('change', { bubbles: true }));
+    const selectedChair = chairs.find(c => c._id.toString() === chairId.toString());
+    if (selectedChair && selectedChair.colors) {
+      selectedChair.colors.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c._id;
+        opt.dataset.basePrice = c.basePrice || c.price || 0;
+        opt.textContent = (c.basePrice || c.price) ? `${c.name} (₹${c.basePrice || c.price})` : c.name;
+        
+        if (selectedColorId && c._id.toString() === selectedColorId.toString()) {
+          opt.selected = true;
+        }
+        colorSelect.appendChild(opt);
+      });
+    }
+  }
+
+  /* POPULATE SUB-ASSEMBLY OR SPARE PART OPTIONS */
+  function populateNonChairItems(row, itemType, selectedId = null) {
+    const subSelect = row.querySelector('.subAssemblySelect');
+    const label = row.querySelector('.itemSelectLabel');
+    if (!subSelect) return;
+
+    const isSpare = (itemType === 'SparePart');
+    const catalogList = isSpare ? spareParts : subAssemblies;
+
+    if (label) label.textContent = isSpare ? 'Spare Part' : 'Sub-Assembly';
+
+    subSelect.innerHTML = `<option value="">Select ${isSpare ? 'Spare Part' : 'Sub-Assembly'}</option>`;
+
+    catalogList.forEach(opt => {
+      const optionEl = document.createElement('option');
+      const displayName = opt.partName || opt.name || 'Unnamed Item';
+      const displayPrice = opt.baseCost || opt.basePrice || opt.finalCost || opt.price || 0;
+
+      optionEl.value = opt._id;
+      optionEl.dataset.price = displayPrice;
+      optionEl.textContent = `${displayName} ${displayPrice ? '(₹' + displayPrice + ')' : ''}`;
+
+      if (selectedId && opt._id.toString() === selectedId.toString()) {
+        optionEl.selected = true;
+      }
+      subSelect.appendChild(optionEl);
+    });
+  }
+
+  /* HANDLE TYPE LAYOUT BALANCING */
+  document.addEventListener('change', function(e) {
+    const row = e.target.closest('.item-card');
+    if (!row) return;
+
+    if (e.target.classList.contains('itemType')) {
+      const subWrap = row.querySelector('.subAssemblyWrapper');
+      const chairWrap = row.querySelector('.chairWrapper');
+      const colorWrap = row.querySelector('.colorWrapper');
+      const colorSelect = row.querySelector('.colorSelect');
+      const chairSelect = row.querySelector('.chairSelect');
+
+      colorSelect.innerHTML = '<option value="">Select Color</option>';
+      if (chairSelect) chairSelect.value = '';
+
+      const selectedType = e.target.value;
+
+      if (selectedType === 'Chair') {
+        subWrap.classList.add('d-none');
+        chairWrap.classList.remove('d-none');
+        colorWrap.classList.remove('d-none');
+      } else {
+        subWrap.classList.remove('d-none');
+        chairWrap.classList.add('d-none');
+        colorWrap.classList.add('d-none');
+
+        // Dynamically populate options based on SubAssembly vs SparePart
+        populateNonChairItems(row, selectedType);
+      }
+    }
+
+    if (e.target.classList.contains('chairSelect')) {
+      populateColors(row, e.target.value);
+    }
+
+    if (e.target.classList.contains('colorSelect')) {
+      const selectedOption = e.target.selectedOptions[0];
+      if (selectedOption && selectedOption.dataset.basePrice) {
+        row.querySelector('.unitPrice').value = selectedOption.dataset.basePrice;
+        calculateRowTotal(row);
+      }
+    }
+
+    if (e.target.classList.contains('subAssemblySelect')) {
+      const selectedOption = e.target.selectedOptions[0];
+      if (selectedOption && selectedOption.dataset.price) {
+        row.querySelector('.unitPrice').value = selectedOption.dataset.price;
+        calculateRowTotal(row);
+      }
+    }
+
+    if (e.target.classList.contains('gstCheck')) {
+      calculateRowTotal(row);
     }
   });
 
-</script>
+  /* RECALCULATE TOTAL ON INPUT CHANGES */
+  document.addEventListener('input', function(e) {
+    const row = e.target.closest('.item-card');
+    if (row && (e.target.classList.contains('qty') || e.target.classList.contains('unitPrice'))) {
+      calculateRowTotal(row);
+    }
+  });
 
+  /* ADD REPEATABLE ROW METHOD */
+  document.getElementById('addRow').addEventListener('click', () => {
+    const container = document.getElementById('itemsContainer');
+    const firstRow = container.querySelector('.item-card');
+    const newRow = firstRow.cloneNode(true);
+
+    newRow.querySelectorAll('input, select').forEach(el => {
+      if (el.name) {
+        el.name = el.name.replace(/\[\d+\]/, `[${rowIndex}]`);
+      }
+      if (el.tagName === "SELECT") {
+        el.selectedIndex = 0;
+      } else if (el.type === "checkbox") {
+        el.checked = false;
+      } else {
+        el.value = '';
+      }
+    });
+
+    newRow.querySelector('.qty').value = 1;
+    newRow.querySelector('.shippingUnit').value = 0;
+    newRow.querySelector('.totalPrice').value = '0';
+
+    newRow.querySelector('.subAssemblyWrapper').classList.remove('d-none');
+    newRow.querySelector('.chairWrapper').classList.add('d-none');
+    newRow.querySelector('.colorWrapper').classList.add('d-none');
+    newRow.querySelector('.colorSelect').innerHTML = '<option value="">Select Color</option>';
+
+    container.appendChild(newRow);
+    rowIndex++;
+  });
+
+  /* REMOVE SELECTED LINE ROW METHOD */
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('remove-row')) {
+      const rows = document.querySelectorAll('.item-card');
+      if (rows.length > 1) {
+        e.target.closest('.item-card').remove();
+      }
+    }
+  });
+
+  /* REHYDRATION SETUP FOR EDIT MODE */
+  document.addEventListener('DOMContentLoaded', () => {
+    const savedItems = <%- JSON.stringify(itemsData) %>;
+    document.querySelectorAll('.item-card').forEach((row, idx) => {
+      const item = savedItems[idx];
+      if (!item) return;
+
+      const itemType = item.itemType || 'SubAssembly';
+      const targetItemId = (
+        item.chair?._id || item.chair ||
+        item.sparePart?._id || item.sparePart ||
+        item.subAssembly?._id || item.subAssembly ||
+        item.item?._id || item.item
+      )?.toString();
+
+      if (itemType === 'Chair') {
+        const chairSelect = row.querySelector('.chairSelect');
+        if (chairSelect && targetItemId) {
+          chairSelect.value = targetItemId;
+        }
+        
+        const selectedColorId = item.chairColor || item.colorId;
+        populateColors(row, targetItemId, selectedColorId);
+      } else {
+        populateNonChairItems(row, itemType, targetItemId);
+      }
+
+      calculateRowTotal(row);
+    });
+  });
+</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

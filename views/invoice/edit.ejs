@@ -1,14 +1,11 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Edit Tax Invoice - <%= invoice.invoiceNumber %></title>
-
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  >
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
   <style>
     .pi-section {
@@ -16,6 +13,8 @@
       border-radius: 8px;
       padding: 16px;
     }
+    .remove-row { cursor: pointer; }
+    .item-card { background: #fafafa; }
   </style>
 </head>
 
@@ -158,67 +157,100 @@
       </div>
     </div>
 
-    <!-- ================= ITEMS ================= -->
-    <div class="pi-section mb-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">Items</h5>
-
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-primary"
-          id="addItem"
-        >
-          + Add Item
-        </button>
+    <!-- ================= ITEMS CARD ================= -->
+    <div class="card shadow-sm p-3 mb-4">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Requirement Items</h5>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="addRow">+ Add Item</button>
       </div>
 
-      <div id="itemsContainer" class="vstack gap-3">
-        <% invoice.items.forEach((item, idx) => { %>
-          <div class="req-row border-bottom pb-3">
-            <div class="row g-2 align-items-end">
-              <input type="hidden" name="items[<%= idx %>][itemId]" value="<%= item._id %>">
+      <div class="card-body">
+        <div id="itemsContainer">
+          <% const itemsData = invoice.items && invoice.items.length ? invoice.items : [{}]; %>
+          <% itemsData.forEach((item, index) => { %>
+            <% 
+              const itemType = item.itemType || 'Chair';
+              const selectedItemId = (
+                item.chairId?._id || item.chairId ||
+                item.sparePart?._id || item.sparePart ||
+                item.subAssembly?._id || item.subAssembly ||
+                item.item?._id || item.item
+              )?.toString() || '';
+            %>
+            <div class="item-card border rounded p-3 mb-3">
+              <input type="hidden" name="items[<%= index %>][itemId]" value="<%= item._id || '' %>">
 
-              <div class="col-md-2">
-                <label class="form-label">Chair Model</label>
-                <select name="items[<%= idx %>][chairId]" class="form-select chairSelect" required>
-                  <option value="">-- Select Model --</option>
-                  <% chairs.forEach(c => { %>
-                    <% const isSelected = (item.chairId && String(item.chairId) === String(c._id)) || (item.chairModel === c.modelName); %>
-                    <option value="<%= c._id %>" <%= isSelected ? 'selected' : '' %>><%= c.modelName %></option>
-                  <% }) %>
-                </select>
-              </div>
+              <div class="row g-2 align-items-end">
 
-              <div class="col-md-2"> <label class="form-label">Color</label>
-                <select name="items[<%= idx %>][colorId]" class="form-select colorSelect" data-selected="<%= item.colorId %>" required>
-                  <option value="">-- Select Color --</option>
-                </select>
-              </div>
+                <!-- Type Selection -->
+                <div class="col-md-2">
+                  <label class="form-label">Type</label>
+                  <select class="form-select itemType" name="items[<%= index %>][itemType]">
+                    <option value="SubAssembly" <%= itemType === 'SubAssembly' ? 'selected' : '' %>>Sub-Assembly</option>
+                    <option value="Chair" <%= itemType === 'Chair' ? 'selected' : '' %>>Chair</option>
+                    <option value="SparePart" <%= (itemType === 'SparePart' || itemType === 'Spare Part') ? 'selected' : '' %>>Spare Part</option>
+                  </select>
+                </div>
 
-              <div class="col-md-1"> <label class="form-label">Qty</label>
-                <input type="number" name="items[<%= idx %>][quantity]" class="form-control qty" min="1" value="<%= item.quantity %>" required>
-              </div>
+                <!-- Sub-Assembly / Spare Part Select Wrapper -->
+                <div class="col-md-4 subAssemblyWrapper <%= itemType === 'Chair' ? 'd-none' : '' %>">
+                  <label class="form-label itemSelectLabel">
+                    <%= (itemType === 'SparePart' || itemType === 'Spare Part') ? 'Spare Part' : 'Sub-Assembly' %>
+                  </label>
+                  <select class="form-select subAssemblySelect" name="items[<%= index %>][subAssembly]" data-selected="<%= selectedItemId %>">
+                    <option value="">Select Item</option>
+                  </select>
+                </div>
 
-              <div class="col-md-2"> <label class="form-label">Unit Price (₹)</label>
-                <input type="number" name="items[<%= idx %>][unitPrice]" class="form-control unit" min="0" value="<%= item.unitPrice %>" required>
-              </div>
+                <!-- Chair Select Wrapper -->
+                <div class="col-md-2 chairWrapper <%= itemType === 'Chair' ? '' : 'd-none' %>">
+                  <label class="form-label">Item</label>
+                  <select class="form-select chairSelect" name="items[<%= index %>][chair]" data-selected="<%= selectedItemId %>">
+                    <option value="">Select Chair</option>
+                  </select>
+                </div>
 
-              <div class="col-md-2">
-                <label class="form-label">Shipping/Unit (₹)</label>
-                <input type="number" name="items[<%= idx %>][shippingUnit]" class="form-control shipping-unit" min="0" value="<%= item.shippingUnit || 0 %>">
-              </div>
+                <!-- Color Select Wrapper -->
+                <div class="col-md-2 colorWrapper <%= itemType === 'Chair' ? '' : 'd-none' %>">
+                  <label class="form-label">Color</label>
+                  <select class="form-select colorSelect" name="items[<%= index %>][colorId]" data-selected="<%= item.colorId || item.chairColor || '' %>">
+                    <option value="">Select Color</option>
+                  </select>
+                </div>
 
-              <div class="col-md-2"> <label class="form-label">Total (₹)</label>
-                <input type="number" class="form-control total" value="<%= item.quantity * item.unitPrice %>" readonly>
-              </div>
+                <!-- Quantity Input -->
+                <div class="col-md-1">
+                  <label class="form-label">Qty</label>
+                  <input type="number" name="items[<%= index %>][quantity]" class="form-control qty" value="<%= item.quantity || 1 %>" min="1" required>
+                </div>
 
-              <div class="col-md-1 text-end">
-                <label class="form-label d-none d-md-block">&nbsp;</label> 
-                <button type="button" class="btn btn-outline-danger removeItem" title="Remove item">✕</button>
+                <!-- Unit Price -->
+                <div class="col-md-2">
+                  <label class="form-label">Unit Price (₹)</label>
+                  <input type="number" name="items[<%= index %>][unitPrice]" class="form-control unitPrice" value="<%= item.unitPrice || 0 %>" placeholder="0" step="0.01" required>
+                </div>
+
+                <!-- Shipping Price -->
+                <div class="col-md-1">
+                  <label class="form-label">Shipping</label>
+                  <input type="number" name="items[<%= index %>][shippingUnit]" class="form-control shippingUnit" value="<%= item.shippingUnit || 0 %>" placeholder="0" step="0.01">
+                </div>
+
+                <!-- Total Price Field -->
+                <div class="col-md-1">
+                  <label class="form-label">Total</label>
+                  <input type="text" name="items[<%= index %>][totalPrice]" class="form-control totalPrice bg-white" value="<%= (item.quantity || 1) * ((item.unitPrice || 0) + (item.shippingUnit || 0)) %>" readonly>
+                </div>
+
+                <!-- Remove Row Button -->
+                <div class="col-md-1 text-end">
+                  <button type="button" class="btn btn-outline-danger remove-row">✕</button>
+                </div>
+
               </div>
             </div>
-          </div>
-        <% }) %>
+          <% }) %>
+        </div>
       </div>
     </div>
 
@@ -278,7 +310,7 @@
       </div>
 
       <div class="mt-3">
-        <label class="form-label">Notes (shown on PI)</label>
+        <label class="form-label">Notes (shown on Invoice)</label>
         <textarea name="notes" class="form-control" rows="3"><%= invoice.notes || '' %></textarea>
       </div>
     </div>
@@ -296,7 +328,9 @@
   </form>
 </div>
 
+<!-- ================= JAVASCRIPT ================= -->
 <script>
+  // Shipping section toggle
   const sameChk = document.getElementById('sameAsBilling');
   const shippingSection = document.getElementById('shippingSection');
 
@@ -316,146 +350,229 @@
 </script>
 
 <script>
-  const chairs = <%- JSON.stringify(chairs) %>;
-  const container = document.getElementById('itemsContainer');
-  const addBtn = document.getElementById('addItem');
+  let rowIndex = <%= itemsData.length %>;
 
-  let index = <%= invoice.items.length %>;
+  // Pass catalog datasets into JS
+  const chairs = <%- JSON.stringify(chairs || []) %>;
+  const subAssemblies = <%- JSON.stringify(subAssemblies || []) %>;
+  const spareParts = <%- JSON.stringify(spareParts || []) %>;
 
-  // Add new row
-  addBtn.addEventListener('click', () => {
-    const row = document.createElement('div');
-    row.className = 'req-row';
-    row.innerHTML = `
-    <div class="row g-2 align-items-end">
-      <div class="col-md-3">
-        <label class="form-label">Chair Model</label>
-        <select name="items[${index}][chairId]" class="form-select chairSelect" required>
-          <option value="">-- Select Model --</option>
-          ${chairs.map(c => `<option value="${c._id}">${c.modelName}</option>`).join('')}
-        </select>
-      </div>
+  /* CALCULATE TOTAL PRICE FOR ROW */
+  function calculateRowTotal(row) {
+    const qty = parseInt(row.querySelector('.qty')?.value) || 0;
+    const unitPrice = parseFloat(row.querySelector('.unitPrice')?.value) || 0;
+    const shippingUnit = parseFloat(row.querySelector('.shippingUnit')?.value) || 0;
 
-      <div class="col-md-3">
-        <label class="form-label">Color</label>
-        <select name="items[${index}][colorId]" class="form-select colorSelect" required>
-          <option value="">-- Select Color --</option>
-        </select>
-      </div>
+    const lineTotal = Math.round((unitPrice + shippingUnit) * qty);
 
-      <div class="col-md-1">
-        <label class="form-label">Qty</label>
-        <input type="number" name="items[${index}][quantity]" class="form-control qty" min="1" value="1" required>
-      </div>
+    const totalInput = row.querySelector('.totalPrice');
+    if (totalInput) totalInput.value = lineTotal;
+  }
 
-      <div class="col-md-2">
-        <label class="form-label">Unit Price (₹)</label>
-        <input type="number" name="items[${index}][unitPrice]" class="form-control unit" min="0" required>
-      </div>
-
-      <div class="col-md-2">
-        <label class="form-label">Total (₹)</label>
-        <input type="number" class="form-control total" readonly>
-      </div>
-
-      <div class="col-md-1 text-end">
-        <label class="form-label d-none d-md-block">&nbsp;</label> 
-        <button type="button" class="btn btn-outline-danger removeItem" title="Remove item">✕</button>
-      </div>
-    </div>
-  `;
-    container.appendChild(row);
-    index++;
-  });
-
-  // Remove row
-  container.addEventListener('click', e => {
-    if (e.target.classList.contains('removeItem')) {
-      e.target.closest('.req-row')?.remove();
-    }
-  });
-
-  // Populate colors + base price
-  container.addEventListener('change', e => {
-    if (!e.target.classList.contains('chairSelect')) return;
-
-    const row = e.target.closest('.req-row');
-    const chairId = e.target.value;
+  /* HELPER TO POPULATE COLOR OPTIONS FOR A CHAIR */
+  function populateColors(row, chairId, selectedColorId = null) {
     const colorSelect = row.querySelector('.colorSelect');
-    
-    // Keep track of the color ID we WANT to select (from data-selected attribute)
-    const targetColorId = colorSelect.getAttribute('data-selected');
+    if (!colorSelect) return;
 
-    colorSelect.innerHTML = '<option value="">-- Select Color --</option>';
+    colorSelect.innerHTML = '<option value="">Select Color</option>';
+    if (!chairId) return;
 
-    const chair = chairs.find(c => String(c._id) === String(chairId));
-    if (!chair) return;
+    const selectedChair = chairs.find(c => String(c._id) === String(chairId));
+    if (selectedChair && selectedChair.colors) {
+      selectedChair.colors.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c._id;
+        const price = c.basePrice || c.price || 0;
+        opt.dataset.basePrice = price;
+        opt.textContent = price ? `${c.name} (₹${price})` : c.name;
+        
+        if (selectedColorId && String(c._id) === String(selectedColorId)) {
+          opt.selected = true;
+        }
+        colorSelect.appendChild(opt);
+      });
+    }
+  }
 
-    chair.colors.forEach(col => {
+  /* POPULATE CHAIR CATALOG DROPDOWN */
+  function populateChairs(row, selectedChairId = null) {
+    const chairSelect = row.querySelector('.chairSelect');
+    if (!chairSelect) return;
+
+    chairSelect.innerHTML = '<option value="">Select Chair</option>';
+    chairs.forEach(c => {
       const opt = document.createElement('option');
-      opt.value = col._id;
-      opt.textContent = `${col.name} — ₹${col.basePrice}`;
-      opt.dataset.price = col.basePrice;
-
-      // Check if this option matches the previously saved color
-      if (targetColorId && String(targetColorId) === String(col._id)) {
+      opt.value = c._id;
+      opt.textContent = c.modelName;
+      if (selectedChairId && String(c._id) === String(selectedChairId)) {
         opt.selected = true;
       }
-
-      colorSelect.appendChild(opt);
+      chairSelect.appendChild(opt);
     });
-  });
-
-  // Auto-fill unit price when color changes
-  container.addEventListener('change', e => {
-    if (!e.target.classList.contains('colorSelect')) return;
-
-    const row = e.target.closest('.req-row');
-    const unitInput = row.querySelector('.unit');
-    const selected = e.target.selectedOptions[0];
-
-    if (selected?.dataset?.price && !unitInput.value) {
-    unitInput.value = selected.dataset.price;
   }
 
-  updateRowTotal(row);
+  /* POPULATE SUB-ASSEMBLY OR SPARE PART OPTIONS */
+  function populateNonChairItems(row, itemType, selectedId = null) {
+    const subSelect = row.querySelector('.subAssemblySelect');
+    const label = row.querySelector('.itemSelectLabel');
+    if (!subSelect) return;
+
+    const isSpare = (itemType === 'SparePart' || itemType === 'Spare Part');
+    const catalogList = isSpare ? spareParts : subAssemblies;
+
+    if (label) label.textContent = isSpare ? 'Spare Part' : 'Sub-Assembly';
+
+    subSelect.innerHTML = `<option value="">Select ${isSpare ? 'Spare Part' : 'Sub-Assembly'}</option>`;
+
+    catalogList.forEach(opt => {
+      const optionEl = document.createElement('option');
+      const displayName = opt.partName || opt.name || 'Unnamed Item';
+      const displayPrice = opt.baseCost || opt.basePrice || opt.finalCost || opt.price || 0;
+
+      optionEl.value = opt._id;
+      optionEl.dataset.price = displayPrice;
+      optionEl.textContent = `${displayName} ${displayPrice ? '(₹' + displayPrice + ')' : ''}`;
+
+      if (selectedId && String(opt._id) === String(selectedId)) {
+        optionEl.selected = true;
+      }
+      subSelect.appendChild(optionEl);
+    });
+  }
+
+  /* HANDLE TYPE LAYOUT BALANCING */
+  document.addEventListener('change', function(e) {
+    const row = e.target.closest('.item-card');
+    if (!row) return;
+
+    if (e.target.classList.contains('itemType')) {
+      const subWrap = row.querySelector('.subAssemblyWrapper');
+      const chairWrap = row.querySelector('.chairWrapper');
+      const colorWrap = row.querySelector('.colorWrapper');
+      const colorSelect = row.querySelector('.colorSelect');
+      const chairSelect = row.querySelector('.chairSelect');
+
+      colorSelect.innerHTML = '<option value="">Select Color</option>';
+      if (chairSelect) chairSelect.value = '';
+
+      const selectedType = e.target.value;
+
+      if (selectedType === 'Chair') {
+        subWrap.classList.add('d-none');
+        chairWrap.classList.remove('d-none');
+        colorWrap.classList.remove('d-none');
+        populateChairs(row);
+      } else {
+        subWrap.classList.remove('d-none');
+        chairWrap.classList.add('d-none');
+        colorWrap.classList.add('d-none');
+        populateNonChairItems(row, selectedType);
+      }
+    }
+
+    if (e.target.classList.contains('chairSelect')) {
+      populateColors(row, e.target.value);
+    }
+
+    if (e.target.classList.contains('colorSelect')) {
+      const selectedOption = e.target.selectedOptions[0];
+      if (selectedOption && selectedOption.dataset.basePrice) {
+        row.querySelector('.unitPrice').value = selectedOption.dataset.basePrice;
+        calculateRowTotal(row);
+      }
+    }
+
+    if (e.target.classList.contains('subAssemblySelect')) {
+      const selectedOption = e.target.selectedOptions[0];
+      if (selectedOption && selectedOption.dataset.price) {
+        row.querySelector('.unitPrice').value = selectedOption.dataset.price;
+        calculateRowTotal(row);
+      }
+    }
   });
 
-  // Trigger color load for existing rows
-  window.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.chairSelect').forEach(sel => {
-      if (sel.value) {
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
+  /* RECALCULATE TOTAL ON INPUT CHANGES */
+  document.addEventListener('input', function(e) {
+    const row = e.target.closest('.item-card');
+    if (row && (
+      e.target.classList.contains('qty') || 
+      e.target.classList.contains('unitPrice') ||
+      e.target.classList.contains('shippingUnit')
+    )) {
+      calculateRowTotal(row);
+    }
+  });
+
+  /* ADD REPEATABLE ROW METHOD */
+  document.getElementById('addRow').addEventListener('click', () => {
+    const container = document.getElementById('itemsContainer');
+    const firstRow = container.querySelector('.item-card');
+    const newRow = firstRow.cloneNode(true);
+
+    newRow.querySelectorAll('input, select').forEach(el => {
+      if (el.name) {
+        el.name = el.name.replace(/\[\d+\]/, `[${rowIndex}]`);
+      }
+      if (el.tagName === "SELECT") {
+        el.selectedIndex = 0;
+        el.removeAttribute('data-selected');
+      } else if (el.type === "hidden") {
+        el.value = '';
+      } else {
+        el.value = '';
       }
     });
 
-    document.querySelectorAll('.req-row').forEach(row => {
-    updateRowTotal(row);
+    newRow.querySelector('.qty').value = 1;
+    newRow.querySelector('.unitPrice').value = 0;
+    newRow.querySelector('.shippingUnit').value = 0;
+    newRow.querySelector('.totalPrice').value = '0';
+
+    newRow.querySelector('.subAssemblyWrapper').classList.remove('d-none');
+    newRow.querySelector('.chairWrapper').classList.add('d-none');
+    newRow.querySelector('.colorWrapper').classList.add('d-none');
+
+    container.appendChild(newRow);
+    populateNonChairItems(newRow, 'SubAssembly');
+    rowIndex++;
   });
+
+  /* REMOVE SELECTED LINE ROW METHOD */
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('remove-row')) {
+      const rows = document.querySelectorAll('.item-card');
+      if (rows.length > 1) {
+        e.target.closest('.item-card').remove();
+      } else {
+        alert('At least one item is required on the Tax Invoice.');
+      }
+    }
   });
 
-  function updateRowTotal(row) {
-    const qty = Number(row.querySelector('.qty')?.value || 0);
-    const unit = Number(row.querySelector('.unit')?.value || 0);
-    const totalInput = row.querySelector('.total');
+  /* REHYDRATION SETUP ON PAGE LOAD */
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.item-card').forEach((row) => {
+      const itemTypeSelect = row.querySelector('.itemType');
+      const itemType = itemTypeSelect ? itemTypeSelect.value : 'Chair';
 
-    if (totalInput) {
-      totalInput.value = qty * unit;
-    }
-  }
+      const chairSelect = row.querySelector('.chairSelect');
+      const subSelect = row.querySelector('.subAssemblySelect');
+      const colorSelect = row.querySelector('.colorSelect');
 
-  container.addEventListener('input', e => {
-    if (
-      e.target.classList.contains('qty') ||
-      e.target.classList.contains('unit')
-    ) {
-      const row = e.target.closest('.req-row');
-      updateRowTotal(row);
-    }
+      const targetItemId = chairSelect?.getAttribute('data-selected') || subSelect?.getAttribute('data-selected');
+      const selectedColorId = colorSelect?.getAttribute('data-selected');
+
+      if (itemType === 'Chair') {
+        populateChairs(row, targetItemId);
+        populateColors(row, targetItemId, selectedColorId);
+      } else {
+        populateNonChairItems(row, itemType, targetItemId);
+      }
+
+      calculateRowTotal(row);
+    });
   });
 </script>
-
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

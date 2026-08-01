@@ -301,194 +301,245 @@
     </div>
   </div>
 
-  <!-- Structured Requirement -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="mb-3">Structured Requirement</h5>
-        <%
-          let totalDiff = 0;
+<!-- Structured Requirement -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="mb-3">Structured Requirement</h5>
+    <% let totalDiff = 0; %>
+
+    <% if (lead.normalizedRequirements?.length) { %>
+
+      <ul class="list-group mb-3">
+
+        <% lead.normalizedRequirements.forEach(req => { 
+          // 1. Safe Item Resolution
+          const item = req.item;
+          if (!item) return;
+
+          const isChair = req.itemType === 'Chair';
+          
+          // Format Category Display String & Badge Color
+          let categoryLabel = 'Other';
+          let categoryBadgeClass = 'bg-dark';
+
+          if (isChair) {
+            categoryLabel = 'Chair';
+            categoryBadgeClass = 'bg-primary';
+          } else if (req.itemType === 'SubAssembly' || req.itemType === 'Sub-Assembly') {
+            categoryLabel = 'Sub Assembly';
+            categoryBadgeClass = 'bg-warning text-dark';
+          } else if (req.itemType === 'SparePart' || req.itemType === 'Spare Part') {
+            categoryLabel = 'Spare Part';
+            categoryBadgeClass = 'bg-info text-dark';
+          } else {
+            categoryLabel = req.itemType || 'Other';
+          }
+
+          // 2. Safe Color Resolution
+          const color = isChair && req.colorId && item.colors ? 
+            item.colors.find(c => c._id.toString() === req.colorId.toString()) : null;
+
+          // 3. Robust Name Extraction
+          const itemName = isChair 
+            ? (item.modelName || item.name || 'Chair') 
+            : (item.name || item.partName || item.title || req.itemName || req.itemType || 'Item');
+
+          const colorName = color ? color.name : null;
+
+          // ===== COST RESOLUTION & FALLBACKS =====
+          // Checks all common schema properties for chairs, sub-assemblies, and spare parts
+          const rawFinalPrice = color 
+            ? color.finalPrice 
+            : (item.finalPrice || item.finalCost || item.price || item.cost || item.basePrice || 0);
+
+          const costHasGst = color 
+            ? (color.gstApplicable === true) 
+            : (item.gstApplicable === true || req.gstApplicable === true);
+
+          // If item already provides baseCost/basePrice, use it directly; otherwise back-calculate from GST
+          const rawBasePrice = item.baseCost || item.basePrice;
+          const costBase = rawBasePrice 
+            ? rawBasePrice 
+            : (costHasGst ? rawFinalPrice / 1.18 : rawFinalPrice);
+
+          const costFinal = rawFinalPrice || (costBase * (costHasGst ? 1.18 : 1));
+
+          const shipping = req.shippingUnit || 0;
+          const costPerUnitExclGst = costBase + shipping;
+
+          // ===== SELLING =====
+          const sellFinal = req.totalPrice || 0;
+          const sellHasGst = req.gstApplicable === true;
+          const sellBase = sellHasGst ? sellFinal / 1.18 : sellFinal;
+          const sellPerUnitExclGst = req.quantity ? (sellBase / req.quantity) : 0;
+
+          // ===== RESULT =====
+          const markupPerUnit = Math.round(sellPerUnitExclGst - costPerUnitExclGst);
+          const totalMarkup = markupPerUnit * (req.quantity || 1);
+
+          totalDiff += totalMarkup;
         %>
 
-      <% if (lead.normalizedRequirements?.length) { %>
+        <li class="list-group-item">
 
-        <ul class="list-group mb-3">
+          <!-- HEADER -->
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="fw-bold fs-5 d-flex align-items-center gap-2 flex-wrap">
+              
+              <!-- 1. Category Badge First -->
+              <span class="badge <%= categoryBadgeClass %>">
+                <%= categoryLabel %>
+              </span>
 
-          <% lead.normalizedRequirements.forEach(req => { 
-            const color = req.chair?.colors.find(
-              c => c._id.toString() === req.colorId.toString()
-            );
-            if (!color) return;
+              <!-- 2. Model / Item Name -->
+              <span class="text-dark"><%= itemName %></span>
 
-            // ===== COST =====
-            const costFinal = color.finalPrice;
-            const costHasGst = color.gstApplicable === true;
-            const costBase = costHasGst ? costFinal / 1.18 : costFinal;
-            const shipping = req.shippingUnit || 0;
-            const costPerUnitExclGst = costBase + shipping;
-
-            // ===== SELLING =====
-            const sellFinal = req.totalPrice;
-            const sellHasGst = req.gstApplicable === true;
-            const sellBase = sellHasGst ? sellFinal / 1.18 : sellFinal;
-            const sellPerUnitExclGst = sellBase / req.quantity;
-
-            // ===== RESULT =====
-            const markupPerUnit = Math.round(
-              sellPerUnitExclGst - costPerUnitExclGst
-            );
-            const totalMarkup = markupPerUnit * req.quantity;
-
-            totalDiff += totalMarkup;
-          %>
-
-          <li class="list-group-item">
-
-            <!-- HEADER -->
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <div class="fw-bold fs-5">
-                <%= req.chair.modelName %>
-                <span class="text-muted fs-6">— <%= color.name %></span>
-                <span class="badge bg-secondary ms-2">× <%= req.quantity %></span>
-              </div>
-
-              <% if (lead.canEdit) { %>
-                <div class="d-flex gap-2">
-                  <a
-                    href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit"
-                    class="btn btn-sm btn-outline-primary">
-                    Edit
-                  </a>
-
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-danger"
-                    data-bs-toggle="modal"
-                    data-bs-target="#deleteRequirementModal"
-                    data-lead-id="<%= lead._id %>"
-                    data-req-id="<%= req._id %>"
-                    data-title="<%= req.chair.modelName %> — <%= color.name %>"
-                  >
-                    Delete
-                  </button>
-                </div>
+              <!-- 3. Color (if applicable) -->
+              <% if (colorName) { %>
+                <span class="text-muted fs-6">— <%= colorName %></span>
               <% } %>
+
+              <!-- 4. Quantity Badge -->
+              <span class="badge bg-secondary ms-1">× <%= req.quantity %></span>
+
             </div>
 
-            <!-- DETAILS -->
-            <div class="small text-muted">
+            <% if (lead.canEdit) { %>
+              <div class="d-flex gap-2">
+                <a
+                  href="/leads/<%= lead._id %>/requirement/<%= req._id %>/edit"
+                  class="btn btn-sm btn-outline-primary">
+                  Edit
+                </a>
 
-              <!-- COST -->
-              <div>
-                <strong class="text-dark">Cost (per unit)</strong><br>
-                Base (excl GST): ₹<%= Math.round(costBase) %><br>
-                GST: <%= costHasGst ? '✓ 18%' : '—' %><br>
-                Final (incl GST): ₹<%= costFinal %><br>
-                Shipping: ₹<%= shipping %><br>
-                → Cost excl GST: ₹<%= Math.round(costPerUnitExclGst) %>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  data-bs-toggle="modal"
+                  data-bs-target="#deleteRequirementModal"
+                  data-lead-id="<%= lead._id %>"
+                  data-req-id="<%= req._id %>"
+                  data-title="[<%= categoryLabel %>] <%= itemName %><%= colorName ? ' — ' + colorName : '' %>"
+                >
+                  Delete
+                </button>
               </div>
+            <% } %>
+          </div>
 
-              <hr class="my-2">
+          <!-- DETAILS -->
+          <div class="small text-muted">
 
-              <!-- SELLING -->
-              <div>
-                <strong class="text-dark">Selling</strong><br>
-                GST: <%= sellHasGst ? '✓ 18%' : '—' %><br>
-                Invoice total (incl GST): ₹<%= sellFinal %><br>
-                → Selling excl GST: ₹<%= Math.round(sellBase) %><br>
-                → Per unit excl GST: ₹<%= Math.round(sellPerUnitExclGst) %>
-              </div>
-
-              <hr class="my-2">
-
-              <!-- RESULT -->
-              <div>
-                <strong class="text-dark">Result</strong><br>
-                Markup / unit:
-                <span class="<%= markupPerUnit >= 0 ? 'text-danger' : 'text-success' %>">
-                  ₹<%= markupPerUnit %>
-                </span><br>
-                Total Markup:
-                <strong class="<%= totalMarkup >= 0 ? 'text-danger' : 'text-success' %>">
-                  ₹<%= totalMarkup %>
-                </strong>
-              </div>
-
-              <% if (req.note) { %>
-                <div class="alert alert-warning py-2 mt-3">
-                  <strong>Note:</strong> <%= req.note %>
-                </div>
-              <% } %>
+            <!-- COST -->
+            <div>
+              <strong class="text-dark">Cost (per unit)</strong><br>
+              Base (excl GST): ₹<%= Math.round(costBase) %><br>
+              GST: <%= costHasGst ? '✓ 18%' : '—' %><br>
+              Final (incl GST): ₹<%= costFinal %><br>
+              Shipping: ₹<%= shipping %><br>
+              → Cost excl GST: ₹<%= Math.round(costPerUnitExclGst) %>
             </div>
-          </li>
 
-          <% }) %>
-        </ul>
-      <% } else { %>
-        <p class="text-muted">No structured requirement set yet.</p>
-      <% } %>
+            <hr class="my-2">
 
-      <!-- OVERALL MARKUP -->
-      <div class="alert 
-        <%= totalDiff > 0 
-          ? 'alert-danger' 
-          : (totalDiff < 0 ? 'alert-success' : 'alert-secondary') %>
-        d-flex justify-content-between align-items-center">
+            <!-- SELLING -->
+            <div>
+              <strong class="text-dark">Selling</strong><br>
+              GST: <%= sellHasGst ? '✓ 18%' : '—' %><br>
+              Invoice total (incl GST): ₹<%= sellFinal %><br>
+              → Selling excl GST: ₹<%= Math.round(sellBase) %><br>
+              → Per unit excl GST: ₹<%= Math.round(sellPerUnitExclGst) %>
+            </div>
 
-        <span>
-          Overall <%= totalDiff > 0 
-            ? 'Markup' 
-            : (totalDiff < 0 ? 'Discount' : 'No markup / discount') %>
-        </span>
+            <hr class="my-2">
 
-        <strong>₹<%= totalDiff %></strong>
-      </div>
+            <!-- RESULT -->
+            <div>
+              <strong class="text-dark">Result</strong><br>
+              Markup / unit:
+              <span class="<%= markupPerUnit >= 0 ? 'text-danger' : 'text-success' %>">
+                ₹<%= markupPerUnit %>
+              </span><br>
+              Total Markup:
+              <strong class="<%= totalMarkup >= 0 ? 'text-danger' : 'text-success' %>">
+                ₹<%= totalMarkup %>
+              </strong>
+            </div>
 
-      <%
-        const hasRequirements = lead.normalizedRequirements && lead.normalizedRequirements.length > 0;
-      %>
-      
-      <!-- ACTIONS -->
-      <div class="d-flex gap-2 mt-2">
-        <!-- Add Requirement -->
-        <a href="<%= lead.canEdit ? `/leads/${lead._id}/requirement/add` : 'javascript:void(0)' %>"
-          class="btn btn-sm btn-success <%= !lead.canEdit ? 'disabled' : '' %>"
-          <%= !lead.canEdit ? 'aria-disabled="true"' : '' %>>
-          + Add Requirement
-        </a>
+            <% if (req.note) { %>
+              <div class="alert alert-warning py-2 mt-3 mb-0">
+                <strong>Note:</strong> <%= req.note %>
+              </div>
+            <% } %>
+          </div>
+        </li>
 
-        <!-- Generate PI -->
-        <a href="<%= hasRequirements ? `/leads/${lead._id}/pi/create` : 'javascript:void(0)' %>"
-          class="btn btn-sm btn-danger <%= !hasRequirements ? 'disabled' : '' %>"
-          <%= !hasRequirements ? 'aria-disabled="true"' : '' %>>
-          Generate Proforma Invoice
-        </a>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">No structured requirement set yet.</p>
+    <% } %>
 
-        <!-- PI History -->
-        <a href="<%= hasRequirements ? `/leads/${lead._id}/pi` : 'javascript:void(0)' %>"
-          class="btn btn-sm btn-secondary <%= !hasRequirements ? 'disabled' : '' %>"
-          <%= !hasRequirements ? 'aria-disabled="true"' : '' %>>
-          Proforma Invoice History
-        </a>
-      </div>
+    <!-- OVERALL MARKUP -->
+    <div class="alert 
+      <%= totalDiff > 0 
+        ? 'alert-danger' 
+        : (totalDiff < 0 ? 'alert-success' : 'alert-secondary') %>
+      d-flex justify-content-between align-items-center mb-3">
 
-      <% if (!lead.canEdit) { %>
-        <div class="mt-2">
-          <small class="text-muted">
-            You can view this lead, but only the assigned user or an admin can add, edit, or delete requirements.
-          </small>
-        </div>
-      <% } %>
+      <span>
+        Overall <%= totalDiff > 0 
+          ? 'Markup' 
+          : (totalDiff < 0 ? 'Discount' : 'No markup / discount') %>
+      </span>
 
-      <% if (!hasRequirements) { %>
-        <div class="mt-2">
-          <small class="text-muted">
-            Please add at least one requirement before generating a Proforma Invoice.
-          </small>
-        </div>
-      <% } %>
-
+      <strong>₹<%= totalDiff %></strong>
     </div>
+
+    <% const hasRequirements = lead.normalizedRequirements && lead.normalizedRequirements.length > 0; %>
+    
+    <!-- ACTIONS -->
+    <div class="d-flex gap-2 mt-2">
+      <!-- Add Requirement -->
+      <a href="<%= lead.canEdit ? `/leads/${lead._id}/requirement/add` : 'javascript:void(0)' %>"
+        class="btn btn-sm btn-success <%= !lead.canEdit ? 'disabled' : '' %>"
+        <%= !lead.canEdit ? 'aria-disabled="true"' : '' %>>
+        + Add Requirement
+      </a>
+
+      <!-- Generate PI -->
+      <a href="<%= hasRequirements ? `/leads/${lead._id}/pi/create` : 'javascript:void(0)' %>"
+        class="btn btn-sm btn-danger <%= !hasRequirements ? 'disabled' : '' %>"
+        <%= !hasRequirements ? 'aria-disabled="true"' : '' %>>
+        Generate Proforma Invoice
+      </a>
+
+      <!-- PI History -->
+      <a href="<%= hasRequirements ? `/leads/${lead._id}/pi` : 'javascript:void(0)' %>"
+        class="btn btn-sm btn-secondary <%= !hasRequirements ? 'disabled' : '' %>"
+        <%= !hasRequirements ? 'aria-disabled="true"' : '' %>>
+        Proforma Invoice History
+      </a>
+    </div>
+
+    <% if (!lead.canEdit) { %>
+      <div class="mt-2">
+        <small class="text-muted">
+          You can view this lead, but only the assigned user or an admin can add, edit, or delete requirements.
+        </small>
+      </div>
+    <% } %>
+
+    <% if (!hasRequirements) { %>
+      <div class="mt-2">
+        <small class="text-muted">
+          Please add at least one requirement before generating a Proforma Invoice.
+        </small>
+      </div>
+    <% } %>
+
   </div>
+</div>
 
   <!-- Assign & Status -->
   <div class="row mb-4">
