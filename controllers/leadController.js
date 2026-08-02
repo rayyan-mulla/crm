@@ -283,14 +283,80 @@ exports.getLead = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) return res.redirect('/leads');
 
     const lead = await Lead.findById(id)
-      .populate('assignedTo', 'fullName username role')
-      .populate('notes.user', 'fullName username')
-      .populate('statusHistory.changedBy', 'fullName username')
-      .populate('normalizedRequirements.item')
-      .populate('normalizedRequirements.colorId')
-      .lean();
+    .populate('assignedTo', 'fullName username role')
+    .populate('notes.user', 'fullName username')
+    .populate('statusHistory.changedBy', 'fullName username')
+    .populate({
+      path: 'normalizedRequirements.item',
+      options: { strictPopulate: false }
+    })
+    .lean();
 
     if (!lead) return res.redirect('/leads');
+
+    // ===========================================
+    // Backward compatibility for old requirements
+    // ===========================================
+    if (lead.normalizedRequirements?.length) {
+
+      await Promise.all(
+        lead.normalizedRequirements.map(async (req) => {
+
+          // Already using new schema
+          if (req.item && typeof req.item === 'object') {
+            return;
+          }
+
+          // ---------------- Chair ----------------
+          if (!req.item && req.chair) {
+            req.itemType = 'Chair';
+
+            req.item = await Chair.findById(req.chair).lean();
+            return;
+          }
+
+          // ------------- Spare Part --------------
+          if (!req.item && req.sparePart) {
+            req.itemType = 'SparePart';
+
+            req.item = await SparePart.findById(req.sparePart).lean();
+            return;
+          }
+
+          // ------------ Sub Assembly -------------
+          if (!req.item && req.subAssembly) {
+            req.itemType = 'SubAssembly';
+
+            req.item = await SubAssembly.findById(req.subAssembly).lean();
+            return;
+          }
+
+          // --------- New schema but item isn't populated ----------
+          if (req.item && typeof req.item !== 'object') {
+
+            switch (req.itemType) {
+
+              case 'Chair':
+                req.item = await Chair.findById(req.item).lean();
+                break;
+
+              case 'SparePart':
+              case 'Spare Part':
+                req.item = await SparePart.findById(req.item).lean();
+                break;
+
+              case 'SubAssembly':
+              case 'Sub-Assembly':
+                req.item = await SubAssembly.findById(req.item).lean();
+                break;
+            }
+
+          }
+
+        })
+      );
+
+    }
 
     // resolve sourceMeta user
     if (lead.sourceMeta) {
