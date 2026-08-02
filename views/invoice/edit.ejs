@@ -363,7 +363,7 @@
     const unitPrice = parseFloat(row.querySelector('.unitPrice')?.value) || 0;
     const shippingUnit = parseFloat(row.querySelector('.shippingUnit')?.value) || 0;
 
-    const lineTotal = Math.round((unitPrice + shippingUnit) * qty);
+    const lineTotal = Math.round(unitPrice * qty);
 
     const totalInput = row.querySelector('.totalPrice');
     if (totalInput) totalInput.value = lineTotal;

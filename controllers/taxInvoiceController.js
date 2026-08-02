@@ -191,6 +191,77 @@ exports.editForm = async (req, res) => {
     const invoice = await TaxInvoice.findById(invoiceId).lean();
     if (!invoice) return res.status(404).send('Tax Invoice not found');
 
+    // ===========================================
+    // Backward compatibility for legacy Invoice items
+    // ===========================================
+    if (invoice.items?.length) {
+      await Promise.all(
+        invoice.items.map(async (item) => {
+          // ------------------------------
+          // New schema - item is ObjectId
+          // ------------------------------
+          if (item.item) {
+            if (typeof item.item !== "object") {
+              switch (item.itemType) {
+                case "Chair":
+                  item.item = await Chair.findById(item.item).lean();
+                  break;
+
+                case "SparePart":
+                case "Spare Part":
+                  item.item = await SparePart.findById(item.item).lean();
+                  break;
+
+                case "SubAssembly":
+                case "Sub-Assembly":
+                  item.item = await SubAssembly.findById(item.item).lean();
+                  break;
+              }
+            }
+
+            return;
+          }
+
+          // ------------------------------
+          // Legacy Chair
+          // ------------------------------
+          if (item.chairModel) {
+            item.itemType = "Chair";
+
+            item.item = await Chair.findOne({
+              modelName: item.chairModel,
+            }).lean();
+
+            return;
+          }
+
+          // ------------------------------
+          // Legacy Spare Part
+          // ------------------------------
+          if (item.partName) {
+            item.itemType = "SparePart";
+
+            item.item = await SparePart.findOne({
+              $or: [{ partName: item.partName }, { name: item.partName }],
+            }).lean();
+
+            return;
+          }
+
+          // ------------------------------
+          // Legacy Sub Assembly
+          // ------------------------------
+          if (item.subAssemblyName) {
+            item.itemType = "SubAssembly";
+
+            item.item = await SubAssembly.findOne({
+              name: item.subAssemblyName,
+            }).lean();
+          }
+        })
+      );
+    }
+
     if (invoice.status === 'DELETED') {
       return res.status(400).send('Deleted Tax Invoices cannot be modified.');
     }
