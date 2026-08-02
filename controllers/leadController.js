@@ -946,10 +946,67 @@ exports.sampleExcel = (req, res) => {
 exports.requirementForm = async (req, res) => {
   try {
     const lead = await Lead.findById(req.params.id)
-      .populate('normalizedRequirements.item')
+      .populate({
+        path: 'normalizedRequirements.item',
+        options: { strictPopulate: false }
+      })
       .lean();
 
     if (!lead) return res.redirect('/leads');
+
+    // Backward compatibility for legacy requirements
+    if (lead.normalizedRequirements?.length) {
+
+      await Promise.all(
+        lead.normalizedRequirements.map(async (req) => {
+
+          // Already populated
+          if (req.item && typeof req.item === 'object') {
+            return;
+          }
+
+          if (req.chair) {
+            req.itemType = 'Chair';
+            req.item = await Chair.findById(req.chair).lean();
+            return;
+          }
+
+          if (req.sparePart) {
+            req.itemType = 'SparePart';
+            req.item = await SparePart.findById(req.sparePart).lean();
+            return;
+          }
+
+          if (req.subAssembly) {
+            req.itemType = 'SubAssembly';
+            req.item = await SubAssembly.findById(req.subAssembly).lean();
+            return;
+          }
+
+          if (req.item && typeof req.item !== 'object') {
+
+            switch (req.itemType) {
+              case 'Chair':
+                req.item = await Chair.findById(req.item).lean();
+                break;
+
+              case 'SparePart':
+              case 'Spare Part':
+                req.item = await SparePart.findById(req.item).lean();
+                break;
+
+              case 'SubAssembly':
+              case 'Sub-Assembly':
+                req.item = await SubAssembly.findById(req.item).lean();
+                break;
+            }
+
+          }
+
+        })
+      );
+
+    }
 
     const chairs = await Chair.find({ isActive: true }).lean();
     const spareParts = await SparePart.find({ isActive: true }).lean();
