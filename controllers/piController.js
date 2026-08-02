@@ -232,6 +232,73 @@ exports.editForm = async (req, res) => {
     const pi = await ProformaInvoice.findById(piId).lean();
     if (!pi) return res.status(404).send('PI not found');
 
+    // ===========================================
+    // Backward compatibility for legacy PI items
+    // ===========================================
+    if (pi.items?.length) {
+      await Promise.all(
+        pi.items.map(async (item) => {
+          // Already normalized
+          if (item.item) {
+            if (typeof item.item !== "object") {
+              switch (item.itemType) {
+                case "Chair":
+                  item.item = await Chair.findById(item.item).lean();
+                  break;
+
+                case "SparePart":
+                  item.item = await SparePart.findById(item.item).lean();
+                  break;
+
+                case "SubAssembly":
+                  item.item = await SubAssembly.findById(item.item).lean();
+                  break;
+              }
+            }
+
+            return;
+          }
+
+          // ==========================
+          // Legacy Chair
+          // ==========================
+          if (item.chairModel) {
+            item.itemType = "Chair";
+
+            item.item = await Chair.findOne({
+              modelName: item.chairModel,
+            }).lean();
+
+            return;
+          }
+
+          // ==========================
+          // Legacy Spare Part
+          // ==========================
+          if (item.partName) {
+            item.itemType = "SparePart";
+
+            item.item = await SparePart.findOne({
+              $or: [{ partName: item.partName }, { name: item.partName }],
+            }).lean();
+
+            return;
+          }
+
+          // ==========================
+          // Legacy Sub Assembly
+          // ==========================
+          if (item.subAssemblyName) {
+            item.itemType = "SubAssembly";
+
+            item.item = await SubAssembly.findOne({
+              name: item.subAssemblyName,
+            }).lean();
+          }
+        })
+      );
+    }
+
     const lead = await Lead.findById(leadId).lean();
     if (!lead) return res.status(404).send('Lead not found');
 
