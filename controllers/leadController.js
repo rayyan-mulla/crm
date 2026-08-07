@@ -631,36 +631,6 @@ exports.bulkDeleteLeads = async (req, res) => {
   }
 };
 
-const resolveLegacyRequirements = async (lead) => {
-  if (!lead.normalizedRequirements?.length) return;
-
-  for (const requirement of lead.normalizedRequirements) {
-
-    // New schema — nothing to do
-    if (requirement.item) {
-      continue;
-    }
-
-    // Legacy Chair
-    if (requirement.chair) {
-      requirement.item = requirement.chair;
-      requirement.itemType = 'Chair';
-    }
-
-    // Legacy Spare Part
-    else if (requirement.sparePart) {
-      requirement.item = requirement.sparePart;
-      requirement.itemType = 'SparePart';
-    }
-
-    // Legacy Sub Assembly
-    else if (requirement.subAssembly) {
-      requirement.item = requirement.subAssembly;
-      requirement.itemType = 'SubAssembly';
-    }
-  }
-};
-
 exports.updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -670,15 +640,27 @@ exports.updateStatus = async (req, res) => {
       status = customStatus.trim();
     }
 
-    const lead = await Lead.findById(id);
-    if (!lead) return res.status(404).send('Not found');
+    const userId = req.session.user.id;
 
-    // Support legacy and new requirement schemas
-    await resolveLegacyRequirements(lead);
+    const result = await Lead.updateOne(
+      { _id: id },
+      {
+        $set: {
+          status
+        },
+        $push: {
+          statusHistory: {
+            status,
+            changedBy: userId
+          }
+        }
+      }
+    );
 
-    lead.status = status;
-    lead.statusHistory.push({ status, changedBy: req.session.user.id });
-    await lead.save();
+    if (result.matchedCount === 0) {
+      return res.status(404).send('Not found');
+    }
+
     res.redirect(`/leads/${id}`);
   } catch (err) {
     console.error('updateStatus', err);
@@ -690,14 +672,29 @@ exports.addNote = async (req, res) => {
   try {
     const { id } = req.params;
     const { note } = req.body;
-    const lead = await Lead.findById(id);
-    if (!lead) return res.status(404).send('Not found');
 
-    // Support legacy and new requirement schemas
-    await resolveLegacyRequirements(lead);
+    if (!note || !note.trim()) {
+      return res.status(400).send('Note cannot be empty');
+    }
 
-    lead.notes.push({ text: note, user: req.session.user.id });
-    await lead.save();
+    const userId = req.session.user.id;
+
+    const result = await Lead.updateOne(
+      { _id: id },
+      {
+        $push: {
+          notes: {
+            text: note.trim(),
+            user: userId
+          }
+        }
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send('Not found');
+    }
+
     res.redirect(`/leads/${id}`);
   } catch (err) {
     console.error('addNote', err);
