@@ -631,6 +631,36 @@ exports.bulkDeleteLeads = async (req, res) => {
   }
 };
 
+const resolveLegacyRequirements = async (lead) => {
+  if (!lead.normalizedRequirements?.length) return;
+
+  for (const requirement of lead.normalizedRequirements) {
+
+    // New schema — nothing to do
+    if (requirement.item) {
+      continue;
+    }
+
+    // Legacy Chair
+    if (requirement.chair) {
+      requirement.item = requirement.chair;
+      requirement.itemType = 'Chair';
+    }
+
+    // Legacy Spare Part
+    else if (requirement.sparePart) {
+      requirement.item = requirement.sparePart;
+      requirement.itemType = 'SparePart';
+    }
+
+    // Legacy Sub Assembly
+    else if (requirement.subAssembly) {
+      requirement.item = requirement.subAssembly;
+      requirement.itemType = 'SubAssembly';
+    }
+  }
+};
+
 exports.updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -642,6 +672,9 @@ exports.updateStatus = async (req, res) => {
 
     const lead = await Lead.findById(id);
     if (!lead) return res.status(404).send('Not found');
+
+    // Support legacy and new requirement schemas
+    await resolveLegacyRequirements(lead);
 
     lead.status = status;
     lead.statusHistory.push({ status, changedBy: req.session.user.id });
@@ -659,6 +692,9 @@ exports.addNote = async (req, res) => {
     const { note } = req.body;
     const lead = await Lead.findById(id);
     if (!lead) return res.status(404).send('Not found');
+
+    // Support legacy and new requirement schemas
+    await resolveLegacyRequirements(lead);
 
     lead.notes.push({ text: note, user: req.session.user.id });
     await lead.save();
