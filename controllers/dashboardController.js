@@ -2,6 +2,8 @@
 const Lead = require('../models/Lead');
 const User = require('../models/User');
 const Chair = require('../models/Chair');
+const SparePart = require('../models/SparePart');
+const SubAssembly = require('../models/SubAssembly');
 const mongoose = require('mongoose');
 
 const FIXED_STATUSES = [
@@ -115,6 +117,43 @@ exports.getDashboard = async (req, res) => {
         .populate('normalizedRequirements.item')
         .lean();
 
+      // Resolve legacy requirements
+      for (const lead of allLeads) {
+        const requirements = lead.normalizedRequirements || [];
+
+        for (const requirement of requirements) {
+
+          // New schema — already populated
+          if (requirement.item) {
+            continue;
+          }
+
+          // Legacy Chair
+          if (requirement.chair) {
+            requirement.item = await Chair.findById(requirement.chair).lean();
+            requirement.itemType = 'Chair';
+          }
+
+          // Legacy Spare Part
+          else if (requirement.sparePart) {
+            requirement.item = await SparePart.findById(
+              requirement.sparePart
+            ).lean();
+
+            requirement.itemType = 'SparePart';
+          }
+
+          // Legacy Sub Assembly
+          else if (requirement.subAssembly) {
+            requirement.item = await SubAssembly.findById(
+              requirement.subAssembly
+            ).lean();
+
+            requirement.itemType = 'SubAssembly';
+          }
+        }
+      }
+
       // Summary
       const statusCount = countStatuses(allLeads);
       summary.totalLeads = allLeads.length;
@@ -216,10 +255,21 @@ exports.getDashboard = async (req, res) => {
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         
         for (const req of l.normalizedRequirements) {
-          if (!monthlyStats[key]) monthlyStats[key] = { chairs: 0, revenue: 0 };
+
+          if (!monthlyStats[key]) {
+            monthlyStats[key] = {
+              chairs: 0,
+              revenue: 0
+            };
+          }
+
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
-          monthlyStats[key].chairs += qty;
+
+          if (req.itemType === 'Chair') {
+            monthlyStats[key].chairs += qty;
+          }
+
           monthlyStats[key].revenue += unit * qty;
         }
       }
@@ -257,8 +307,45 @@ exports.getDashboard = async (req, res) => {
 
       const myLeads = await Lead.find(userQuery)
         .populate('assignedTo', 'fullName')
-        .populate('normalizedRequirements.chair', 'modelName colors')
+        .populate('normalizedRequirements.item')
         .lean();
+
+      // Resolve legacy requirements
+      for (const lead of myLeads) {
+        const requirements = lead.normalizedRequirements || [];
+
+        for (const requirement of requirements) {
+
+          // New schema — already populated
+          if (requirement.item) {
+            continue;
+          }
+
+          // Legacy Chair
+          if (requirement.chair) {
+            requirement.item = await Chair.findById(requirement.chair).lean();
+            requirement.itemType = 'Chair';
+          }
+
+          // Legacy Spare Part
+          else if (requirement.sparePart) {
+            requirement.item = await SparePart.findById(
+              requirement.sparePart
+            ).lean();
+
+            requirement.itemType = 'SparePart';
+          }
+
+          // Legacy Sub Assembly
+          else if (requirement.subAssembly) {
+            requirement.item = await SubAssembly.findById(
+              requirement.subAssembly
+            ).lean();
+
+            requirement.itemType = 'SubAssembly';
+          }
+        }
+      }
 
       // Summary
       const statusCount = countStatuses(myLeads);
@@ -319,15 +406,24 @@ exports.getDashboard = async (req, res) => {
 
       for (const l of dealDoneWithReqs) {
         for (const req of l.normalizedRequirements) {
+
+          if (req.itemType !== 'Chair') continue;
+
           const userName = user.fullName;
-          const modelName = req.chair?.modelName || 'Unknown Model';
+          const modelName = req.item?.modelName || 'Unknown Model';
+
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
           const totalAmount = unit * qty;
 
-          chairsByUser[userName] = (chairsByUser[userName] || 0) + qty;
-          revenueByUser[userName] = (revenueByUser[userName] || 0) + totalAmount;
-          chairsByModel[modelName] = (chairsByModel[modelName] || 0) + qty;
+          chairsByUser[userName] =
+            (chairsByUser[userName] || 0) + qty;
+
+          revenueByUser[userName] =
+            (revenueByUser[userName] || 0) + totalAmount;
+
+          chairsByModel[modelName] =
+            (chairsByModel[modelName] || 0) + qty;
         }
       }
 
@@ -343,10 +439,21 @@ exports.getDashboard = async (req, res) => {
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         
         for (const req of l.normalizedRequirements) {
-          if (!monthlyStats[key]) monthlyStats[key] = { chairs: 0, revenue: 0 };
+
+          if (!monthlyStats[key]) {
+            monthlyStats[key] = {
+              chairs: 0,
+              revenue: 0
+            };
+          }
+
           const qty = Number(req.quantity) || 0;
           const unit = Number(req.unitPrice) || 0;
-          monthlyStats[key].chairs += qty;
+
+          if (req.itemType === 'Chair') {
+            monthlyStats[key].chairs += qty;
+          }
+
           monthlyStats[key].revenue += unit * qty;
         }
       }
