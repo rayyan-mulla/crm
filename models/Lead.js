@@ -29,7 +29,7 @@ const CommunicationSchema = new mongoose.Schema({
 const RequirementItemSchema = new mongoose.Schema({
   itemType: { 
     type: String, 
-    enum: ['Chair', 'Spare Part', 'SubAssembly'], 
+    enum: ['Chair', 'SparePart', 'SubAssembly'], 
     required: true,
     default: 'Chair'
   },
