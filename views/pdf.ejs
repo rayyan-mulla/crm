@@ -1,341 +1,816 @@
 <!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>
-  <%= documentType === 'TAX_INVOICE'
-    ? pi.invoiceNumber
-    : pi.piNumber %>
-</title>
+  <head>
+    <meta charset="utf-8" />
 
-<style>
-  @font-face {
-    font-family: 'Roboto';
-    src: url('file:///app/public/fonts/Roboto-Regular.ttf') format('truetype');
-    font-weight: 400;
-  }
+    <title>
+      <% if (documentType === 'PURCHASE_ORDER') { %>
+        <%= purchase.purchaseNumber %>
+      <% } else if (documentType === 'TAX_INVOICE') { %>
+        <%= pi.invoiceNumber %>
+      <% } else { %>
+        <%= pi.piNumber %>
+      <% } %>
+    </title>
 
-  @font-face {
-    font-family: 'Roboto';
-    src: url('file:///app/public/fonts/Roboto-Bold.ttf') format('truetype');
-    font-weight: 700;
-  }
+    <style>
+      @font-face {
+        font-family: 'Roboto';
+        src: url('file:///app/public/fonts/Roboto-Regular.ttf') format('truetype');
+        font-weight: 400;
+      }
 
-  body {
-    font-family: 'Roboto';
-    font-size: 12px;
-    color: #000;
-    line-height: 1.40;
-  }
+      @font-face {
+        font-family: 'Roboto';
+        src: url('file:///app/public/fonts/Roboto-Bold.ttf') format('truetype');
+        font-weight: 700;
+      }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
+      body {
+        font-family: 'Roboto';
+        font-size: 12px;
+        color: #000;
+        line-height: 1.4;
+      }
 
-  th, td {
-    border: 1px solid #000;
-    padding: 6px 7px;
-    vertical-align: top;
-  }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
 
-  th {
-    background: #f2f2f2;
-    font-weight: 700;
-  }
+      th,
+      td {
+        border: 1px solid #000;
+        padding: 6px 7px;
+        vertical-align: top;
+      }
 
-  .section {
-    margin-top: 4px;
-  }
+      th {
+        background: #f2f2f2;
+        font-weight: 700;
+      }
 
-  .text-right { text-align: right; }
-  .text-center { text-align: center; }
-  .text-bold { font-weight: 700; }
+      .section {
+        margin-top: 4px;
+      }
 
-  .no-border td {
-    border: none;
-    padding: 4px 0;
-  }
+      .text-right {
+        text-align: right;
+      }
 
-  .sub-heading {
-    font-weight: 700;
-    display: block;
-    margin-bottom: 4px;
-    text-decoration: underline;
-  }
+      .text-center {
+        text-align: center;
+      }
 
-  .compact-text {
-    line-height: 1.55;
-  }
+      .text-bold {
+        font-weight: 700;
+      }
 
-  .signature {
-    height: 60px;
-    max-width: 180px;
-    object-fit: contain;
-  }
+      .no-border td {
+        border: none;
+        padding: 4px 0;
+      }
 
-  /* ================= WATERMARK ================= */
-  .watermark {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-35deg);
-    font-size: 90px;
-    font-weight: 700;
-    color: rgba(200, 0, 0, 0.15);
-    z-index: 9999;
-    white-space: nowrap;
-    pointer-events: none;
-    text-transform: uppercase;
-  }
+      .sub-heading {
+        font-weight: 700;
+        display: block;
+        margin-bottom: 4px;
+        text-decoration: underline;
+      }
 
-  .logo-watermark {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(0deg);
-    width: 360px;
-    height: auto;
-    opacity: 0.1;
-    pointer-events: none;
-  }
-</style>
-</head>
+      .compact-text {
+        line-height: 1.55;
+      }
 
-<body>
+      .signature {
+        height: 60px;
+        max-width: 180px;
+        object-fit: contain;
+      }
 
-<% if (pi.status !== 'DELETED') { %>
-  <img src="<%= logoBase64 %>" class="logo-watermark" alt="Marziya Innovations Watermark">
-<% } %>
+      /* ================= DY-STYLE PO HEADER ================= */
 
-<!-- ================= WATERMARK (ONLY IF DELETED) ================= -->
-<% if (pi.status === 'DELETED') { %>
-  <div class="watermark">DELETED</div>
-<% } %>
+      .po-company-header {
+        width: 100%;
+        margin-top: 2px;
+        margin-bottom: 4px;
+        border: 1px solid #000;
+      }
 
-<!-- ================= HEADER ================= -->
-<table class="section">
-  <tr>
-    <td width="50%">
-      <span class="sub-heading">Sold By</span>
-      <strong>Marziya Innovations Pvt. Ltd.</strong><br>
-      Shop No.17, Gr. Floor, Sarvoday Mall, Opp. APMC, Bail Bazar Road, Kalyan (W), Maharashtra - 421301<br>
-      <strong>GSTIN:</strong> 27AASCM1392C1ZB<br>
-      <strong>PAN:</strong> AASCM1392C
-    </td>
-    <td width="50%">
-      <strong>
-        <%= documentType === 'TAX_INVOICE'
-          ? 'Invoice No:'
-          : 'PI No:' %>
-      </strong>
+      .po-company-header td {
+        vertical-align: middle;
+        padding: 5px 6px;
+        border: none;
+      }
 
-      <%= documentType === 'TAX_INVOICE'
-        ? pi.invoiceNumber
-        : pi.piNumber %><br>
+      .po-logo-cell {
+        width: 17%;
+        text-align: center;
+        vertical-align: middle !important;
+      }
 
-      <strong>Date:</strong>
-      <%= new Date(
-        documentType === 'TAX_INVOICE'
+      .po-logo {
+        width: 88px;
+        max-height: 78px;
+        object-fit: contain;
+      }
+
+      .po-company-details {
+        width: 68%;
+        text-align: center;
+        line-height: 1.28;
+        vertical-align: middle !important;
+      }
+
+      .po-company-name {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+
+      .po-jurisdiction {
+        font-size: 10px;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+
+      .po-address {
+        font-size: 10px;
+      }
+
+      .po-qr-cell {
+        width: 15%;
+        text-align: center;
+        vertical-align: middle !important;
+      }
+
+      .po-qr {
+        width: 82px;
+        height: 82px;
+        object-fit: contain;
+      }
+
+      /* ================= WATERMARK ================= */
+
+      .watermark {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-35deg);
+        font-size: 90px;
+        font-weight: 700;
+        color: rgba(200, 0, 0, 0.15);
+        z-index: 9999;
+        white-space: nowrap;
+        pointer-events: none;
+        text-transform: uppercase;
+      }
+
+      .logo-watermark {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(0deg);
+        width: 360px;
+        height: auto;
+        opacity: 0.1;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <%
+      const isPO = documentType === 'PURCHASE_ORDER';
+      const isInvoice = documentType === 'TAX_INVOICE';
+      const isPI = !isPO && !isInvoice;
+
+      const documentData = isPO ? purchase : pi;
+
+      const documentNumber = isPO
+        ? purchase.purchaseNumber
+        : isInvoice
+          ? pi.invoiceNumber
+          : pi.piNumber;
+
+      const documentLabel = isPO
+        ? 'Purchase Order'
+        : isInvoice
+          ? 'Tax Invoice'
+          : 'Proforma Invoice';
+
+      const documentDate = isPO
+        ? purchase.purchaseDate || purchase.createdAt
+        : isInvoice
           ? pi.invoiceDate || pi.createdAt
-          : pi.createdAt
-      ).toLocaleDateString('en-IN') %><br>
+          : pi.createdAt;
 
-      <% if (pi.poNumber && pi.poNumber.trim() !== '') { %>
-        <strong>PO No:</strong> <%= pi.poNumber %><br>
-      <% } %>
+      const isDeleted = !isPO && pi.status === 'DELETED';
 
-      <% if (pi.status === 'DELETED') { %>
-        <div style="margin-top:6px; color:#b30000; font-size:11px;">
-          <strong>Status:</strong> Deleted<br>
-          <strong>Deleted On:</strong>
-          <%= new Date(pi.deletedAt).toLocaleDateString('en-IN') %>
-        </div>
-      <% } %>
-    </td>
-  </tr>
-</table>
+      // ================= PO TOTAL HELPERS =================
+      // PO item prices are stored with basePrice/unitCost as the taxable
+      // amount and finalRate as the GST-inclusive rate.
+      const poItems = isPO ? (purchase.items || []) : [];
 
-<!-- ================= BILL TO / SHIP TO ================= -->
-<table class="section">
-  <tr>
-    <td width="50%">
-      <span class="sub-heading">Bill To</span>
-      <strong><%= pi.billingAddress.name %></strong><br>
-      <%= pi.billingAddress.line1 %><br>
-      <%= pi.billingAddress.city %>, <%= pi.billingAddress.state %> -
-      <%= pi.billingAddress.pincode %><br>
-      <strong>Phone:</strong> <%= pi.billingAddress.phone || '-' %><br>
-      <% if (pi.billingAddress.email) { %>
-        <strong>Email:</strong> <%= pi.billingAddress.email %><br>
-      <% } %>
-      <strong>GSTIN:</strong> <%= pi.billingAddress.gstin || 'N/A' %>
-    </td>
+      let poSubTotal = 0;
+      let poGstTotal = 0;
+      let poGrandTotal = 0;
 
-    <td width="50%">
-      <span class="sub-heading">Ship To</span>
-      <strong><%= pi.shippingAddress.name %></strong><br>
-      <%= pi.shippingAddress.line1 %><br>
-      <%= pi.shippingAddress.city %>, <%= pi.shippingAddress.state %> -
-      <%= pi.shippingAddress.pincode %><br>
-      <strong>Phone:</strong> <%= pi.shippingAddress.phone || '-' %>
-    </td>
-  </tr>
-</table>
+      if (isPO) {
+        poItems.forEach((item) => {
+          const qty = Number(item.quantity) || 0;
+          const taxableUnitPrice =
+            Number(item.unitCost) || 0;
 
-<!-- ================= ITEMS ================= -->
-<table class="section">
-  <thead>
-    <tr>
-      <th width="5%">#</th>
-      <th>Description</th>
-      <th>HSN Code</th>
-      <th width="15%">Unit Price</th>
-      <th width="10%">Qty</th>
-      <th width="15%">Amount</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% pi.items.forEach((item, idx) => { %>
-      <% 
-        // 1. Determine Item Display Name with optional color
-        const hasColor = item.colorName && item.colorName !== '-' && item.colorName.trim() !== '';
-        const itemDisplayName = hasColor 
-          ? `${item.chairModel} - ${item.colorName}` 
-          : item.chairModel;
+          const taxableAmount = taxableUnitPrice * qty;
+          const gstAmount = item.gstApplicable
+            ? taxableAmount * 0.18
+            : 0;
 
-        // 2. Determine Item Category
-        let categoryLabel = item.itemType || '';
-        if (!categoryLabel) {
-          if (hasColor || item.chairId) {
-            categoryLabel = 'Chair';
-          } else {
-            categoryLabel = 'Spare Part / Sub-Assembly';
-          }
-        } else if (categoryLabel === 'SubAssembly') {
-          categoryLabel = 'Sub-Assembly';
-        } else if (categoryLabel === 'SparePart') {
-          categoryLabel = 'Spare Part';
+          poSubTotal += taxableAmount;
+          poGstTotal += gstAmount;
+        });
+
+        poGrandTotal = poSubTotal + poGstTotal;
+      }
+
+      function numberToWordsIndian(number) {
+        const ones = [
+          '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven',
+          'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen',
+          'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen',
+          'Nineteen'
+        ];
+
+        const tens = [
+          '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty',
+          'Seventy', 'Eighty', 'Ninety'
+        ];
+
+        function twoDigits(n) {
+          if (n < 20) return ones[n];
+          return tens[Math.floor(n / 10)] +
+            (n % 10 ? ' ' + ones[n % 10] : '');
         }
-      %>
+
+        function threeDigits(n) {
+          if (n < 100) return twoDigits(n);
+          return ones[Math.floor(n / 100)] + ' Hundred' +
+            (n % 100 ? ' ' + twoDigits(n % 100) : '');
+        }
+
+        function convert(n) {
+          if (n === 0) return 'Zero';
+
+          const parts = [];
+
+          const crore = Math.floor(n / 10000000);
+          n %= 10000000;
+
+          const lakh = Math.floor(n / 100000);
+          n %= 100000;
+
+          const thousand = Math.floor(n / 1000);
+          n %= 1000;
+
+          if (crore) parts.push(threeDigits(crore) + ' Crore');
+          if (lakh) parts.push(threeDigits(lakh) + ' Lakh');
+          if (thousand) parts.push(twoDigits(thousand) + ' Thousand');
+          if (n) parts.push(threeDigits(n));
+
+          return parts.join(' ');
+        }
+
+        const rounded = Math.round(Number(number) || 0);
+        return convert(rounded) + ' Rupees Only';
+      }
+
+      const poGrandTotalInWords = isPO
+        ? numberToWordsIndian(poGrandTotal)
+        : '';
+    %>
+
+    <!-- ================= WATERMARK ================= -->
+
+    <% if (!isDeleted) { %>
+      <img
+        src="<%= logoBase64 %>"
+        class="logo-watermark"
+        alt="Marziya Innovations Watermark"
+      />
+    <% } %>
+
+    <% if (isDeleted) { %>
+      <div class="watermark">DELETED</div>
+    <% } %>
+
+    <!-- ================= HEADER ================= -->
+
+    <% if (isPO) { %>
+
+      <!-- ================= PO COMPANY HEADER - DY STYLE ================= -->
+      <table class="po-company-header">
+        <tr>
+          <!-- Company Logo - same left-side placement as DY PO -->
+          <td class="po-logo-cell">
+            <% if (typeof logoBase64 !== 'undefined' && logoBase64) { %>
+              <img
+                src="<%= logoBase64 %>"
+                class="po-logo"
+                alt="Marziya Innovations Private Limited Logo"
+              />
+            <% } %>
+          </td>
+
+          <!-- Company Details - centered like DY PO -->
+          <td class="po-company-details">
+            <div class="po-jurisdiction">
+              Subject to Kalyan (India) Jurisdiction Only
+            </div>
+
+            <div class="po-company-name">
+              Marziya Innovations Private Limited
+            </div>
+
+            <div class="po-address">
+              Plot No. 40/7, Village Waholi, Raita - Dahagoan Road, Murbad Road, 
+              Kalyan, Thane, Maharashtra, 421103.
+            </div>
+
+            <div class="po-address">
+              <strong>Mob. No.:</strong> +91 86557 05759 / +91 86525 37862
+            </div>
+
+            <div class="po-address">
+              <strong>Email:</strong> business@olivechairs.in
+              &nbsp;&nbsp;
+              <strong>PAN No.:</strong> AASCM1392C
+              &nbsp;&nbsp;
+              <strong>GST No.:</strong> 27AASCM1392C1ZB
+            </div>
+          </td>
+
+          <!-- QR Code - same right-side placement as DY PO -->
+          <td class="po-qr-cell">
+            <% if (typeof qrBase64 !== 'undefined' && qrBase64) { %>
+              <img
+                src="<%= qrBase64 %>"
+                class="po-qr"
+                alt="QR Code"
+              />
+            <% } %>
+          </td>
+        </tr>
+      </table>
+
+      <!-- ================= SUPPLIER / PO DETAILS ================= -->
+      <table class="section">
+        <tr>
+          <td width="50%">
+            <span class="sub-heading">Supplier</span>
+
+            <strong><%= purchase.vendor?.name || '-' %></strong>
+
+            <% if (purchase.vendor?.address?.line1) { %>
+              <br />
+              <%= purchase.vendor.address.line1 %>
+            <% } %>
+
+            <% if (purchase.vendor?.address?.line2) { %>
+              <br />
+              <%= purchase.vendor.address.line2 %>
+            <% } %>
+
+            <% if (
+              purchase.vendor?.address?.city ||
+              purchase.vendor?.address?.state ||
+              purchase.vendor?.address?.pincode
+            ) { %>
+              <br />
+              <%= purchase.vendor.address.city || '' %><% if (purchase.vendor.address.city && purchase.vendor.address.state) { %>, <% } %><%= purchase.vendor.address.state || '' %><% if (purchase.vendor.address.pincode) { %> - <%= purchase.vendor.address.pincode %><% } %>
+            <% } %>
+
+            <% if (purchase.vendor?.phone) { %>
+              <br />
+              <strong>Phone:</strong> <%= purchase.vendor.phone %>
+            <% } %>
+
+            <% if (purchase.vendor?.email) { %>
+              <br />
+              <strong>Email:</strong> <%= purchase.vendor.email %>
+            <% } %>
+
+            <% if (purchase.vendor?.gstin) { %>
+              <br />
+              <strong>GSTIN:</strong> <%= purchase.vendor.gstin %>
+            <% } %>
+
+            <% if (purchase.vendor?.pan) { %>
+              <br />
+              <strong>PAN:</strong> <%= purchase.vendor.pan %>
+            <% } %>
+          </td>
+
+          <td width="50%">
+            <strong>PO No:</strong> <%= documentNumber %>
+            <br />
+
+            <strong>Date:</strong>
+            <%= new Date(documentDate).toLocaleDateString('en-IN') %>
+
+            <br />
+            <strong>Loading:</strong> Inclusive
+
+            <br />
+            <strong>Delivery Schedule:</strong>
+            <%= purchase.deliverySchedule || '5 to 6 Days' %>
+
+            <br />
+            <strong>Delivery At:</strong>
+            <%= purchase.deliveryAt === 'WAREHOUSE'
+              ? 'Warehouse'
+              : purchase.deliveryAt === 'OFFICE'
+                ? 'Office'
+                : '-' %>
+
+            <% if (isDeleted) { %>
+              <div style="margin-top: 6px; color: #b30000; font-size: 11px">
+                <strong>Status:</strong> Deleted
+                <br />
+                <strong>Deleted On:</strong>
+                <%= new Date(pi.deletedAt).toLocaleDateString('en-IN') %>
+              </div>
+            <% } %>
+          </td>
+        </tr>
+      </table>
+
+    <% } else { %>
+
+      <table class="section">
+        <tr>
+          <td width="50%">
+            <span class="sub-heading">Sold By</span>
+
+            <strong>Marziya Innovations Pvt. Ltd.</strong><br>
+            Shop No.17, Gr. Floor, Sarvoday Mall,
+            Opp. APMC, Bail Bazar Road,
+            Kalyan (W), Maharashtra - 421301<br>
+
+            <strong>GSTIN:</strong> 27AASCM1392C1ZB<br>
+            <strong>PAN:</strong> AASCM1392C
+          </td>
+
+          <td width="50%">
+            <strong>
+              <% if (isInvoice) { %>
+                Invoice No:
+              <% } else { %>
+                PI No:
+              <% } %>
+            </strong>
+
+            <%= documentNumber %>
+            <br />
+
+            <strong>Date:</strong>
+            <%= new Date(documentDate).toLocaleDateString('en-IN') %>
+            <br />
+
+            <% if (pi.poNumber && pi.poNumber.trim() !== '') { %>
+              <strong>PO No:</strong>
+              <%= pi.poNumber %>
+              <br />
+            <% } %>
+
+            <% if (isDeleted) { %>
+              <div style="margin-top: 6px; color: #b30000; font-size: 11px">
+                <strong>Status:</strong>
+                Deleted
+                <br />
+
+                <strong>Deleted On:</strong>
+                <%= new Date(pi.deletedAt).toLocaleDateString('en-IN') %>
+              </div>
+            <% } %>
+          </td>
+        </tr>
+      </table>
+
+    <% } %>
+
+    <!-- ================= BILL / SUPPLIER / SHIP ================= -->
+
+    <!-- Bill To / Ship To are intentionally omitted from Purchase Orders. -->
+    <% if (!isPO) { %>
+      <table class="section">
+        <tr>
+          <td width="50%">
+            <span class="sub-heading">Bill To</span>
+
+            <strong><%= pi.billingAddress.name %></strong>
+            <br />
+
+            <%= pi.billingAddress.line1 %>
+            <br />
+
+            <%= pi.billingAddress.city %>, <%= pi.billingAddress.state %> -
+            <%= pi.billingAddress.pincode %>
+            <br />
+
+            <strong>Phone:</strong>
+            <%= pi.billingAddress.phone || '-' %>
+            <br />
+
+            <% if (pi.billingAddress.email) { %>
+              <strong>Email:</strong>
+              <%= pi.billingAddress.email %>
+              <br />
+            <% } %>
+
+            <strong>GSTIN:</strong>
+            <%= pi.billingAddress.gstin || 'N/A' %>
+          </td>
+
+          <td width="50%">
+            <span class="sub-heading">Ship To</span>
+
+            <strong><%= pi.shippingAddress.name %></strong>
+            <br />
+
+            <%= pi.shippingAddress.line1 %>
+            <br />
+
+            <%= pi.shippingAddress.city %>, <%= pi.shippingAddress.state %> -
+            <%= pi.shippingAddress.pincode %>
+            <br />
+
+            <strong>Phone:</strong>
+            <%= pi.shippingAddress.phone || '-' %>
+          </td>
+        </tr>
+      </table>
+    <% } %>
+
+    <!-- ================= ITEMS ================= -->
+
+    <table class="section">
+      <thead>
+        <tr>
+          <th width="5%">#</th>
+          <th>Description</th>
+          <th>HSN Code</th>
+          <th width="15%">Unit Price</th>
+          <th width="10%">Qty</th>
+          <th width="15%">Amount</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% const documentItems = isPO ? (purchase.items || []) : (pi.items || []); %>
+
+        <% documentItems.forEach((item, idx) => { %>
+          <%
+            let hasColor = false;
+            let itemDisplayName = 'Item';
+            let itemType = item.itemType || '';
+            let unitPrice = 0;
+            let quantity = Number(item.quantity) || 0;
+            let hsnCode = item.hsnCode || '-';
+
+            /* =========================
+               PO ITEMS
+            ========================= */
+            if (isPO) {
+              if (item.itemType === 'sparePart') {
+                itemDisplayName =
+                  item.sparePart?.partName ||
+                  item.sparePart?.name ||
+                  'Spare Part';
+              } else if (item.itemType === 'chair') {
+                const chairName = item.chair?.modelName || 'Chair';
+                let colorName = '';
+
+                if (item.chair && item.chair.colors && item.chairColor) {
+                  const color = item.chair.colors.find(
+                    (c) => String(c._id) === String(item.chairColor)
+                  );
+
+                  if (color) {
+                    colorName = color.name;
+                  }
+                }
+
+                hasColor = colorName && colorName !== '-';
+                itemDisplayName = hasColor
+                  ? `${chairName} - ${colorName}`
+                  : chairName;
+              }
+
+              // Display taxable/base price in the item table.
+              // GST is shown separately in the totals section.
+              unitPrice = Number(item.unitCost) || 0;
+
+              hsnCode =
+                item.hsnCode ||
+                item.sparePart?.hsnCode ||
+                item.chair?.hsnCode ||
+                '-';
+            }
+
+            /* =========================
+               PI / INVOICE ITEMS
+            ========================= */
+            else {
+              hasColor =
+                item.colorName &&
+                item.colorName !== '-' &&
+                item.colorName.trim() !== '';
+
+              itemDisplayName = hasColor
+                ? `${item.chairModel} - ${item.colorName}`
+                : item.chairModel;
+
+              unitPrice = Number(item.unitPrice) || 0;
+              hsnCode = item.hsnCode || '-';
+            }
+
+            const totalItemAmount = unitPrice * quantity;
+          %>
+
+          <tr>
+            <td class="text-center"><%= idx + 1 %></td>
+            <td><%= itemDisplayName %></td>
+            <td><%= hsnCode %></td>
+            <td class="text-right">₹<%= unitPrice.toFixed(2) %></td>
+            <td class="text-center"><%= quantity %></td>
+            <td class="text-right">₹<%= totalItemAmount.toFixed(2) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <!-- ================= TOTALS ================= -->
+
+    <% if (isPO) { %>
+      <table class="section">
+        <tr>
+          <td class="text-right text-bold">Sub Total</td>
+          <td class="text-right">
+            ₹<%= poSubTotal.toFixed(2) %>
+          </td>
+        </tr>
+
+        <% if (poGstTotal > 0) { %>
+          <tr>
+            <td class="text-right">GST @18%</td>
+            <td class="text-right">
+              ₹<%= poGstTotal.toFixed(2) %>
+            </td>
+          </tr>
+        <% } %>
+
+        <tr>
+          <th class="text-right">Grand Total</th>
+          <th class="text-right">
+            ₹<%= Math.round(poGrandTotal) %>
+          </th>
+        </tr>
+
+        <tr>
+          <td colspan="2" class="text-right">
+            <strong>Grand Total in Words:</strong>
+            <%= poGrandTotalInWords %>
+          </td>
+        </tr>
+      </table>
+    <% } else { %>
+      <table class="section">
+        <tr>
+          <td class="text-right text-bold">Sub Total</td>
+          <td class="text-right">₹<%= pi.taxableAmount.toFixed(2) %></td>
+        </tr>
+
+        <% if (pi.gstType === 'IGST') { %>
+          <tr>
+            <td class="text-right">IGST @18%</td>
+            <td class="text-right">₹<%= pi.gstBreakup.igst.toFixed(2) %></td>
+          </tr>
+        <% } %>
+
+        <% if (pi.gstType === 'CGST_SGST') { %>
+          <tr>
+            <td class="text-right">CGST @9%</td>
+            <td class="text-right">₹<%= pi.gstBreakup.cgst.toFixed(2) %></td>
+          </tr>
+
+          <tr>
+            <td class="text-right">SGST @9%</td>
+            <td class="text-right">₹<%= pi.gstBreakup.sgst.toFixed(2) %></td>
+          </tr>
+        <% } %>
+
+        <tr>
+          <th class="text-right">Grand Total</th>
+          <th class="text-right">₹<%= pi.grandTotal.toFixed(2) %></th>
+        </tr>
+      </table>
+    <% } %>
+
+    <!-- ================= NOTES ================= -->
+
+    <% const notes = isPO ? purchase.notes : pi.notes; %>
+
+    <% if (notes) { %>
+      <table class="section">
+        <tr>
+          <td class="compact-text">
+            <strong>Notes:</strong>
+            <%= notes %>
+          </td>
+        </tr>
+      </table>
+    <% } %>
+
+    <!-- ================= BANK + TERMS ================= -->
+
+    <% if (!isPO) { %>
+      <table class="section">
+        <tr>
+          <td width="50%" class="compact-text">
+            <span class="sub-heading">Bank Details</span>
+
+            <strong>Beneficiary Name:</strong>
+            Marziya Innovations Pvt. Ltd.
+            <br />
+
+            <strong>Bank Name:</strong>
+            INDUSIND Bank
+            <br />
+
+            <strong>Account Number:</strong>
+            259922996392
+            <br />
+
+            <strong>IFSC Code:</strong>
+            INDB0001867
+            <br />
+
+            <strong>Branch:</strong>
+            Kalyan (West), Maharashtra
+          </td>
+
+          <td width="50%" class="compact-text">
+            <span class="sub-heading">Commercial Terms</span>
+
+            <strong>Warranty:</strong>
+            As per company policy.
+            <br />
+
+            <strong>Estimated Delivery:</strong>
+            <%= pi.estimatedDelivery || '5 to 6 Working Days' %>
+            <br />
+
+            <strong>Installation:</strong>
+            <%= pi.installationType === 'DIY' ? 'DIY (Do It Yourself)' : 'Free Installation' %>
+            <br />
+
+            <strong>Payment Terms:</strong>
+            Advance Payment Only
+            <br />
+
+            <strong>Payment Mode:</strong>
+            <%= pi.paymentMode || '-' %>
+          </td>
+        </tr>
+      </table>
+    <% } %>
+
+    <!-- ================= DECLARATION ================= -->
+
+    <table class="section">
       <tr>
-        <td class="text-center"><%= idx + 1 %></td>
-        <td>
-          <%= itemDisplayName %>
-          <!-- <span style="font-size: 11px; color: #555; font-weight: normal;">(<%= categoryLabel %>)</span> -->
+        <td width="70%" class="compact-text" style="font-size: 10px">
+          <span class="sub-heading"><%= isPO ? 'Terms & Conditions' : 'Declaration' %></span>
+
+          <% if (isPO) { %>
+            1. The amount value is rounded at nearest amount.<br />
+            2. The rates mentioned in the Purchase Order/Work Order shall be firm for all supplies including the extension of time, if any granted and will not be subject to any fluctuation due to an increase in the cost of materials, labour, taxes, octroi or any other new taxes, levies, etc.<br />
+            3. As per the applicable state rules under the Goods and Services Tax Act 2017, the vendor is responsible for preparing an E-way bill online on the prescribed GST portal for the transportation of goods. Any delivery, not accompanied by an E-Way bill, is liable to be rejected. A copy of the E-Way bill must, compulsorily, be attached to the invoice to facilitate the processing of the invoice.
+          <% } else { %>
+            1. We declare that this <%= isInvoice ? 'Tax Invoice' : 'Proforma Invoice' %>
+            shows the actual price of the goods and/or services described and that all particulars are true and correct.<br />
+            2. Errors and omissions excepted.<br />
+            3. Subject to Kalyan Jurisdiction only.<br />
+            4. All claims, if any, must be reported on the day of delivery.<br />
+            5. Shipping charges are non-refundable in case of returns.
+          <% } %>
         </td>
-        <td><%= item.hsnCode %></td>
-        <td class="text-right">₹<%= item.unitPrice.toFixed(2) %></td>
-        <td class="text-center"><%= item.quantity %></td>
-        <td class="text-right">
-          ₹<%= (item.unitPrice * item.quantity).toFixed(2) %>
+
+        <td width="30%" class="text-center" style="vertical-align: bottom; padding-bottom: 15px">
+          <img src="<%= signBase64 %>" class="signature" alt="Signature" />
         </td>
       </tr>
-    <% }) %>
-  </tbody>
-</table>
-
-<!-- ================= TOTALS ================= -->
-<table class="section">
-  <tr>
-    <td class="text-right text-bold">Sub Total</td>
-    <td class="text-right">₹<%= pi.taxableAmount.toFixed(2) %></td>
-  </tr>
-
-  <% if (pi.gstType === 'IGST') { %>
-    <tr>
-      <td class="text-right">IGST @18%</td>
-      <td class="text-right">₹<%= pi.gstBreakup.igst.toFixed(2) %></td>
-    </tr>
-  <% } %>
-
-  <% if (pi.gstType === 'CGST_SGST') { %>
-    <tr>
-      <td class="text-right">CGST @9%</td>
-      <td class="text-right">₹<%= pi.gstBreakup.cgst.toFixed(2) %></td>
-    </tr>
-    <tr>
-      <td class="text-right">SGST @9%</td>
-      <td class="text-right">₹<%= pi.gstBreakup.sgst.toFixed(2) %></td>
-    </tr>
-  <% } %>
-
-  <tr>
-    <th class="text-right">Grand Total</th>
-    <th class="text-right">₹<%= pi.grandTotal.toFixed(2) %></th>
-  </tr>
-</table>
-
-<!-- ================= NOTES ================= -->
-<% if (pi.notes) { %>
-<table class="section">
-  <tr>
-    <td class="compact-text">
-      <strong>Notes:</strong> <%= pi.notes %>
-    </td>
-  </tr>
-</table>
-<% } %>
-
-<!-- ================= BANK + TERMS ================= -->
-<table class="section">
-  <tr>
-    <td width="50%" class="compact-text">
-      <span class="sub-heading">Bank Details</span>
-      <strong>Beneficiary Name:</strong> Marziya Innovations Pvt. Ltd.<br>
-      <strong>Bank Name:</strong> INDUSIND Bank<br>
-      <strong>Account Number:</strong> 259922996392<br>
-      <strong>IFSC Code:</strong> INDB0001867<br>
-      <strong>Branch:</strong> Kalyan (West), Maharashtra
-    </td>
-
-    <td width="50%" class="compact-text">
-      <span class="sub-heading">Commercial Terms</span>
-      <strong>Warranty:</strong> As per company policy.<br>
-      <strong>Estimated Delivery:</strong>
-      <%= pi.estimatedDelivery || '5 to 6 Working Days' %><br>
-      <strong>Installation:</strong>
-      <%= pi.installationType === 'DIY' ? 'DIY (Do It Yourself)' : 'Free Installation' %><br>
-      <!-- <span class="sub-heading">Payment Terms</span> -->
-      <strong>Payment Terms:</strong> Advance Payment Only<br>
-      <strong>Payment Mode:</strong> <%= pi.paymentMode || '-' %>
-    </td>
-  </tr>
-</table>
-
-<!-- ================= DECLARATION ================= -->
-<table class="section">
-  <tr>
-    <td widht="70%" class="compact-text" style="font-size: 10px;">
-      <span class="sub-heading">Declaration</span>
-      1. We declare that this Proforma Invoice shows the actual price of the goods and/or services described and that all particulars are true and correct.<br>
-      2. Errors and omissions excepted.<br>
-      3. Subject to Kalyan Jurisdiction only.<br>
-      4. All claims, if any, must be reported on the day of delivery.<br>
-      5. Shipping charges are non-refundable in case of returns.
-    </td>
-
-    <td width="30%" class="text-center" style="vertical-align: bottom; padding-bottom: 15px;">
-      <img src="<%= signBase64 %>" class="signature"><br>
-      <!-- <div style="margin-top: 8px;">
-        <strong>Authorised Signatory</strong><br>
-        Marziya Innovations Pvt. Ltd.
-      </div> -->
-    </td>
-  </tr>
-</table>
-
-<!-- ================= SIGNATURE ================= -->
-<!-- <table class="no-border section">
-  <tr>
-    <td width="70%"></td>
-    <td width="30%" class="text-center">
-      <img src="<%= signBase64 %>" class="signature"><br>
-      <strong>Authorised Signatory</strong><br>
-      Marziya Innovations Pvt. Ltd.
-    </td>
-  </tr>
-</table> -->
-
-</body>
+    </table>
+  </body>
 </html>

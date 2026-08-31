@@ -24,6 +24,29 @@
       background:#fff;
       padding:.5rem 0;
     }
+
+    .btn-outline-purple {
+      color: #6f42c1;
+      border-color: #6f42c1;
+    }
+
+    .btn-outline-purple:hover {
+      background-color: #6f42c1;
+      color: #fff;
+    }
+
+    .btn-outline-purple.disabled,
+    .btn-outline-purple:disabled {
+      color: #6f42c1 !important;
+      border-color: #6f42c1 !important;
+      background-color: transparent !important;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .btn-outline-info:hover {
+      color: #fff !important;
+    }
   </style>
 </head>
 
@@ -85,6 +108,15 @@
   <div class="card shadow-sm">
     <div class="card-body">
 
+    <!-- 🔷 QUERY ERROR ALERT (Catches redirect errors from validateForm) -->
+<% if (typeof query !== 'undefined' && query && query.error) { %>
+  <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm" role="alert">
+    <i class="bi bi-exclamation-octagon-fill me-2"></i>
+    <%= query.error %>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+<% } %>
+
     <% if(purchases && purchases.length>0){ %>
 
       <div class="table-responsive">
@@ -97,10 +129,8 @@
               <th>Purchase No</th>
               <th>Date</th>
               <th>Vendor</th>
-              <th>Invoice</th>
               <th>Total</th>
               <th>Status</th>
-              <th>Created At</th>
               <th>Created By</th>
               <th class="text-end">Actions</th>
             </tr>
@@ -126,53 +156,75 @@
 
               <td><%= p.vendor?.name || '-' %></td>
 
-              <td><%= p.invoiceNumber || '-' %></td>
-
               <td>₹<%= p.totalAmount.toFixed(2) %></td>
 
               <td>
                 <span class="badge 
-                  <%= p.status==='PURCHASED' ? 'bg-success' :
-                      p.status==='CANCELLED' ? 'bg-danger' :
-                      p.status==='DRAFT' ? 'bg-warning text-dark' :
+                  <%= p.status === 'RECEIVED' ? 'bg-success' :
+                      p.status === 'CANCELLED' ? 'bg-danger' :
+                      p.status === 'DRAFT' ? 'bg-warning text-dark' :
+                      p.status === 'ORDERED' ? 'bg-info text-white' :
+                      p.status === 'SHORT_CLOSED' ? 'bg-secondary' :
+                      p.status === 'CLOSED' ? 'bg-dark' :
                       'bg-secondary' %>">
-                  <%= p.status %>
+                  <%= p.status ? p.status.replace('_', ' ') : 'UNKNOWN' %>
                 </span>
-              </td>
-
-              <td class="text-nowrap">
-                <%= new Date(p.createdAt).toLocaleDateString('en-IN',{
-                  day:'2-digit',
-                  month:'2-digit',
-                  year:'numeric'
-                }) %>
               </td>
 
               <td><%= p.createdBy?.fullName %></td>
 
               <td class="text-end">
 
+                <!-- 🔷 VIEW BUTTON -->
                 <a
                   href="/purchasing/purchases/<%= p._id %>"
-                  class="btn btn-sm btn-outline-success"
+                  class="btn btn-sm btn-outline-info"
+                  title="View Purchase Details"
                 >
                   View
                 </a>
 
+                <!-- 🔷 VALIDATE BUTTON -->
+                <a
+                  href="/purchasing/purchases/<%= p._id %>/validate"
+                  class="btn btn-sm btn-outline-purple <%= (p.validationStatus === 'VALIDATED' || p.status !== 'ORDERED') ? 'disabled' : '' %>"
+                  title="Validate Received Items"
+                >
+                  Validate
+                </a>
+
+                <!-- 🔷 PDF BUTTON -->
+                <a
+                  href="/purchasing/purchases/<%= p._id %>/pdf"
+                  class="btn btn-sm btn-outline-success"
+                  target="_blank"
+                  title="Download PDF"
+                >
+                  PDF
+                </a>
+
+                <!-- 🔷 EDIT BUTTON -->
+                <% 
+                  const isFinalized = p.status === 'CLOSED' || p.status === 'SHORT_CLOSED';
+                %>
                 <a
                   href="/purchasing/purchases/<%= p._id %>/edit"
-                  class="btn btn-sm btn-outline-primary"
+                  class="btn btn-sm btn-outline-primary <%= isFinalized ? 'disabled' : '' %>"
+                  title="Edit Purchase Order"
                 >
                   Edit
                 </a>
 
+                <!-- 🔷 DELETE BUTTON -->
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-danger"
+                  class="btn btn-sm btn-outline-danger <%= p.validationStatus === 'VALIDATED' ? 'disabled' : '' %>"
+                  <%= p.validationStatus === 'VALIDATED' ? 'disabled' : '' %>
                   data-bs-toggle="modal"
                   data-bs-target="#deleteModal"
                   data-id="<%= p._id %>"
                   data-name="<%= p.purchaseNumber %>"
+                  title="Delete Purchase"
                 >
                   Delete
                 </button>
@@ -253,7 +305,7 @@
 
             <!-- Next -->
             <li class="page-item <%= page===totalPages?'disabled':'' %>">
-              <a class="page-link" href="<%= buildQuery(Math.min(totalPages,page+1)) %>">&raquo;</a>
+              <a class="page-link" href="<%= buildQuery(totalPages) %>">&raquo;</a>
             </li>
 
           </ul>

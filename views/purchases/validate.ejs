@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validate Purchase - <%= purchase.purchaseNumber %></title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+<%- include('../partials/navbar', { user, activePage }) %>
+<div class="container py-5">
+<!-- 🔷 ERROR ALERT BOX (JS POPULATED) -->
+<div id="formErrorAlert" class="alert alert-danger alert-dismissible fade show d-none mb-4" role="alert">
+<i class="bi bi-exclamation-octagon-fill me-2"></i>
+<span id="formErrorMessage"></span>
+<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+<!-- 🔷 HEADER & INFO CARD -->
+<div class="card shadow-sm mb-4">
+<div class="card-body">
+  <div class="d-flex justify-content-between align-items-center">
+    <h4 class="mb-0">
+      Validate Purchase <%= purchase.purchaseNumber %>
+    </h4>
+
+    <span class="badge 
+      <%= purchase.status === 'RECEIVED' ? 'bg-success' :
+          purchase.status === 'CANCELLED' ? 'bg-danger' :
+          purchase.status === 'DRAFT' ? 'bg-warning text-dark' :
+          purchase.status === 'ORDERED' ? 'bg-info' :
+          'bg-secondary' %>">
+      <%= purchase.status %>
+    </span>
+  </div>
+
+  <div class="row g-3 mt-2">
+    <div class="col-md-2-4" style="flex: 0 0 auto; width: 20%;">
+      <small class="text-muted">Vendor</small>
+      <div class="fw-semibold"><%= purchase.vendor?.name || '-' %></div>
+    </div>
+
+    <div class="col-md-2-4" style="flex: 0 0 auto; width: 20%;">
+      <small class="text-muted">Delivery Schedule</small>
+      <div><%= purchase.deliverySchedule || '-' %></div>
+    </div>
+
+    <div class="col-md-2-4" style="flex: 0 0 auto; width: 20%;">
+      <small class="text-muted">Delivery At</small>
+      <div>
+        <span class="badge bg-light text-dark border">
+          <%= purchase.deliveryAt || '-' %>
+        </span>
+      </div>
+    </div>
+
+    <div class="col-md-2-4" style="flex: 0 0 auto; width: 20%;">
+      <small class="text-muted">Purchase Date</small>
+      <div>
+        <%= new Date(purchase.purchaseDate).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }) %>
+      </div>
+    </div>
+
+    <div class="col-md-2-4" style="flex: 0 0 auto; width: 20%;">
+      <small class="text-muted">PO Amount</small>
+      <div class="fw-bold text-success">
+        ₹<%= Number(purchase.totalAmount || 0).toFixed(2) %>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- 🔷 VALIDATION FORM -->
+<form
+method="POST"
+action="/purchasing/purchases/<%= purchase._id %>/validate"
+id="validationForm"
+>
+<!-- 🔷 MATERIAL VERIFICATION TABLE -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+
+    <h5 class="mb-3">Material Verification</h5>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm align-middle mb-0">
+
+        <thead class="table-light">
+          <tr>
+            <th style="width: 50px;" class="text-center">#</th>
+            <th style="min-width: 220px;">Ordered Material</th>
+            <th style="min-width: 320px;">Actual Material Received</th>
+            <th style="width: 110px;" class="text-center">Ordered Qty</th>
+            <th style="width: 130px;">Received Qty</th>
+            <th style="width: 140px;" class="text-center">Balance</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% purchase.items.forEach((item, index) => { %>
+            <% 
+              const itemId = item.itemType === 'sparePart'
+                ? (item.sparePart?._id || item.sparePart)
+                : (item.chair?._id || item.chair);
+              const colorId = item.chairColor?._id || item.chairColor || '';
+
+              // Resolve Color Name (populated object, array lookup, or property string)
+              let colorName = '';
+              if (item.itemType === 'chair' && item.chair) {
+                if (typeof item.chairColor === 'object' && item.chairColor?.name) {
+                  colorName = item.chairColor.name;
+                } else if (item.chair.colors && Array.isArray(item.chair.colors)) {
+                  const matchedColor = item.chair.colors.find(c => String(c._id) === String(colorId));
+                  if (matchedColor) colorName = matchedColor.name;
+                }
+              }
+
+              // Build Material Name String
+              const baseName = item.itemType === 'chair'
+                ? item.chair?.modelName
+                : item.sparePart?.partName;
+              
+              const fullMaterialName = colorName ? `${baseName} - ${colorName}` : baseName;
+            %>
+            <tr
+              class="validation-row"
+              data-index="<%= index %>"
+              data-ordered-quantity="<%= item.quantity %>"
+            >
+              <td class="text-center">
+                <span class="fw-semibold"><%= index + 1 %></span>
+              </td>
+
+              <!-- Ordered Material -->
+              <td>
+                <span class="fw-semibold">
+                  <%= fullMaterialName %>
+                </span>
+                <span class="badge ms-1 <%= item.itemType === 'chair' ? 'bg-primary' : 'bg-secondary' %>">
+                  <%= item.itemType === 'chair' ? 'Chair' : 'Spare' %>
+                </span>
+              </td>
+
+              <!-- Actual Material Received -->
+              <td>
+                <!-- Hidden inputs to submit item metadata to backend -->
+                <input type="hidden" name="items[<%= index %>][poItemIndex]" value="<%= index %>" />
+                <input type="hidden" name="items[<%= index %>][itemType]" value="<%= item.itemType %>" />
+                <input type="hidden" name="items[<%= index %>][itemId]" value="<%= itemId %>" />
+                <input type="hidden" name="items[<%= index %>][colorId]" value="<%= colorId %>" />
+
+                <span class="fw-semibold">
+                  <%= fullMaterialName %>
+                </span>
+              </td>
+
+              <td class="text-center">
+                <span class="ordered-quantity fw-semibold"><%= item.quantity %></span>
+              </td>
+
+              <!-- Received Qty -->
+              <td>
+                <input
+                  type="number"
+                  class="form-control form-control-sm received-quantity"
+                  name="items[<%= index %>][receivedQuantity]"
+                  value="<%= item.quantity %>"
+                  min="0"
+                  step="1"
+                  required
+                />
+              </td>
+
+              <!-- Centered Balance Column -->
+              <td class="text-center">
+                <span class="badge validation-result bg-success">0</span>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- 🔷 VALIDATION NOTES -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="mb-3">Notes</h5>
+    <textarea
+      name="validationNotes"
+      class="form-control"
+      rows="3"
+      placeholder="Add details about damaged, substituted, short, or excess material..."
+    ></textarea>
+  </div>
+</div>
+
+<!-- 🔷 ACTIONS -->
+<div class="d-flex justify-content-end gap-2">
+  <button type="button" class="btn btn-primary" id="openValidateModalBtn">
+    Validate Material
+  </button>
+</div>
+</form>
+</div>
+
+<!-- 🔷 CONFIRMATION MODAL -->
+<div class="modal fade" id="validateModal" tabindex="-1" aria-labelledby="validateModalLabel" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content">
+  <div class="modal-header">
+    <h5 class="modal-title" id="validateModalLabel">Confirm Validation</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  </div>
+
+  <div class="modal-body">
+    <!-- MODAL ERROR CONTAINER -->
+    <div id="modalErrorAlert" class="alert alert-danger d-none mb-3" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>
+      <span id="modalErrorMessage"></span>
+    </div>
+
+    <p class="mb-0">
+      Are you sure you want to validate purchase <strong><%= purchase.purchaseNumber %></strong>?
+      This will update physical inventory stock and set status to <strong>RECEIVED</strong>.
+    </p>
+  </div>
+
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+    <button type="button" class="btn btn-primary" id="submitValidationBtn">
+      Confirm & Save
+    </button>
+  </div>
+
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const validateModal = new bootstrap.Modal(document.getElementById('validateModal'));
+
+function getElement(row, selector) {
+  return row.querySelector(selector);
+}
+
+function showError(msg) {
+  const alertBox = document.getElementById('formErrorAlert');
+  const alertMsg = document.getElementById('formErrorMessage');
+  alertMsg.textContent = msg;
+  alertBox.classList.remove('d-none');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showModalError(msg) {
+  const alertBox = document.getElementById('modalErrorAlert');
+  const alertMsg = document.getElementById('modalErrorMessage');
+  alertMsg.textContent = msg;
+  alertBox.classList.remove('d-none');
+}
+
+function clearModalError() {
+  const alertBox = document.getElementById('modalErrorAlert');
+  alertBox.classList.add('d-none');
+  document.getElementById('modalErrorMessage').textContent = '';
+}
+
+function updateRow(row) {
+  const orderedQuantity = Number(row.dataset.orderedQuantity);
+  const receivedQuantity = Number(getElement(row, '.received-quantity').value) || 0;
+  const balance = orderedQuantity - receivedQuantity;
+  const result = getElement(row, '.validation-result');
+
+  result.className = 'badge validation-result';
+  row.classList.remove('table-success', 'table-warning', 'table-danger');
+
+  if (balance === 0) {
+    result.textContent = '0';
+    result.classList.add('bg-success');
+    row.classList.add('table-success');
+  } else if (balance > 0) {
+    result.textContent = `Balance: ${balance}`;
+    result.classList.add('bg-warning', 'text-dark');
+    row.classList.add('table-warning');
+  } else {
+    result.textContent = `Excess: +${Math.abs(balance)}`;
+    result.classList.add('bg-danger');
+    row.classList.add('table-danger');
+  }
+}
+
+// INITIALIZE ROW LISTENERS
+document.querySelectorAll('.validation-row').forEach((row) => {
+  updateRow(row);
+
+  getElement(row, '.received-quantity').addEventListener('input', () => {
+    updateRow(row);
+  });
+});
+
+// OPEN MODAL VALIDATION
+document.getElementById('openValidateModalBtn').addEventListener('click', () => {
+  const rows = document.querySelectorAll('.validation-row');
+  let invalid = false;
+  rows.forEach((row) => {
+    const quantity = Number(getElement(row, '.received-quantity').value);
+    if (!Number.isFinite(quantity) || quantity < 0) invalid = true;
+  });
+
+  if (invalid) {
+    showError('Please enter valid quantities before proceeding.');
+    return;
+  }
+
+  clearModalError();
+  validateModal.show();
+});
+
+// AJAX SUBMIT VIA MODAL
+document.getElementById('submitValidationBtn').addEventListener('click', async () => {
+  clearModalError();
+  const submitBtn = document.getElementById('submitValidationBtn');
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processing...';
+
+  const form = document.getElementById('validationForm');
+  const formData = new FormData(form);
+  const searchParams = new URLSearchParams(formData);
+
+  try {
+    const response = await fetch(form.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: searchParams
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      showModalError(result.message || 'Validation failed.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirm & Save';
+      return;
+    }
+
+    window.location.href = result.redirectUrl;
+
+  } catch (err) {
+    showModalError('A network error occurred. Please try again.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Confirm & Save';
+  }
+});
+</script>
+</body>
+</html>

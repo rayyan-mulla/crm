@@ -94,18 +94,26 @@ module.exports.generatePdf = async ({
 
       <div style="
         width:100%;
-        padding:8px 15mm;
+        padding:${templateData.documentType === 'PURCHASE_ORDER'
+          ? '20px 15mm 8px'
+          : '8px 15mm'};
         box-sizing:border-box;
         display:flex;
         align-items:center;
         justify-content:space-between;
       ">
-        <div style="width:30%; text-align:left;">
-          <img src="${templateData.logoBase64}" style="height:42px;" />
-        </div>
+        ${
+          templateData.documentType === 'PURCHASE_ORDER'
+            ? ''
+            : `
+              <div style="width:30%; text-align:left;">
+                <img src="${templateData.logoBase64}" style="height:42px;" />
+              </div>
+            `
+        }
 
         <div style="
-          width:40%;
+          width:${templateData.documentType === 'PURCHASE_ORDER' ? '100%' : '40%'};
           text-align:center;
           font-size:16px;
           font-weight:bold;
@@ -114,7 +122,12 @@ module.exports.generatePdf = async ({
           ${headerTitle}
         </div>
 
-        <div style="width:30%;"></div>
+        ${
+          templateData.documentType === 'PURCHASE_ORDER'
+            ? ''
+            : '<div style="width:30%;"></div>'
+        }
+        
       </div>
     `,
 

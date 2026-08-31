@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Add Purchase - Olive Chairs ERP</title>
+  <title><%= mode === 'edit' ? 'Edit Purchase' : 'New Purchase' %> - Olive Chairs ERP</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -17,17 +17,39 @@
 <body>
 <%- include('../partials/navbar', { user, activePage }) %>
 
+<% 
+  const isValidated = purchase?.validationStatus === 'VALIDATED'; 
+%>
+
 <div class="container py-5">
-  <h3 class="mb-4">
-    <%= mode === 'edit' ? 'Edit Purchase' : 'New Purchase' %>
-  </h3>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">
+      <%= mode === 'edit' ? 'Edit Purchase' : 'New Purchase' %>
+    </h3>
+
+    <% if (isValidated) { %>
+      <div class="d-inline-flex align-items-center bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-3 py-1 small shadow-sm">
+        <i class="bi bi-patch-check-fill me-2 text-success fs-6"></i>
+        <span class="fw-semibold me-2">Items Validated</span>
+        <span class="text-muted border-start ps-2">You can still update Status and Notes.</span>
+      </div>
+    <% } %>
+  </div>
 
   <form method="POST" 
     action="<%= mode === 'edit' 
       ? '/purchasing/purchases/' + purchase._id 
       : '/purchasing/purchases' %>">
 
-    <input type="hidden" name="totalAmount" id="totalAmountInput">
+    <input type="hidden" name="totalAmount" id="totalAmountInput" value="<%= purchase?.totalAmount || '0' %>">
+
+    <!-- HIDDEN INPUTS FOR VALIDATED STATE (Preserves disabled fields on POST) -->
+    <% if (isValidated) { %>
+      <input type="hidden" name="purchaseDate" value="<%= purchase ? new Date(purchase.purchaseDate).toISOString().split('T')[0] : '' %>">
+      <input type="hidden" name="vendor" value="<%= purchase?.vendor?._id || purchase?.vendor %>">
+      <input type="hidden" name="deliverySchedule" value="<%= purchase?.deliverySchedule || '' %>">
+      <input type="hidden" name="deliveryAt" value="<%= purchase?.deliveryAt || '' %>">
+    <% } %>
 
     <!-- TOP SECTION -->
     <div class="card shadow-sm p-3 mb-4">
@@ -38,22 +60,25 @@
       <div class="card-body">
         <div class="row g-3">
 
-          <div class="col-md-3">
-            <label class="form-label">Purchase Date</label>
+          <!-- Purchase Date -->
+          <div class="col-md-4 col-lg">
+            <label class="form-label text-muted small fw-semibold">Purchase Date</label>
             <input type="date" name="purchaseDate" class="form-control"
+              <%= isValidated ? 'disabled' : '' %>
               value="<%= purchase 
                 ? new Date(purchase.purchaseDate).toISOString().split('T')[0]
                 : new Date().toISOString().split('T')[0] %>">
           </div>
 
-          <div class="col-md-3">
-            <label class="form-label">Vendor</label>
-            <select name="vendor" class="form-select" required>
+          <!-- Vendor -->
+          <div class="col-md-4 col-lg">
+            <label class="form-label text-muted small fw-semibold">Vendor</label>
+            <select name="vendor" class="form-select" <%= isValidated ? 'disabled' : '' %> required>
               <option value="">Select Vendor</option>
 
               <% vendors.forEach(v => { %>
                 <option value="<%= v._id %>" 
-                  <%= purchase?.vendor?._id?.toString() === v._id.toString() ? 'selected' : '' %>>
+                  <%= (purchase?.vendor?._id || purchase?.vendor)?.toString() === v._id.toString() ? 'selected' : '' %>>
                   <%= v.name %>
                 </option>
               <% }) %>
@@ -61,29 +86,78 @@
             </select>
           </div>
 
-          <div class="col-md-3">
-            <label class="form-label">Invoice Number</label>
-            <input name="invoiceNumber" class="form-control" 
-              value="<%= purchase?.invoiceNumber || '' %>">
+          <!-- Delivery Schedule -->
+          <div class="col-md-4 col-lg">
+            <label class="form-label text-muted small fw-semibold">Delivery Schedule</label>
+            <input
+              type="text"
+              name="deliverySchedule"
+              class="form-control"
+              <%= isValidated ? 'disabled' : '' %>
+              value="<%= purchase?.deliverySchedule || '5 to 6 Days' %>"
+              placeholder="e.g. 5 to 6 Days"
+            >
           </div>
 
-          <div class="col-md-3">
-            <label class="form-label">Status</label>
+          <!-- Delivery At -->
+          <div class="col-md-4 col-lg">
+            <label class="form-label text-muted small fw-semibold">Delivery At</label>
+            <select name="deliveryAt" class="form-select" <%= isValidated ? 'disabled' : '' %> required>
+              <option value="">Select Location</option>
+              <option value="WAREHOUSE" <%= purchase?.deliveryAt === 'WAREHOUSE' ? 'selected' : '' %>>Warehouse</option>
+              <option value="OFFICE" <%= purchase?.deliveryAt === 'OFFICE' ? 'selected' : '' %>>Office</option>
+            </select>
+          </div>
+
+          <!-- Status (ALWAYS EDITABLE) -->
+          <div class="col-md-4 col-lg">
+            <label class="form-label text-muted small fw-semibold">Status</label>
             <select name="status" class="form-select">
-              <option value="PURCHASED" 
-                <%= purchase?.status === 'PURCHASED' ? 'selected' : '' %>>
-                Purchased
-              </option>
 
-              <option value="DRAFT" 
-                <%= purchase?.status === 'DRAFT' ? 'selected' : '' %>>
-                Draft
-              </option>
+              <% if (mode === 'edit') { %>
+                <option value="DRAFT" 
+                  <%= purchase?.status === 'DRAFT' ? 'selected' : '' %>>
+                  Draft
+                </option>
 
-              <option value="CANCELLED" 
-                <%= purchase?.status === 'CANCELLED' ? 'selected' : '' %>>
-                Cancelled
-              </option>
+                <option value="ORDERED" 
+                  <%= purchase?.status === 'ORDERED' ? 'selected' : '' %>>
+                  Ordered
+                </option>
+
+                <option value="RECEIVED" 
+                  <%= purchase?.status === 'RECEIVED' ? 'selected' : '' %>>
+                  Received
+                </option>
+
+                <option value="CANCELLED" 
+                  <%= purchase?.status === 'CANCELLED' ? 'selected' : '' %>>
+                  Cancelled
+                </option>
+
+                <option value="SHORT_CLOSED" 
+                  <%= purchase?.status === 'SHORT_CLOSED' ? 'selected' : '' %>>
+                  Short Closed
+                </option>
+
+                <option value="CLOSED" 
+                  <%= purchase?.status === 'CLOSED' ? 'selected' : '' %>>
+                  Closed
+                </option>
+
+              <% } else { %>
+                <option value="DRAFT" 
+                  <%= purchase?.status === 'DRAFT' ? 'selected' : '' %>>
+                  Draft
+                </option>
+
+                <option value="ORDERED" 
+                  <%= purchase?.status === 'ORDERED' || !purchase?.status ? 'selected' : '' %>>
+                  Ordered
+                </option>
+
+              <% } %>
+
             </select>
           </div>
 
@@ -92,127 +166,210 @@
     </div>
 
     <!-- ITEMS -->
-    <div class="card shadow-sm p-3">
+    <div class="card shadow-sm p-3 mt-4">
       <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Purchase Items</h5>
-        <button type="button" class="btn btn-outline-primary btn-sm" id="addRow">+ Add Item</button>
+        <button 
+          type="button" 
+          id="addRow" 
+          class="btn btn-outline-primary btn-sm <%= isValidated ? 'd-none' : '' %>"
+        >
+          + Add Item
+        </button>
       </div>
 
       <div class="card-body">
         <div id="itemsContainer">
 
-          <% const itemsData = purchase?.items?.length ? purchase.items : [{}]; %>
+          <% (purchase?.items?.length ? purchase.items : [{}]).forEach((item, index) => { %>
+            <% const currentType = item.itemType || 'sparePart'; %>
 
-          <% itemsData.forEach((item, index) => { %>
+            <div class="item-card border rounded p-3 mb-3">
+              <!-- Hidden Base Price Field -->
+              <input 
+                type="hidden" 
+                name="items[<%= index %>][basePrice]" 
+                class="basePrice" 
+                value="<%= item.basePrice || item.unitCost || 0 %>"
+              >
 
-          <div class="item-card border rounded p-3 mb-3">
+              <!-- Hidden Item Fields for Validated State -->
+              <% if (isValidated) { %>
+                <input type="hidden" name="items[<%= index %>][itemType]" value="<%= currentType %>">
+                <input type="hidden" name="items[<%= index %>][sparePart]" value="<%= item.sparePart?._id || item.sparePart || '' %>">
+                <input type="hidden" name="items[<%= index %>][chair]" value="<%= item.chair?._id || item.chair || '' %>">
+                <input type="hidden" name="items[<%= index %>][chairColor]" value="<%= item.chairColor || item.color || '' %>">
+                <input type="hidden" name="items[<%= index %>][quantity]" value="<%= item.quantity || 1 %>">
+                <input type="hidden" name="items[<%= index %>][unitCost]" value="<%= item.unitCost || 0 %>">
+                <input type="hidden" name="items[<%= index %>][totalCost]" value="<%= item.totalCost || 0 %>">
+                <% if (item.gstApplicable) { %>
+                  <input type="hidden" name="items[<%= index %>][gstApplicable]" value="true">
+                <% } %>
+              <% } %>
 
-            <div class="row g-3">
+              <div class="row g-2 align-items-end">
 
-              <!-- TYPE -->
-              <div class="col-md-3">
-                <label class="form-label">Type</label>
-                <select class="form-select itemType">
-                  <option value="sparePart" <%= item.itemType === 'sparePart' ? 'selected' : '' %>>Spare Part</option>
-                  <option value="chair" <%= item.itemType === 'chair' ? 'selected' : '' %>>Chair</option>
-                </select>
-                <input type="hidden" name="items[<%= index %>][itemType]" 
-                      class="itemTypeInput" 
-                      value="<%= item.itemType || '' %>">
-              </div>
+                <!-- Type Selection -->
+                <div class="col-md-2">
+                  <label class="form-label text-muted small">Type</label>
+                  <select
+                    class="form-select itemType"
+                    name="items[<%= index %>][itemType]"
+                    <%= isValidated ? 'disabled' : '' %>
+                    required
+                  >
+                    <option value="sparePart" <%= currentType === 'sparePart' ? 'selected' : '' %>>Spare Part</option>
+                    <option value="chair" <%= currentType === 'chair' ? 'selected' : '' %>>Chair</option>
+                  </select>
+                </div>
 
-              <!-- CATEGORY -->
-              <div class="col-md-3 categoryWrapper <%= item.itemType === 'chair' ? 'd-none' : '' %>">
-                <label class="form-label">Category</label>
-                <select class="form-select categorySelect">
-                  <option value="">Select Category</option>
-                  <% categories.forEach(cat => { %>
-                    <option value="<%= cat._id %>"><%= cat.name %></option>
-                  <% }) %>
-                </select>
-              </div>
+                <!-- Spare Part Wrapper -->
+                <div class="col-md-4 sparePartWrapper <%= currentType === 'chair' ? 'd-none' : '' %>">
+                  <label class="form-label text-muted small">Spare Part</label>
+                  <select
+                    class="form-select spareSelect"
+                    name="items[<%= index %>][sparePart]"
+                    <%= isValidated ? 'disabled' : '' %>
+                  >
+                    <option value="">Select Spare Part</option>
+                    <% spareParts.forEach(p => { %>
+                      <option 
+                        value="<%= p._id %>" 
+                        data-price="<%= p.baseCost || p.basePrice || 0 %>"
+                        <%= (item.sparePart?._id || item.sparePart)?.toString() === p._id.toString() ? 'selected' : '' %>>
+                        <%= p.partName %> (₹<%= p.baseCost || p.basePrice || 0 %>)
+                      </option>
+                    <% }) %>
+                  </select>
+                </div>
 
-              <!-- ITEM -->
-              <div class="col-md-3">
-                <label class="form-label">Item</label>
-                <select class="form-select itemSelect" name="items[<%= index %>][item]">
-                  <option value="">Select Item</option>
-                </select>
-              </div>
+                <!-- Chair Select Wrapper -->
+                <div class="col-md-2 chairWrapper <%= currentType === 'chair' ? '' : 'd-none' %>">
+                  <label class="form-label text-muted small">Chair</label>
+                  <select
+                    class="form-select chairSelect"
+                    name="items[<%= index %>][chair]"
+                    <%= isValidated ? 'disabled' : '' %>
+                  >
+                    <option value="">Select Chair</option>
+                    <% chairs.forEach(c => { %>
+                      <option 
+                        value="<%= c._id %>" 
+                        data-colors='<%- JSON.stringify(c.colors || []) %>'
+                        <%= (item.chair?._id || item.chair)?.toString() === c._id.toString() ? 'selected' : '' %>>
+                        <%= c.modelName %>
+                      </option>
+                    <% }) %>
+                  </select>
+                </div>
 
-              <!-- COLOR -->
-              <div class="col-md-3 chairColorWrapper <%= item.itemType === 'chair' ? '' : 'd-none' %>">
-                <label class="form-label">Color</label>
-                <select class="form-select colorSelect" name="items[<%= index %>][color]">
-                  <option value="">Select Color</option>
-                </select>
-              </div>
+                <!-- Color Select Wrapper -->
+                <div class="col-md-2 colorWrapper <%= currentType === 'chair' ? '' : 'd-none' %>">
+                  <label class="form-label text-muted small">Color</label>
+                  <select
+                    class="form-select colorSelect"
+                    name="items[<%= index %>][chairColor]"
+                    <%= isValidated ? 'disabled' : '' %>
+                  >
+                    <option value="">Select Color</option>
+                  </select>
+                </div>
 
-              <!-- BASE -->
-              <div class="col-md-3">
-                <label class="form-label">Base Price</label>
-                <input type="number" name="items[<%= index %>][basePrice]" 
-                      class="form-control basePrice" 
-                      value="<%= item.basePrice || '' %>" readonly>
-              </div>
+                <!-- Qty -->
+                <div class="col-md-1">
+                  <label class="form-label text-muted small">Qty</label>
+                  <input
+                    type="number"
+                    name="items[<%= index %>][quantity]"
+                    class="form-control qty"
+                    min="1"
+                    value="<%= item.quantity || 1 %>"
+                    <%= isValidated ? 'disabled' : '' %>
+                    required
+                  >
+                </div>
 
-            </div>
-
-            <div class="row g-3 mt-2">
-
-              <div class="col-md-3">
-                <label class="form-label">Purchase Rate</label>
-                <div class="input-group">
-                  <input type="number" name="items[<%= index %>][unitCost]" 
-                        class="form-control unitCost" 
-                        value="<%= item.unitCost || '' %>">
-                  <div class="input-group-text">
-                    <input type="checkbox" class="form-check-input gstCheck"
-                      name="items[<%= index %>][gstApplicable]"
-                      <%= item.gstApplicable ? 'checked' : '' %>>
-                    <small class="ms-1">GST</small>
+                <!-- Purchase Rate + GST -->
+                <div class="col-md-2">
+                  <label class="form-label text-muted small">Purchase Rate</label>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      name="items[<%= index %>][unitCost]"
+                      class="form-control unitCost"
+                      value="<%= item.unitCost || '' %>"
+                      placeholder="0"
+                      step="0.01"
+                      <%= isValidated ? 'disabled' : '' %>
+                    >
+                    <div class="input-group-text">
+                      <input
+                        type="checkbox"
+                        class="form-check-input mt-0 gstCheck"
+                        name="items[<%= index %>][gstApplicable]"
+                        value="true"
+                        <%= item.gstApplicable ? 'checked' : '' %>
+                        <%= isValidated ? 'disabled' : '' %>
+                      >
+                      <small class="ms-1">GST</small>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="col-md-3">
-                <label class="form-label">Qty</label>
-                <input type="number" name="items[<%= index %>][quantity]" 
-                      class="form-control qty" 
-                      value="<%= item.quantity || 1 %>">
-              </div>
+                <!-- Total Cost -->
+                <div class="col-md-2">
+                  <label class="form-label text-muted small">Total</label>
+                  <input
+                    type="text"
+                    name="items[<%= index %>][totalCost]"
+                    class="form-control totalCost bg-white"
+                    value="<%= item.totalCost || '0' %>"
+                    readonly
+                  >
+                </div>
 
-              <div class="col-md-3">
-                <label class="form-label">Total</label>
-                <input type="text" name="items[<%= index %>][totalCost]" 
-                      class="form-control totalCost" 
-                      value="<%= item.totalCost || '' %>" readonly>
-              </div>
+                <!-- Action / Remove -->
+                <div class="col-md-1 text-end">
+                  <button 
+                    type="button" 
+                    class="btn btn-outline-danger remove-row <%= isValidated ? 'd-none' : '' %>"
+                  >✕</button>
+                </div>
 
-              <div class="col-md-3 d-flex align-items-end">
-                <button type="button" class="btn btn-outline-danger w-100 remove-row">Remove</button>
               </div>
-
             </div>
-          </div>
+
           <% }) %>
+
         </div>
 
+        <!-- GRAND TOTAL -->
         <div class="mt-4 text-end">
-          <h5>Total Purchase: <span id="grandTotal">₹0.00</span></h5>
+          <h5 class="mb-0">
+            Total Purchase:
+            <span id="grandTotal">₹0.00</span>
+          </h5>
         </div>
 
       </div>
     </div>
 
+    <!-- NOTES CARD (UNBLOCKED) -->
     <div class="card shadow-sm p-3 mt-4">
       <div class="card-body">
-        <label class="form-label">Notes</label>
-        <textarea name="notes" class="form-control"><%= purchase?.notes || '' %></textarea>
+        <label class="form-label fw-semibold">Notes</label>
+        <textarea 
+          name="notes" 
+          class="form-control" 
+          rows="3" 
+          placeholder="Add internal notes or instructions..."
+        ><%= purchase?.notes || '' %></textarea>
       </div>
     </div>
 
+    <!-- SUBMIT -->
     <div class="text-end mt-4">
+      <a href="/purchasing/purchases" class="btn btn-secondary me-2">Cancel</a>
       <button class="btn btn-primary">Save Purchase</button>
     </div>
 
@@ -220,272 +377,203 @@
 </div>
 
 <script>
-  let rowIndex = 1;
+  let rowIndex = <%= (purchase?.items?.length || 1) %>;
 
-  const spareParts = <%- JSON.stringify(spareParts) %>;
-  const chairs = <%- JSON.stringify(chairs) %>;
+  const spareParts = <%- JSON.stringify(spareParts || []) %>;
+  const chairs = <%- JSON.stringify(chairs || []) %>;
 
   /* CALCULATE ROW */
   function calculateRow(row) {
-    const qty = Number(row.querySelector('.qty').value || 0);
-    const rate = Number(row.querySelector('.unitCost').value || 0);
-    const gst = row.querySelector('.gstCheck').checked;
+    const qty = parseInt(row.querySelector('.qty')?.value) || 0;
+    const rate = parseFloat(row.querySelector('.unitCost')?.value) || 0;
+    const gst = row.querySelector('.gstCheck')?.checked || false;
 
-    const finalRate = gst ? rate * 1.18 : rate;
-    const total = qty * finalRate;
+    const finalRate = gst ? (rate * 1.18) : rate;
+    const total = Math.round(qty * finalRate * 100) / 100;
 
-    row.querySelector('.totalCost').value = total.toFixed(2);
+    const totalInput = row.querySelector('.totalCost');
+    if (totalInput) totalInput.value = total.toFixed(2);
+
     calculateGrandTotal();
   }
 
   /* GRAND TOTAL */
   function calculateGrandTotal() {
     let total = 0;
-
     document.querySelectorAll('.totalCost').forEach(el => {
-      total += Number(el.value || 0);
+      total += parseFloat(el.value || 0);
     });
 
     document.getElementById('grandTotal').innerText = "₹" + total.toFixed(2);
-    document.getElementById('totalAmountInput').value = total;
+    document.getElementById('totalAmountInput').value = total.toFixed(2);
   }
 
-  /* LOAD SPARE PARTS */
-  function loadSpareParts(row, categoryId) {
-    const itemSelect = row.querySelector('.itemSelect');
-    itemSelect.innerHTML = '<option value="">Select Item</option>';
+  /* POPULATE COLORS FOR CHAIR */
+  function populateColors(row, chairId, selectedColorId = null) {
+    const colorSelect = row.querySelector('.colorSelect');
+    if (!colorSelect) return;
 
-    spareParts
-      .filter(p => p.category == categoryId)
-      .forEach(p => {
-        const option = document.createElement('option');
-        option.value = `spare_${p._id}`;
-        option.textContent = p.partName;
-        option.dataset.price = p.baseCost;
-        itemSelect.appendChild(option);
+    colorSelect.innerHTML = '<option value="">Select Color</option>';
+    if (!chairId) return;
+
+    const selectedChair = chairs.find(c => c._id.toString() === chairId.toString());
+    if (selectedChair && selectedChair.colors) {
+      selectedChair.colors.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c._id;
+        opt.dataset.price = c.basePrice || c.price || 0;
+        opt.textContent = (c.basePrice || c.price) ? `${c.name} (₹${c.basePrice || c.price})` : c.name;
+        
+        if (selectedColorId && c._id.toString() === selectedColorId.toString()) {
+          opt.selected = true;
+        }
+        colorSelect.appendChild(opt);
       });
+    }
   }
 
-  /* LOAD CHAIRS */
-  function loadChairs(row) {
-    const itemSelect = row.querySelector('.itemSelect');
-    itemSelect.innerHTML = '<option value="">Select Chair</option>';
-
-    chairs.forEach(c => {
-      const option = document.createElement('option');
-      option.value = `chair_${c._id}`;
-      option.textContent = c.modelName;
-      option.dataset.colors = JSON.stringify(c.colors);
-      itemSelect.appendChild(option);
-    });
-  }
-
-  /* EVENTS */
+  /* EVENT LISTENERS */
   document.addEventListener('change', function(e) {
     const row = e.target.closest('.item-card');
-
     if (!row) return;
+
+    /* ITEM TYPE CHANGE */
+    if (e.target.classList.contains('itemType')) {
+      const spareWrap = row.querySelector('.sparePartWrapper');
+      const chairWrap = row.querySelector('.chairWrapper');
+      const colorWrap = row.querySelector('.colorWrapper');
+      
+      const chairSelect = row.querySelector('.chairSelect');
+      const colorSelect = row.querySelector('.colorSelect');
+      const spareSelect = row.querySelector('.spareSelect');
+
+      if (chairSelect) chairSelect.value = '';
+      if (colorSelect) colorSelect.innerHTML = '<option value="">Select Color</option>';
+      if (spareSelect) spareSelect.value = '';
+
+      row.querySelector('.basePrice').value = 0;
+
+      if (e.target.value === 'chair') {
+        spareWrap.classList.add('d-none');
+        chairWrap.classList.remove('d-none');
+        colorWrap.classList.remove('d-none');
+      } else {
+        spareWrap.classList.remove('d-none');
+        chairWrap.classList.add('d-none');
+        colorWrap.classList.add('d-none');
+      }
+    }
+
+    /* CHAIR SELECT */
+    if (e.target.classList.contains('chairSelect')) {
+      populateColors(row, e.target.value);
+    }
+
+    /* COLOR SELECT */
+    if (e.target.classList.contains('colorSelect')) {
+      const selectedOption = e.target.selectedOptions[0];
+      if (selectedOption && selectedOption.dataset.price) {
+        const price = selectedOption.dataset.price;
+        row.querySelector('.unitCost').value = price;
+        row.querySelector('.basePrice').value = price;
+        calculateRow(row);
+      }
+    }
+
+    /* SPARE PART SELECT */
+    if (e.target.classList.contains('spareSelect')) {
+      const selectedOption = e.target.selectedOptions[0];
+      if (selectedOption && selectedOption.dataset.price) {
+        const price = selectedOption.dataset.price;
+        row.querySelector('.unitCost').value = price;
+        row.querySelector('.basePrice').value = price;
+        calculateRow(row);
+      }
+    }
 
     /* GST TOGGLE */
     if (e.target.classList.contains('gstCheck')) {
       calculateRow(row);
     }
+  });
 
-    /* TYPE CHANGE */
-    if (e.target.classList.contains('itemType')) {
-      row.querySelector('.itemTypeInput').value = e.target.value;
+  /* INPUT LISTENER FOR QUANTITY & UNIT COST */
+  document.addEventListener('input', function(e) {
+    const row = e.target.closest('.item-card');
+    if (!row) return;
 
-      const category = row.querySelector('.categoryWrapper');
-      const color = row.querySelector('.chairColorWrapper');
-      const itemSelect = row.querySelector('.itemSelect');
-
-      itemSelect.innerHTML = '<option value="">Select Item</option>';
-
-      row.querySelector('.basePrice').value = '';
-      row.querySelector('.unitCost').value = '';
-      row.querySelector('.totalCost').value = '';
-
-      if (e.target.value === 'chair') {
-        category.classList.add('d-none');
-        color.classList.remove('d-none');
-        loadChairs(row);
-      } else {
-        category.classList.remove('d-none');
-        color.classList.add('d-none');
-      }
+    if (e.target.classList.contains('unitCost')) {
+      row.querySelector('.basePrice').value = e.target.value || 0;
+      calculateRow(row);
     }
 
-    /* CATEGORY CHANGE */
-    if (e.target.classList.contains('categorySelect')) {
-      loadSpareParts(row, e.target.value);
-    }
-
-    /* ITEM SELECT */
-    if (e.target.classList.contains('itemSelect')) {
-      const option = e.target.selectedOptions[0];
-
-      if (option.value.startsWith('spare')) {
-        const price = option.dataset.price || 0;
-
-        row.querySelector('.basePrice').value = price;
-        row.querySelector('.unitCost').value = price;
-
-        calculateRow(row);
-      }
-
-      if (option.value.startsWith('chair')) {
-        const colors = JSON.parse(option.dataset.colors || "[]");
-        const colorSelect = row.querySelector('.colorSelect');
-
-        colorSelect.innerHTML = '<option value="">Select Color</option>';
-
-        colors.forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c._id;
-          opt.textContent = c.name;
-          opt.dataset.price = c.basePrice;
-          colorSelect.appendChild(opt);
-        });
-      }
-    }
-
-    /* COLOR SELECT */
-    if (e.target.classList.contains('colorSelect')) {
-      const option = e.target.selectedOptions[0];
-      const price = option.dataset.price || 0;
-
-      row.querySelector('.basePrice').value = price;
-      row.querySelector('.unitCost').value = price;
-
+    if (e.target.classList.contains('qty')) {
       calculateRow(row);
     }
   });
 
-  /* INPUT EVENTS */
-  document.addEventListener('input', function(e) {
-    if (
-      e.target.classList.contains('qty') ||
-      e.target.classList.contains('unitCost')
-    ) {
-      calculateRow(e.target.closest('.item-card'));
-    }
-  });
-
   /* ADD ROW */
-  document.getElementById('addRow').addEventListener('click', () => {
-    const container = document.getElementById('itemsContainer');
-    const firstRow = container.querySelector('.item-card');
-    const newRow = firstRow.cloneNode(true);
+  const addRowBtn = document.getElementById('addRow');
+  if (addRowBtn) {
+    addRowBtn.addEventListener('click', () => {
+      const container = document.getElementById('itemsContainer');
+      const firstRow = container.querySelector('.item-card');
+      const newRow = firstRow.cloneNode(true);
 
-    newRow.querySelectorAll('input,select').forEach(el => {
-      if (el.name) {
-        el.name = el.name.replace(/\[\d+\]/, `[${rowIndex}]`);
-      }
+      newRow.querySelectorAll('input, select').forEach(el => {
+        if (el.name) {
+          el.name = el.name.replace(/\[\d+\]/, `[${rowIndex}]`);
+        }
+        if (el.tagName === "SELECT") {
+          el.selectedIndex = 0;
+        } else if (el.type === "checkbox") {
+          el.checked = false;
+        } else {
+          el.value = '';
+        }
+      });
 
-      if (el.tagName === "SELECT") {
-        el.selectedIndex = 0;
-      } else {
-        el.value = '';
-      }
+      newRow.querySelector('.qty').value = 1;
+      newRow.querySelector('.basePrice').value = 0;
+      newRow.querySelector('.totalCost').value = '0';
+
+      newRow.querySelector('.itemType').value = 'sparePart';
+      newRow.querySelector('.sparePartWrapper').classList.remove('d-none');
+      newRow.querySelector('.chairWrapper').classList.add('d-none');
+      newRow.querySelector('.colorWrapper').classList.add('d-none');
+
+      container.appendChild(newRow);
+      rowIndex++;
     });
-
-    newRow.querySelector('.qty').value = 1;
-
-    container.appendChild(newRow);
-    rowIndex++;
-  });
+  }
 
   /* REMOVE ROW */
   document.addEventListener('click', function(e) {
     if (e.target.classList.contains('remove-row')) {
       const rows = document.querySelectorAll('.item-card');
-
       if (rows.length > 1) {
         e.target.closest('.item-card').remove();
         calculateGrandTotal();
       }
     }
   });
-</script>
 
-<script>
-  const purchaseItems = <%- JSON.stringify(purchase?.items || []) %>;
+  /* INITIAL REHYDRATION */
+  document.addEventListener('DOMContentLoaded', () => {
+    const purchaseItems = <%- JSON.stringify(purchase?.items || []) %>;
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    const rows = document.querySelectorAll('.item-card');
-
-    for (let index = 0; index < rows.length; index++) {
-      const row = rows[index];
+    document.querySelectorAll('.item-card').forEach((row, index) => {
       const item = purchaseItems[index];
-      if (!item) continue;
+      if (!item) return;
 
-      const itemType = item.itemType;
-
-      const typeSelect = row.querySelector('.itemType');
-      typeSelect.value = itemType;
-      typeSelect.dispatchEvent(new Event('change'));
-
-      if (itemType === 'sparePart') {
-        const categorySelect = row.querySelector('.categorySelect');
-
-        const spare = spareParts.find(p => p._id == item.sparePart);
-
-        if (spare) {
-          categorySelect.value = spare.category;
-          categorySelect.dispatchEvent(new Event('change'));
-
-          const itemSelect = row.querySelector('.itemSelect');
-
-          // 🔥 ensure options exist
-          loadSpareParts(row, spare.category);
-
-          itemSelect.value = `spare_${item.sparePart}`;
-          itemSelect.dispatchEvent(new Event('change'));
-        }
+      if (item.itemType === 'chair') {
+        const chairId = item.chair?._id || item.chair;
+        const colorId = item.chairColor || item.color;
+        populateColors(row, chairId, colorId);
       }
 
-      if (itemType === 'chair') {
-        const itemSelect = row.querySelector('.itemSelect');
-
-        loadChairs(row);
-
-        itemSelect.value = `chair_${item.chair}`;
-
-        // 🔥 MANUALLY LOAD COLORS (instead of relying on change event)
-        const selectedChair = chairs.find(c => c._id == item.chair);
-
-        const colorSelect = row.querySelector('.colorSelect');
-        colorSelect.innerHTML = '<option value="">Select Color</option>';
-
-        if (selectedChair && selectedChair.colors) {
-          selectedChair.colors.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c._id;
-            opt.textContent = c.name;
-            opt.dataset.price = c.basePrice;
-            colorSelect.appendChild(opt);
-          });
-        }
-
-        // ✅ NOW SET SELECTED COLOR
-        if (item.chairColor) {
-          colorSelect.value = item.chairColor;
-        }
-
-        // 🔥 SET PRICE ALSO
-        const selectedColor = selectedChair?.colors?.find(
-          c => c._id == item.chairColor
-        );
-
-        if (selectedColor) {
-          row.querySelector('.basePrice').value = selectedColor.basePrice;
-          row.querySelector('.unitCost').value = selectedColor.basePrice;
-          calculateRow(row);
-        }
-      }
-    }
-
-    calculateGrandTotal();
+      calculateRow(row);
+    });
   });
 </script>
 
