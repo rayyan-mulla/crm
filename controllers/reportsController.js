@@ -135,11 +135,9 @@ async function buildReportData(query){
 
     const itemDescriptions = [];
 
-    for (const item of (inv.items || [])) {
+    for(const item of (inv.items || [])){
       const qty = Number(item.quantity) || 0;
-
-      // Shipping is stored as a PER-UNIT cost
-      const shippingPerUnit = Number(item.shippingUnit) || 0;
+      const shipping = Number(item.shippingUnit) || 0;
 
       totalQty += qty;
       totalChairs += qty;
@@ -147,61 +145,20 @@ async function buildReportData(query){
       const colorData = colorMap[String(item.colorId)] || {};
 
       const modelName = colorData.chairName || item.chairModel || 'Unknown';
-
       const colorName = colorData.colorName || item.colorName || '-';
-
-      // Base cost of the chair/item excluding GST
       const costPrice = Number(colorData.costPrice) || 0;
 
-      /*
-      * ----------------------------------------
-      * COST CALCULATION
-      * ----------------------------------------
-      *
-      * Base Cost / Unit
-      *       +
-      * Shipping / Unit
-      *       =
-      * Total Cost / Unit
-      */
-      const costPerUnit =
-        costPrice + shippingPerUnit;
-
-      /*
-      * Total cost for this item
-      *
-      * (Base Cost + Shipping) × Quantity
-      */
-      const itemCost =
-        costPerUnit * qty;
-
+      const itemCost = (costPrice + shipping) * qty;
       invoiceCost += itemCost;
 
-      // Charts
       chairsByModel[modelName] =
         (chairsByModel[modelName] || 0) + qty;
 
-      // Display
       itemDescriptions.push(
         `${modelName} (${colorName}) x${qty}`
       );
     }
 
-    /*
-    * ----------------------------------------
-    * PROFIT CALCULATION
-    * ----------------------------------------
-    *
-    * taxable = selling amount excluding GST
-    *
-    * invoiceCost includes:
-    *   - product/base cost
-    *   - shipping
-    *
-    * Therefore:
-    *
-    * Profit = Taxable Sales - Total Cost
-    */
     invoiceProfit = taxable - invoiceCost;
 
     totalCost += invoiceCost;

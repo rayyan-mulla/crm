@@ -398,7 +398,7 @@ exports.update = async (req, res) => {
       : 'NONE';
 
     const taxableAmount = invoice.items.reduce(
-      (sum, i) => sum + (i.unitPrice + i.shippingUnit) * i.quantity,
+      (sum, i) => sum + (i.unitPrice * i.quantity),
       0
     );
 
