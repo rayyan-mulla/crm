@@ -70,12 +70,14 @@ exports.create = async (req, res) => {
       unit,
       baseCost,
       gstApplicable,
+      gstPercentage,
       isActive
     } = req.body;
 
     const base = Number(baseCost);
     const gst = !!gstApplicable;
-    const finalCost = gst ? base * 1.18 : base;
+    const gstRate = gst ? (Number(gstPercentage) || 0) : 0;
+    const finalCost = gst ? base + (base * gstRate / 100) : base;
 
     await SparePart.create({
       partName,
@@ -84,6 +86,7 @@ exports.create = async (req, res) => {
       unit,
       baseCost: isNaN(base) ? 0 : base,
       gstApplicable: gst,
+      gstPercentage: gstRate,
       finalCost: Math.round(finalCost * 100) / 100,
       isActive: !!isActive
     });
@@ -130,12 +133,14 @@ exports.update = async (req, res) => {
       unit,
       baseCost,
       gstApplicable,
+      gstPercentage,
       isActive
     } = req.body;
 
     const base = Number(baseCost);
     const gst = !!gstApplicable;
-    const finalCost = gst ? base * 1.18 : base;
+    const gstRate = gst ? (Number(gstPercentage) || 0) : 0;
+    const finalCost = gst ? base + (base * gstRate / 100) : base;
 
     await SparePart.findByIdAndUpdate(
       req.params.id,
@@ -146,6 +151,7 @@ exports.update = async (req, res) => {
         unit,
         baseCost: isNaN(base) ? 0 : base,
         gstApplicable: gst,
+        gstPercentage: gstRate,
         finalCost: Math.round(finalCost * 100) / 100,
         isActive: !!isActive
       },

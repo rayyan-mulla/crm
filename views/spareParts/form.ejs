@@ -84,39 +84,66 @@
             value="<%= sparePart.unit || 'pcs' %>"/>
         </div>
 
-        <!-- Base Cost with GST Attached -->
-        <div class="col-md-6">
+        <!-- Base Cost -->
+        <div class="col-md-4">
+
           <label class="form-label">Base Cost</label>
+
+          <input
+            class="form-control baseCost"
+            name="baseCost"
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            required
+            value="<%= sparePart.baseCost || '' %>" />
+
+        </div>
+
+        <!-- GST -->
+        <div class="col-md-4">
+
+          <label class="form-label">GST</label>
+
           <div class="input-group">
-            <input 
-              class="form-control baseCost"
-              name="baseCost"
-              type="number"
-              min="0"
-              step="0.01"
-              inputmode="decimal"
-              required
-              value="<%= sparePart.baseCost || '' %>" />
 
             <div class="input-group-text">
-              <input 
+              <input
                 class="form-check-input mt-0 gstCheck"
                 type="checkbox"
                 name="gstApplicable"
+                id="gstApplicable"
                 <%= sparePart.gstApplicable ? 'checked' : '' %> />
-              <small class="ms-1">GST</small>
             </div>
+
+            <input
+              class="form-control gstPercentage"
+              name="gstPercentage"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              inputmode="decimal"
+              value="<%= sparePart.gstApplicable ? (sparePart.gstPercentage ?? 18) : 0 %>" />
+
+            <span class="input-group-text">%</span>
+
           </div>
+
         </div>
 
         <!-- Final Cost -->
-        <div class="col-md-6">
+        <div class="col-md-4">
+
           <label class="form-label">Final Cost</label>
-          <input 
+
+          <input
             class="form-control finalCost"
             type="text"
             readonly
-            value="<%= sparePart.finalCost ? sparePart.finalCost.toFixed(2) : '' %>"/>
+            value="<%= sparePart.finalCost != null ? sparePart.finalCost.toFixed(2) : '' %>" />
+
         </div>
 
       </div>
@@ -133,12 +160,44 @@
 
 <script>
   function updateFinalCost() {
-    const base = Number(document.querySelector('.baseCost')?.value || 0);
-    const gst = document.querySelector('.gstCheck')?.checked;
-    const final = gst ? base * 1.18 : base;
-
+    const baseInput = document.querySelector('.baseCost');
+    const gstCheck = document.querySelector('.gstCheck');
+    const gstPercentageInput = document.querySelector('.gstPercentage');
     const finalInput = document.querySelector('.finalCost');
-    if (finalInput) finalInput.value = final.toFixed(2);
+
+    const base = Number(baseInput?.value || 0);
+    const gstApplicable = gstCheck?.checked || false;
+
+    if (!gstPercentageInput) {
+      return;
+    }
+
+    if (gstApplicable) {
+      // If GST is enabled and no percentage is entered,
+      // default it to 18%.
+      if (gstPercentageInput.value === '') {
+        gstPercentageInput.value = '18';
+      }
+
+      gstPercentageInput.disabled = false;
+
+    } else {
+      // GST is not applicable.
+      gstPercentageInput.disabled = true;
+      gstPercentageInput.value = '0';
+    }
+
+    const gstPercentage = Number(gstPercentageInput.value || 0);
+
+    const gstAmount = gstApplicable
+      ? base * (gstPercentage / 100)
+      : 0;
+
+    const final = base + gstAmount;
+
+    if (finalInput) {
+      finalInput.value = final.toFixed(2);
+    }
   }
 
   document.addEventListener('input', updateFinalCost);
