@@ -153,7 +153,30 @@ exports.create = async (req, res) => {
       const unitCost = Number(item.unitCost) || 0;
       const gstApplicable = item.gstApplicable === 'true' || item.gstApplicable === true;
 
-      const finalRate = gstApplicable ? unitCost * 1.18 : unitCost;
+      let gstPercentage = 0;
+
+      if (gstApplicable) {
+        if (itemType === 'sparePart') {
+          const sparePart = await SparePart.findById(itemId).lean();
+
+          if (!sparePart) {
+            throw new Error('Spare part not found');
+          }
+
+          gstPercentage =
+            sparePart.gstPercentage !== undefined &&
+            sparePart.gstPercentage !== null
+              ? Number(sparePart.gstPercentage)
+              : 18;
+        } else if (itemType === 'chair') {
+          gstPercentage = 18;
+        }
+      }
+
+      const finalRate = gstApplicable
+        ? unitCost + (unitCost * gstPercentage / 100)
+        : unitCost;
+
       const totalCost = quantity * finalRate;
 
       totalAmount += totalCost;
@@ -164,6 +187,7 @@ exports.create = async (req, res) => {
         basePrice,
         unitCost,
         gstApplicable,
+        gstPercentage,
         finalRate,
         totalCost
       };
@@ -381,7 +405,30 @@ exports.update = async (req, res) => {
       const unitCost = Number(item.unitCost) || 0;
       const gstApplicable = item.gstApplicable === 'true' || item.gstApplicable === true;
 
-      const finalRate = gstApplicable ? unitCost * 1.18 : unitCost;
+      let gstPercentage = 0;
+
+      if (gstApplicable) {
+        if (itemType === 'sparePart') {
+          const sparePart = await SparePart.findById(itemId).lean();
+
+          if (!sparePart) {
+            throw new Error('Spare part not found');
+          }
+
+          gstPercentage =
+            sparePart.gstPercentage !== undefined &&
+            sparePart.gstPercentage !== null
+              ? Number(sparePart.gstPercentage)
+              : 18;
+        } else if (itemType === 'chair') {
+          gstPercentage = 18;
+        }
+      }
+
+      const finalRate = gstApplicable
+        ? unitCost + (unitCost * gstPercentage / 100)
+        : unitCost;
+
       const totalCost = quantity * finalRate;
 
       totalAmount += totalCost;
@@ -392,6 +439,7 @@ exports.update = async (req, res) => {
         basePrice,
         unitCost,
         gstApplicable,
+        gstPercentage,
         finalRate,
         totalCost
       };

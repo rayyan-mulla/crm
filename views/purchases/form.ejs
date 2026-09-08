@@ -233,10 +233,13 @@
                   >
                     <option value="">Select Spare Part</option>
                     <% spareParts.forEach(p => { %>
-                      <option 
-                        value="<%= p._id %>" 
+                      <option
+                        value="<%= p._id %>"
                         data-price="<%= p.baseCost || p.basePrice || 0 %>"
-                        <%= (item.sparePart?._id || item.sparePart)?.toString() === p._id.toString() ? 'selected' : '' %>>
+                        data-gst-applicable="<%= p.gstApplicable ? 'true' : 'false' %>"
+                        data-gst-percentage="<%= p.gstPercentage ?? 18 %>"
+                        <%= (item.sparePart?._id || item.sparePart)?.toString() === p._id.toString() ? 'selected' : '' %>
+                      >
                         <%= p.partName %> (₹<%= p.baseCost || p.basePrice || 0 %>)
                       </option>
                     <% }) %>
@@ -282,7 +285,8 @@
                     type="number"
                     name="items[<%= index %>][quantity]"
                     class="form-control qty"
-                    min="1"
+                    min="0"
+                    step="<%= currentType === 'chair' ? '1' : 'any' %>"
                     value="<%= item.quantity || 1 %>"
                     <%= isValidated ? 'disabled' : '' %>
                     required
@@ -314,6 +318,12 @@
                       <small class="ms-1">GST</small>
                     </div>
                   </div>
+                  <input
+                    type="hidden"
+                    name="items[<%= index %>][gstPercentage]"
+                    class="gstPercentage"
+                    value="<%= item.gstPercentage ?? (currentType === 'chair' ? 18 : 0) %>"
+                  >
                 </div>
 
                 <!-- Total Cost -->
@@ -384,11 +394,12 @@
 
   /* CALCULATE ROW */
   function calculateRow(row) {
-    const qty = parseInt(row.querySelector('.qty')?.value) || 0;
+    const qty = parseFloat(row.querySelector('.qty')?.value) || 0;
     const rate = parseFloat(row.querySelector('.unitCost')?.value) || 0;
     const gst = row.querySelector('.gstCheck')?.checked || false;
+    const gstPercentage = parseFloat(row.querySelector('.gstPercentage')?.value) || 0;
 
-    const finalRate = gst ? (rate * 1.18) : rate;
+    const finalRate = gst ? rate + (rate * gstPercentage / 100) : rate;
     const total = Math.round(qty * finalRate * 100) / 100;
 
     const totalInput = row.querySelector('.totalCost');
@@ -432,6 +443,23 @@
     }
   }
 
+  /* STEP UPDATE HELPER */
+  function updateQuantityStep(row) {
+    const itemType = row.querySelector('.itemType');
+    const qtyInput = row.querySelector('.qty');
+
+    if (!itemType || !qtyInput) return;
+
+    if (itemType.value === 'sparePart') {
+      qtyInput.removeAttribute('step');
+      qtyInput.setAttribute('step', 'any');
+      qtyInput.step = 'any';
+    } else {
+      qtyInput.setAttribute('step', '1');
+      qtyInput.step = '1';
+    }
+  }
+
   /* EVENT LISTENERS */
   document.addEventListener('change', function(e) {
     const row = e.target.closest('.item-card');
@@ -446,6 +474,8 @@
       const chairSelect = row.querySelector('.chairSelect');
       const colorSelect = row.querySelector('.colorSelect');
       const spareSelect = row.querySelector('.spareSelect');
+
+      updateQuantityStep(row);
 
       if (chairSelect) chairSelect.value = '';
       if (colorSelect) colorSelect.innerHTML = '<option value="">Select Color</option>';
@@ -467,6 +497,13 @@
     /* CHAIR SELECT */
     if (e.target.classList.contains('chairSelect')) {
       populateColors(row, e.target.value);
+
+      const gstPercentageInput = row.querySelector('.gstPercentage');
+      if (gstPercentageInput) {
+        gstPercentageInput.value = 18;
+      }
+
+      calculateRow(row);
     }
 
     /* COLOR SELECT */
@@ -483,10 +520,22 @@
     /* SPARE PART SELECT */
     if (e.target.classList.contains('spareSelect')) {
       const selectedOption = e.target.selectedOptions[0];
-      if (selectedOption && selectedOption.dataset.price) {
-        const price = selectedOption.dataset.price;
-        row.querySelector('.unitCost').value = price;
-        row.querySelector('.basePrice').value = price;
+
+      if (selectedOption) {
+        const price = selectedOption.dataset.price || 0;
+        const gstApplicable = selectedOption.dataset.gstApplicable === 'true';
+        const gstPercentage = parseFloat(selectedOption.dataset.gstPercentage) || 0;
+
+        const unitCostInput = row.querySelector('.unitCost');
+        const basePriceInput = row.querySelector('.basePrice');
+        const gstCheck = row.querySelector('.gstCheck');
+        const gstPercentageInput = row.querySelector('.gstPercentage');
+
+        if (unitCostInput) unitCostInput.value = price;
+        if (basePriceInput) basePriceInput.value = price;
+        if (gstCheck) gstCheck.checked = gstApplicable;
+        if (gstPercentageInput) gstPercentageInput.value = gstApplicable ? gstPercentage : 0;
+
         calculateRow(row);
       }
     }
@@ -502,12 +551,14 @@
     const row = e.target.closest('.item-card');
     if (!row) return;
 
-    if (e.target.classList.contains('unitCost')) {
-      row.querySelector('.basePrice').value = e.target.value || 0;
+    if (e.target.classList.contains('qty')) {
+      // Force refresh step configuration on user keypress
+      updateQuantityStep(row);
       calculateRow(row);
     }
 
-    if (e.target.classList.contains('qty')) {
+    if (e.target.classList.contains('unitCost')) {
+      row.querySelector('.basePrice').value = e.target.value || 0;
       calculateRow(row);
     }
   });
@@ -533,16 +584,22 @@
         }
       });
 
-      newRow.querySelector('.qty').value = 1;
       newRow.querySelector('.basePrice').value = 0;
       newRow.querySelector('.totalCost').value = '0';
-
       newRow.querySelector('.itemType').value = 'sparePart';
+
       newRow.querySelector('.sparePartWrapper').classList.remove('d-none');
       newRow.querySelector('.chairWrapper').classList.add('d-none');
       newRow.querySelector('.colorWrapper').classList.add('d-none');
 
       container.appendChild(newRow);
+
+      // Force step reset on the freshly attached DOM element
+      updateQuantityStep(newRow);
+
+      const newQty = newRow.querySelector('.qty');
+      if (newQty) newQty.value = 1;
+
       rowIndex++;
     });
   }
@@ -563,6 +620,8 @@
     const purchaseItems = <%- JSON.stringify(purchase?.items || []) %>;
 
     document.querySelectorAll('.item-card').forEach((row, index) => {
+      updateQuantityStep(row);
+
       const item = purchaseItems[index];
       if (!item) return;
 

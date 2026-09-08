@@ -32,7 +32,7 @@ const PurchaseItemSchema = new mongoose.Schema({
   quantity: {
     type: Number,
     required: true,
-    min: 1
+    min: 0
   },
 
   basePrice: {
@@ -48,6 +48,13 @@ const PurchaseItemSchema = new mongoose.Schema({
   gstApplicable: {
     type: Boolean,
     default: false
+  },
+
+  gstPercentage: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
   },
 
   finalRate: {
