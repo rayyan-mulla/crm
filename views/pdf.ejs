@@ -185,10 +185,13 @@
     const isInvoice = documentType === 'TAX_INVOICE';
     const isPI = !isPO && !isInvoice;
 
-    const documentData = isPO ? purchase : pi;
+    const purchaseData = typeof purchase !== 'undefined' ? purchase : null;
+    const piData = typeof pi !== 'undefined' ? pi : null;
+
+    const documentData = isPO ? purchaseData : piData;
 
     const documentNumber = isPO
-      ? purchase.purchaseNumber
+      ? purchaseData?.purchaseNumber
       : isInvoice
         ? pi.invoiceNumber
         : pi.piNumber;
@@ -200,24 +203,22 @@
         : 'Proforma Invoice';
 
     const documentDate = isPO
-      ? purchase.purchaseDate || purchase.createdAt
+      ? purchaseData?.purchaseDate || purchaseData?.createdAt
       : isInvoice
         ? pi.invoiceDate || pi.createdAt
         : pi.createdAt;
 
-    const isDeleted = !isPO && pi.status === 'DELETED';
+    const isDeleted = !isPO && piData?.status === 'DELETED';
 
     // ================= PO TOTAL HELPERS =================
-    const poItems = isPO ? (purchase.items || []) : [];
+    const poItems = isPO ? (purchaseData?.items || []) : [];
 
     let poSubTotal = 0;
     let poGstTotal = 0;
     let poGrandTotal = 0;
 
     const companyState = 'Maharashtra';
-
-    const vendorState =
-      purchase.vendor?.address?.state?.trim() || '';
+    const vendorState = purchaseData?.vendor?.address?.state?.trim() || '';
 
     const poGstType =
       vendorState.toLowerCase() === companyState.toLowerCase()
@@ -234,18 +235,13 @@
         const taxableUnitPrice = Number(item.unitCost) || 0;
         const taxableAmount = taxableUnitPrice * qty;
 
-        const gstRate =
-          item.gstApplicable
-            ? (
-                item.gstPercentage !== undefined &&
-                item.gstPercentage !== null
-                  ? Number(item.gstPercentage)
-                  : 18
-              )
-            : 0;
+        const gstRate = item.gstApplicable
+          ? (item.gstPercentage !== undefined && item.gstPercentage !== null
+              ? Number(item.gstPercentage)
+              : 18)
+          : 0;
 
-        const gstAmount =
-          taxableAmount * (gstRate / 100);
+        const gstAmount = taxableAmount * (gstRate / 100);
 
         poSubTotal += taxableAmount;
 
@@ -257,14 +253,8 @@
         }
       });
 
-      poGstTotal =
-        poIgstTotal +
-        poCgstTotal +
-        poSgstTotal;
-
-      poGrandTotal =
-        poSubTotal +
-        poGstTotal;
+      poGstTotal = poIgstTotal + poCgstTotal + poSgstTotal;
+      poGrandTotal = poSubTotal + poGstTotal;
     }
 
     // ================= NUMBER TO WORDS =================
@@ -359,46 +349,41 @@
       <tr>
         <td width="50%">
           <span class="sub-heading">Supplier</span>
-          <strong><%= purchase.vendor?.name || '-' %></strong>
+          <strong><%= purchaseData?.vendor?.name || '-' %></strong>
 
-          <% if (purchase.vendor?.address?.line1) { %>
-            <br /><%= purchase.vendor.address.line1 %>
+          <% if (purchaseData?.vendor?.address?.line1) { %>
+            <br /><%= purchaseData?.vendor.address.line1 %>
           <% } %>
 
-          <% if (purchase.vendor?.address?.line2) { %>
-            <br /><%= purchase.vendor.address.line2 %>
+          <% if (purchaseData?.vendor?.address?.line2) { %>
+            <br /><%= purchaseData?.vendor.address.line2 %>
           <% } %>
 
           <%
-            const vendorCity = purchase.vendor?.address?.city || '';
-            const vendorState = purchase.vendor?.address?.state || '';
-            const vendorPincode = purchase.vendor?.address?.pincode || '';
-
-            const vendorLocation = [
-              vendorCity,
-              vendorState
-            ].filter(Boolean).join(', ') +
-              (vendorPincode ? ' - ' + vendorPincode : '');
+            const vendorCity = purchaseData?.vendor?.address?.city || '';
+            const vendorState = purchaseData?.vendor?.address?.state || '';
+            const vendorPincode = purchaseData?.vendor?.address?.pincode || '';
+            const vendorLocation = [vendorCity, vendorState].filter(Boolean).join(', ') + (vendorPincode ? ' - ' + vendorPincode : '');
           %>
 
           <% if (vendorLocation) { %>
             <br /><%= vendorLocation %>
           <% } %>
 
-          <% if (purchase.vendor?.phone) { %>
-            <br /><strong>Phone:</strong> <%= purchase.vendor.phone %>
+          <% if (purchaseData?.vendor?.phone) { %>
+            <br /><strong>Phone:</strong> <%= purchaseData?.vendor.phone %>
           <% } %>
 
-          <% if (purchase.vendor?.email) { %>
-            <br /><strong>Email:</strong> <%= purchase.vendor.email %>
+          <% if (purchaseData?.vendor?.email) { %>
+            <br /><strong>Email:</strong> <%= purchaseData?.vendor.email %>
           <% } %>
 
-          <% if (purchase.vendor?.gstin) { %>
-            <br /><strong>GSTIN:</strong> <%= purchase.vendor.gstin %>
+          <% if (purchaseData?.vendor?.gstin) { %>
+            <br /><strong>GSTIN:</strong> <%= purchaseData?.vendor.gstin %>
           <% } %>
 
-          <% if (purchase.vendor?.pan) { %>
-            <br /><strong>PAN:</strong> <%= purchase.vendor.pan %>
+          <% if (purchaseData?.vendor?.pan) { %>
+            <br /><strong>PAN:</strong> <%= purchaseData?.vendor.pan %>
           <% } %>
         </td>
 
@@ -406,9 +391,9 @@
           <strong>PO No:</strong> <%= documentNumber %><br />
           <strong>Date:</strong> <%= new Date(documentDate).toLocaleDateString('en-IN') %><br />
           <strong>Loading:</strong> Inclusive<br />
-          <strong>Delivery Schedule:</strong> <%= purchase.deliverySchedule || '5 to 6 Days' %><br />
+          <strong>Delivery Schedule:</strong> <%= purchaseData?.deliverySchedule || '5 to 6 Days' %><br />
           <strong>Delivery At:</strong> 
-          <%= purchase.deliveryAt === 'WAREHOUSE' ? 'Warehouse' : purchase.deliveryAt === 'OFFICE' ? 'Office' : '-' %>
+          <%= purchaseData?.deliveryAt === 'WAREHOUSE' ? 'Warehouse' : purchaseData?.deliveryAt === 'OFFICE' ? 'Office' : '-' %>
 
           <% if (isDeleted) { %>
             <div style="margin-top: 6px; color: #b30000; font-size: 11px;">
@@ -460,6 +445,7 @@
           <%= pi.billingAddress.line1 %><br />
           <%= pi.billingAddress.city %>, <%= pi.billingAddress.state %> - <%= pi.billingAddress.pincode %><br />
           <strong>Phone:</strong> <%= pi.billingAddress.phone || '-' %>
+
           <% if (pi.billingAddress.email) { %>
             <br /><strong>Email:</strong> <%= pi.billingAddress.email %>
           <% } %><br />
@@ -504,7 +490,7 @@
 
     <tbody>
       <% 
-        const documentItems = isPO ? (purchase.items || []) : (pi.items || []);
+        const documentItems = isPO ? (purchaseData?.items || []) : (piData?.items || []);
 
         documentItems.forEach((item, idx) => {
           let hasColor = false;
@@ -540,15 +526,13 @@
           }
 
           const totalItemAmount = unitPrice * quantity;
-          const itemGstRate =
-            isPO && item.gstApplicable
-              ? (
-                  item.gstPercentage !== undefined &&
-                  item.gstPercentage !== null
-                    ? Number(item.gstPercentage)
-                    : 18
-                )
-              : 0;
+
+          const itemGstRate = isPO && item.gstApplicable
+            ? (item.gstPercentage !== undefined && item.gstPercentage !== null
+                ? Number(item.gstPercentage)
+                : 18)
+            : 0;
+
           const itemGstValue = isPO ? totalItemAmount * (itemGstRate / 100) : 0;
       %>
         <tr>
@@ -582,38 +566,21 @@
       </tr>
 
       <% if (poGstTotal > 0) { %>
-
         <% if (poGstType === 'IGST') { %>
           <tr>
-            <td class="text-right">
-              IGST
-            </td>
-            <td class="text-right">
-              ₹<%= poIgstTotal.toFixed(2) %>
-            </td>
+            <td class="text-right">IGST</td>
+            <td class="text-right">₹<%= poIgstTotal.toFixed(2) %></td>
           </tr>
         <% } else { %>
-
           <tr>
-            <td class="text-right">
-              CGST
-            </td>
-            <td class="text-right">
-              ₹<%= poCgstTotal.toFixed(2) %>
-            </td>
+            <td class="text-right">CGST</td>
+            <td class="text-right">₹<%= poCgstTotal.toFixed(2) %></td>
           </tr>
-
           <tr>
-            <td class="text-right">
-              SGST
-            </td>
-            <td class="text-right">
-              ₹<%= poSgstTotal.toFixed(2) %>
-            </td>
+            <td class="text-right">SGST</td>
+            <td class="text-right">₹<%= poSgstTotal.toFixed(2) %></td>
           </tr>
-
         <% } %>
-
       <% } %>
 
       <tr>
@@ -660,7 +627,7 @@
   <% } %>
 
   <!-- ================= NOTES ================= -->
-  <% const notes = isPO ? purchase.notes : pi.notes; %>
+  <% const notes = isPO ? purchaseData?.notes : piData?.notes; %>
   <% if (notes) { %>
     <table class="section">
       <tr>
