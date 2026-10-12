@@ -1,14 +1,6 @@
 const mongoose = require('mongoose');
 
-
-/* =========================================================
-   PURCHASE ITEM
-   Represents exactly what was ordered in the PO.
-   This must NOT be changed during validation.
-========================================================= */
-
 const PurchaseItemSchema = new mongoose.Schema({
-
   itemType: {
     type: String,
     enum: ['sparePart', 'chair'],
@@ -37,12 +29,14 @@ const PurchaseItemSchema = new mongoose.Schema({
 
   basePrice: {
     type: Number,
-    required: true
+    default: 0,
+    min: 0
   },
 
   unitCost: {
     type: Number,
-    required: true
+    default: 0,
+    min: 0
   },
 
   gstApplicable: {
@@ -52,31 +46,41 @@ const PurchaseItemSchema = new mongoose.Schema({
 
   gstPercentage: {
     type: Number,
-    min: 0,
-    max: 100,
-    default: 0
+    default: 0,
+    min: 0
   },
 
   finalRate: {
     type: Number,
-    required: true
+    default: 0,
+    min: 0
   },
 
   totalCost: {
     type: Number,
-    required: true
+    default: 0,
+    min: 0
   }
-
 }, { _id: false });
 
 
-
-/* =========================================================
-   RECEIVED PURCHASE ITEM
-   Represents what was actually received.
-========================================================= */
-
+/**
+ * Current cumulative receiving state.
+ *
+ * Example:
+ *
+ * Ordered = 100
+ * First delivery = 60
+ * Second delivery = 40
+ *
+ * receivedQuantity = 100
+ */
 const ReceivedPurchaseItemSchema = new mongoose.Schema({
+  poItemIndex: {
+    type: Number,
+    required: true,
+    min: 0
+  },
 
   itemType: {
     type: String,
@@ -137,21 +141,134 @@ const ReceivedPurchaseItemSchema = new mongoose.Schema({
     ],
     required: true
   }
-
 }, { _id: false });
 
 
+/**
+ * One entry for every physical delivery.
+ *
+ * Example:
+ *
+ * Delivery 1:
+ *   01-Oct
+ *   60 chairs
+ *
+ * Delivery 2:
+ *   04-Oct
+ *   40 chairs
+ *
+ * Both records remain permanently available.
+ */
+const ReceiptHistoryItemSchema = new mongoose.Schema({
+  poItemIndex: {
+    type: Number,
+    required: true,
+    min: 0
+  },
 
-/* =========================================================
-   PURCHASE
-========================================================= */
+  itemType: {
+    type: String,
+    enum: ['sparePart', 'chair'],
+    required: true
+  },
+
+  sparePart: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SparePart'
+  },
+
+  chair: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chair'
+  },
+
+  chairColor: {
+    type: mongoose.Schema.Types.ObjectId
+  },
+
+  orderedQuantity: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+
+  previouslyReceived: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+
+  receivedQuantity: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+
+  totalReceived: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+
+  remainingQuantity: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+
+  unitCost: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+
+  totalCost: {
+    type: Number,
+    required: true,
+    min: 0
+  }
+}, { _id: false });
+
+
+/**
+ * One complete receiving transaction.
+ */
+const ReceiptHistorySchema = new mongoose.Schema({
+  receivedAt: {
+    type: Date,
+    default: Date.now,
+    required: true
+  },
+
+  receivedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+
+  items: {
+    type: [ReceiptHistoryItemSchema],
+    default: []
+  },
+
+  receivedAmount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+
+  notes: {
+    type: String,
+    trim: true
+  }
+}, { _id: true });
+
 
 const PurchaseSchema = new mongoose.Schema({
-
   purchaseNumber: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    required: true
   },
 
   vendor: {
@@ -160,42 +277,38 @@ const PurchaseSchema = new mongoose.Schema({
     required: true
   },
 
-  invoiceNumber: String,
-
-  purchaseDate: {
-    type: Date,
-    default: Date.now
+  invoiceNumber: {
+    type: String,
+    trim: true
   },
 
+  purchaseDate: {
+    type: Date
+  },
+
+  /**
+   * This is a textual delivery schedule such as:
+   *
+   * "5 to 6 Days"
+   *
+   * Therefore this should NOT be Date.
+   */
   deliverySchedule: {
     type: String,
-    default: '5 to 6 Days',
     trim: true
   },
 
   deliveryAt: {
     type: String,
-    enum: ["WAREHOUSE", "OFFICE"],
+    enum: ['WAREHOUSE', 'OFFICE']
   },
-
-
-  /* =======================================================
-     PO LIFECYCLE
-
-     DRAFT
-       ↓
-     ORDERED
-       ↓
-     RECEIVED
-
-     CANCELLED can happen before receiving.
-  ======================================================= */
 
   status: {
     type: String,
     enum: [
       'DRAFT',
       'ORDERED',
+      'PARTIALLY_RECEIVED',
       'RECEIVED',
       'CANCELLED',
       'CLOSED',
@@ -204,54 +317,46 @@ const PurchaseSchema = new mongoose.Schema({
     default: 'DRAFT'
   },
 
-
-  /* =======================================================
-     ORIGINAL PO ITEMS
-
-     These represent what was ordered.
-  ======================================================= */
-
   items: {
     type: [PurchaseItemSchema],
     default: []
   },
 
-
-  /* =======================================================
-     ACTUAL RECEIVED ITEMS
-
-     Filled only when PO is validated.
-  ======================================================= */
-
+  /**
+   * Current cumulative receiving state.
+   */
   receivedItems: {
     type: [ReceivedPurchaseItemSchema],
     default: []
   },
 
+  /**
+   * Every physical delivery is stored here.
+   */
+  receiptHistory: {
+    type: [ReceiptHistorySchema],
+    default: []
+  },
 
-  /* Original PO amount */
   totalAmount: {
     type: Number,
     default: 0
   },
 
-
-  /* Actual received amount */
+  /**
+   * Cumulative amount actually received.
+   */
   receivedAmount: {
     type: Number,
     default: 0
   },
 
-
-  /* =======================================================
-     VALIDATION
-  ======================================================= */
-
   validationStatus: {
     type: String,
     enum: [
       'NOT_VALIDATED',
-      'VALIDATED'
+      'PARTIALLY_VALIDATED',
+      'FULLY_VALIDATED'
     ],
     default: 'NOT_VALIDATED'
   },
@@ -261,16 +366,32 @@ const PurchaseSchema = new mongoose.Schema({
     trim: true
   },
 
-  receivedAt: Date,
+  receivedAt: {
+    type: Date
+  },
 
   receivedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
 
+  shortClosedAt: {
+    type: Date
+  },
 
-  notes: String,
+  shortClosedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
 
+  shortCloseReason: {
+    type: String,
+    trim: true
+  },
+
+  notes: {
+    type: String
+  },
 
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -282,9 +403,9 @@ const PurchaseSchema = new mongoose.Schema({
     ref: 'User'
   },
 
-  cancelledAt: Date
-
+  cancelledAt: {
+    type: Date
+  }
 }, { timestamps: true });
-
 
 module.exports = mongoose.model('Purchase', PurchaseSchema);

@@ -7,6 +7,11 @@ const mongoose = require('mongoose');
 const imageToBase64 = require('../utils/imageToBase64');
 const pdfGenerator = require('../utils/pdfGenerator');
 
+const roundTo = (value, decimals = 6) => {
+  const factor = 10 ** decimals;
+  return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+};
+
 async function generatePoNumber() {
   const now = new Date();
 
@@ -295,6 +300,13 @@ exports.view = async (req, res) => {
       })
       .populate('receivedItems.chair')
       .populate('items.chair')
+      .populate({
+        path: 'receiptHistory.items.sparePart',
+        populate: { path: 'category' }
+      })
+      .populate('receiptHistory.items.chair')
+      .populate('receiptHistory.receivedBy', 'fullName')
+      .populate('shortClosedBy', 'fullName')
       .populate('createdBy', 'fullName')
       .populate('updatedBy', 'fullName')
       .lean();
@@ -530,13 +542,71 @@ exports.validateForm = async (req, res) => {
       throw new Error('Purchase not found');
     }
 
-    if (purchase.status !== 'ORDERED') {
+    if (
+      purchase.status !== 'ORDERED' &&
+      purchase.status !== 'PARTIALLY_RECEIVED'
+    ) {
       throw new Error(`Purchase cannot be validated because its status is ${purchase.status}`);
     }
 
-    if (purchase.validationStatus === 'VALIDATED') {
-      throw new Error('Purchase order has already been validated');
+    /* =====================================================
+       BUILD VALIDATION ITEMS DATA
+    ===================================================== */
+    const receivedMap = new Map();
+    for (const receivedItem of purchase.receivedItems || []) {
+      const poItemIndex = Number(receivedItem.poItemIndex);
+      if (!Number.isNaN(poItemIndex)) {
+        receivedMap.set(poItemIndex, Number(receivedItem.receivedQuantity || 0));
+      }
     }
+
+    const validationItems = (purchase.items || []).map((item, index) => {
+      const orderedQuantity = Number(item.quantity || 0);
+      const previouslyReceived = Number(receivedMap.get(index) || 0);
+      const remainingQuantity = roundTo(
+        Math.max(0, orderedQuantity - previouslyReceived)
+      );
+
+      let itemId = item.itemType === 'sparePart' 
+        ? (item.sparePart?._id || item.sparePart || '') 
+        : (item.chair?._id || item.chair || '');
+
+      const colorId = item.chairColor?._id || item.chairColor || '';
+      let colorName = '';
+
+      if (item.itemType === 'chair') {
+        if (item.chairColor && typeof item.chairColor === 'object' && item.chairColor.name) {
+          colorName = item.chairColor.name;
+        } else if (item.chair && Array.isArray(item.chair.colors)) {
+          const matchedColor = item.chair.colors.find(c => String(c._id) === String(colorId));
+          if (matchedColor) colorName = matchedColor.name || '';
+        }
+      }
+
+      let itemName = '-';
+      if (item.itemType === 'chair') {
+        itemName = item.chair?.modelName || item.chair?.name || '-';
+      } else if (item.itemType === 'sparePart') {
+        itemName = item.sparePart?.partName || item.sparePart?.name || '-';
+      }
+
+      return {
+        poItemIndex: index,
+        itemType: item.itemType,
+        itemId: String(itemId || ''),
+        colorId: String(colorId || ''),
+        itemName,
+        colorName,
+        orderedQuantity,
+        previouslyReceived,
+        remainingQuantity,
+        chair: item.chair,
+        chairColor: item.chairColor,
+        sparePart: item.sparePart,
+        unitCost: Number(item.unitCost || 0),
+        finalRate: Number(item.finalRate || 0)
+      };
+    });
 
     /* =====================================================
        FETCH CATALOG DATA & RENDER
@@ -550,11 +620,15 @@ exports.validateForm = async (req, res) => {
       .sort({ modelName: 1 })
       .lean();
 
-    // AJAX Call -> Return payload
+    // Safely resolve active user session
+    const currentUser = req.session?.user || req.user;
+
+    // AJAX Call -> Return JSON payload
     if (isAjax) {
       return res.json({
         success: true,
         purchase,
+        validationItems,
         spareParts,
         chairs
       });
@@ -563,9 +637,10 @@ exports.validateForm = async (req, res) => {
     // Standard Browser Load -> Render View
     res.render('purchases/validate', {
       purchase,
+      validationItems,
       spareParts,
       chairs,
-      user: req.session.user,
+      user: currentUser,
       activePage: 'purchases',
       showBack: true,
       error: null
@@ -574,7 +649,6 @@ exports.validateForm = async (req, res) => {
   } catch (err) {
     console.error('purchase.validateForm error:', err);
 
-    // 1. Return JSON response for AJAX requests
     if (isAjax) {
       return res.status(400).json({
         success: false,
@@ -582,263 +656,556 @@ exports.validateForm = async (req, res) => {
       });
     }
 
-    // 2. Redirect back to Purchase Listing with query error for standard browser requests
     res.redirect('/purchasing/purchases?error=' + encodeURIComponent(err.message || 'Server error loading validation form.'));
   }
 };
 
+
+/**
+ * POST
+ * /purchasing/purchases/:id/validate
+ *
+ * Receives one physical delivery.
+ *
+ * IMPORTANT:
+ * receivedQuantity in the request means:
+ *
+ * "How much arrived in THIS delivery?"
+ *
+ * It does NOT mean cumulative quantity.
+ */
 exports.validate = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' || req.headers.accept?.includes('json');
-
   try {
-    /* =====================================================
-       LOAD PURCHASE & VALIDATE ELIGIBILITY
-    ===================================================== */
-    const purchase = await Purchase.findById(req.params.id).session(session);
+    const purchase = await Purchase.findById(req.params.id)
+      .populate('vendor')
+      .populate('items.sparePart')
+      .populate('items.chair');
 
     if (!purchase) {
-      throw new Error("Purchase not found");
+      return res.status(404).json({
+        success: false,
+        message: 'Purchase not found.'
+      });
     }
 
-    if (purchase.status !== "ORDERED") {
-      throw new Error(
-        `Purchase cannot be validated because its status is ${purchase.status}`
+    /**
+     * Receiving is allowed only while ORDERED or PARTIALLY_RECEIVED.
+     */
+    if (
+      purchase.status !== 'ORDERED' &&
+      purchase.status !== 'PARTIALLY_RECEIVED'
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Purchase cannot be received because its status is ${purchase.status}.`
+      });
+    }
+
+    let submittedItems = req.body.items || [];
+
+    if (!Array.isArray(submittedItems)) {
+      submittedItems = Object.values(submittedItems);
+    }
+
+    if (!submittedItems.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No receiving items were submitted.'
+      });
+    }
+
+    /**
+     * Prevent duplicate PO item indexes.
+     */
+    const indexes = submittedItems.map(item =>
+      Number(item.poItemIndex)
+    );
+
+    if (new Set(indexes).size !== indexes.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate purchase items were submitted.'
+      });
+    }
+
+    /**
+     * Build current cumulative receiving map.
+     */
+    const receivedMap = new Map();
+
+    for (const receivedItem of purchase.receivedItems || []) {
+      receivedMap.set(
+        Number(receivedItem.poItemIndex),
+        Number(receivedItem.receivedQuantity || 0)
       );
     }
 
-    if (purchase.validationStatus === "VALIDATED") {
-      throw new Error("Purchase has already been validated");
-    }
+    const receiptItems = [];
 
-    /* =====================================================
-       PARSE RECEIVED ITEMS SAFELY
-    ===================================================== */
-    let rawItems = req.body.items;
+    let currentDeliveryAmount = 0;
 
-    // Handle case where items might be sent as JSON string
-    if (typeof rawItems === 'string') {
-      try {
-        rawItems = JSON.parse(rawItems);
-      } catch (e) {
-        rawItems = {};
-      }
-    }
-
-    /* =====================================================
-       READ RECEIVED ITEMS
-    ===================================================== */
-    const receivedItems = Array.isArray(rawItems)
-      ? rawItems
-      : Object.values(rawItems || {});
-
-    if (!receivedItems || receivedItems.length === 0) {
-      throw new Error("No received items were provided");
-    }
-
-    const validatedItems = [];
-    let receivedAmount = 0;
-
-    /* =====================================================
-       VALIDATE EACH PO LINE
-    ===================================================== */
-    for (const receivedItem of receivedItems) {
-      const poItemIndex = Number(receivedItem.poItemIndex);
+    /**
+     * Validate every submitted item.
+     */
+    for (const submitted of submittedItems) {
+      const poItemIndex = Number(submitted.poItemIndex);
 
       if (
         !Number.isInteger(poItemIndex) ||
         poItemIndex < 0 ||
         poItemIndex >= purchase.items.length
       ) {
-        throw new Error("Invalid purchase item selected");
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid purchase item.'
+        });
       }
 
-      const orderedItem = purchase.items[poItemIndex];
+      const purchaseItem = purchase.items[poItemIndex];
+      const orderedQuantity = Number(purchaseItem.quantity || 0);
+      const previouslyReceived = Number(
+        receivedMap.get(poItemIndex) || 0
+      );
 
-      const receivedQuantity = Number(receivedItem.receivedQuantity);
+      /**
+       * This is the quantity received TODAY.
+       */
+      const receivedNow = roundTo(
+        Number(submitted.receivedQuantity || 0)
+      );
 
-      if (!Number.isFinite(receivedQuantity) || receivedQuantity < 0) {
-        throw new Error("Invalid received quantity specified");
+      if (
+        !Number.isFinite(receivedNow) ||
+        receivedNow < 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid receiving quantity for item ${poItemIndex + 1}.`
+        });
       }
 
-      if (!receivedItem.itemType) {
-        throw new Error("Received item type is required");
+      const remainingBefore = roundTo(
+        Math.max(0, orderedQuantity - previouslyReceived)
+      );
+
+      /**
+       * Do not allow over-receiving.
+       */
+      if (receivedNow > remainingBefore) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Item ${poItemIndex + 1}: ` +
+            `only ${remainingBefore} remaining, ` +
+            `but ${receivedNow} was entered.`
+        });
       }
 
-      if (!receivedItem.itemId) {
-        throw new Error("Received material selection is required");
+      /**
+       * Ignore rows where nothing was received.
+       */
+      if (receivedNow === 0) {
+        continue;
       }
 
-      /* =================================================
-         DETERMINE MATERIAL MATCH
-      ================================================= */
-      let materialMatches = false;
+      const totalReceived = roundTo(
+        previouslyReceived + receivedNow
+      );
 
-      if (receivedItem.itemType === "sparePart") {
-        const sparePart = await SparePart.findById(receivedItem.itemId).session(session);
+      const remainingAfter = roundTo(
+        Math.max(0, orderedQuantity - totalReceived)
+      );
 
-        if (!sparePart) {
-          throw new Error("Received spare part not found in catalog");
-        }
+      const unitCost = roundTo(
+        Number(purchaseItem.unitCost || 0)
+      );
 
-        materialMatches =
-          orderedItem.itemType === "sparePart" &&
-          orderedItem.sparePart &&
-          orderedItem.sparePart.toString() === receivedItem.itemId.toString();
-      } else if (receivedItem.itemType === "chair") {
-        if (!receivedItem.colorId) {
-          throw new Error("Chair color selection is required");
-        }
+      const currentItemCost = roundTo(
+        receivedNow * unitCost
+      );
 
-        const chair = await Chair.findOne({
-          _id: receivedItem.itemId,
-          "colors._id": receivedItem.colorId,
-        }).session(session);
+      currentDeliveryAmount = roundTo(
+        currentDeliveryAmount + currentItemCost
+      );
 
-        if (!chair) {
-          throw new Error("Received chair/color combination not found in catalog");
-        }
+      /**
+       * Determine item identity.
+       */
+      const itemId =
+        purchaseItem.itemType === 'sparePart'
+          ? purchaseItem.sparePart?._id || purchaseItem.sparePart
+          : purchaseItem.chair?._id || purchaseItem.chair;
 
-        materialMatches =
-          orderedItem.itemType === "chair" &&
-          orderedItem.chair &&
-          orderedItem.chair.toString() === receivedItem.itemId.toString() &&
-          orderedItem.chairColor &&
-          orderedItem.chairColor.toString() === receivedItem.colorId.toString();
-      } else {
-        throw new Error("Invalid received item type");
+      const colorId =
+        purchaseItem.chairColor?._id ||
+        purchaseItem.chairColor ||
+        null;
+
+      /**
+       * Match status for this delivery.
+       *
+       * At this point material comes from
+       * the PO itself, so material is matched.
+       */
+      let matchStatus = 'MATCHED';
+
+      if (receivedNow !== remainingBefore) {
+        matchStatus = 'QUANTITY_MISMATCH';
       }
 
-      /* =================================================
-         MATCH STATUS & COSTS
-      ================================================= */
-      const quantityMatches = orderedItem.quantity === receivedQuantity;
-      const quantityDifference = receivedQuantity - orderedItem.quantity;
-
-      let matchStatus;
-      if (materialMatches && quantityMatches) {
-        matchStatus = "MATCHED";
-      } else if (materialMatches && !quantityMatches) {
-        matchStatus = "QUANTITY_MISMATCH";
-      } else if (!materialMatches && quantityMatches) {
-        matchStatus = "MATERIAL_MISMATCH";
-      } else {
-        matchStatus = "MATERIAL_AND_QUANTITY_MISMATCH";
-      }
-
-      const unitCost = Number(orderedItem.unitCost) || 0;
-      const finalRate = Number(orderedItem.finalRate) || unitCost;
-      const totalCost = receivedQuantity * finalRate;
-
-      receivedAmount += totalCost;
-
-      const validatedItem = {
-        itemType: receivedItem.itemType,
-        orderedQuantity: orderedItem.quantity,
-        receivedQuantity,
-        difference: quantityDifference,
+      receiptItems.push({
+        poItemIndex,
+        itemType: purchaseItem.itemType,
+        sparePart:
+          purchaseItem.itemType === 'sparePart'
+            ? itemId
+            : undefined,
+        chair:
+          purchaseItem.itemType === 'chair'
+            ? itemId
+            : undefined,
+        chairColor: colorId || undefined,
+        orderedQuantity,
+        previouslyReceived,
+        receivedQuantity: receivedNow,
+        totalReceived,
+        remainingQuantity: remainingAfter,
         unitCost,
-        totalCost,
-        matchStatus,
-      };
+        totalCost: currentItemCost
+      });
 
-      if (receivedItem.itemType === "sparePart") {
-        validatedItem.sparePart = receivedItem.itemId;
-      }
-
-      if (receivedItem.itemType === "chair") {
-        validatedItem.chair = receivedItem.itemId;
-        validatedItem.chairColor = receivedItem.colorId;
-      }
-
-      validatedItems.push(validatedItem);
-    }
-
-    /* =====================================================
-       UPDATE STOCK
-    ===================================================== */
-    for (const item of validatedItems) {
-      if (item.receivedQuantity <= 0) continue;
-
-      if (item.itemType === "sparePart" && item.sparePart) {
-        const result = await SparePart.updateOne(
-          { _id: item.sparePart, isActive: true },
-          { $inc: { stock: item.receivedQuantity } },
-          { session }
-        );
-
-        if (result.matchedCount !== 1) {
-          throw new Error("Unable to update stock for the selected spare part");
-        }
-      }
-
-      if (item.itemType === "chair" && item.chair && item.chairColor) {
-        const result = await Chair.updateOne(
-          {
-            _id: item.chair,
-            isActive: true,
-            "colors._id": item.chairColor,
-          },
-          { $inc: { "colors.$.stock": item.receivedQuantity } },
-          { session }
-        );
-
-        if (result.matchedCount !== 1) {
-          throw new Error("Unable to update stock for the selected chair color");
-        }
-      }
-    }
-
-    /* =====================================================
-       UPDATE VENDOR BALANCE
-    ===================================================== */
-    if (receivedAmount > 0) {
-      await Vendor.findByIdAndUpdate(
-        purchase.vendor,
-        { $inc: { balance: receivedAmount } },
-        { session }
+      /**
+       * Update cumulative received quantity.
+       */
+      receivedMap.set(
+        poItemIndex,
+        totalReceived
       );
     }
 
-    /* =====================================================
-       SAVE VALIDATION RESULT & COMMIT
-    ===================================================== */
-    purchase.receivedItems = validatedItems;
-    purchase.receivedAmount = receivedAmount;
-    purchase.validationStatus = "VALIDATED";
-    purchase.validationNotes = req.body.validationNotes || "";
-    purchase.status = "RECEIVED";
+    if (!receiptItems.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter at least one quantity greater than zero.'
+      });
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * UPDATE STOCK
+     * ---------------------------------------------------------
+     *
+     * IMPORTANT:
+     * Only add the CURRENT DELIVERY quantity.
+     *
+     * Do NOT add cumulative received quantity.
+     */
+    for (const receiptItem of receiptItems) {
+      const quantity = Number(receiptItem.receivedQuantity);
+
+      if (receiptItem.itemType === 'sparePart') {
+        const sparePart = await SparePart.findById(
+          receiptItem.sparePart
+        );
+
+        if (!sparePart) {
+          return res.status(400).json({
+            success: false,
+            message: `Spare part not found for item ${receiptItem.poItemIndex + 1}.`
+          });
+        }
+
+        sparePart.stock =
+          Number(sparePart.stock || 0) + quantity;
+
+        await sparePart.save();
+      }
+
+      if (receiptItem.itemType === 'chair') {
+        const chair = await Chair.findById(
+          receiptItem.chair
+        );
+
+        if (!chair) {
+          return res.status(400).json({
+            success: false,
+            message: `Chair not found for item ${receiptItem.poItemIndex + 1}.`
+          });
+        }
+
+        /**
+         * IMPORTANT:
+         * Keep your existing chair/color stock
+         * update logic here if your Chair model
+         * stores stock differently.
+         *
+         * This assumes chair.stock exists.
+         */
+        chair.stock =
+          Number(chair.stock || 0) + quantity;
+
+        await chair.save();
+      }
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * UPDATE VENDOR BALANCE
+     * ---------------------------------------------------------
+     *
+     * Only current delivery amount is added.
+     *
+     * If your existing Vendor model uses another
+     * balance field, keep that existing field here.
+     */
+    if (currentDeliveryAmount > 0) {
+      const vendor = await Vendor.findById(
+        purchase.vendor._id || purchase.vendor
+      );
+
+      if (vendor) {
+        vendor.balance = roundTo(
+          Number(vendor.balance || 0) + currentDeliveryAmount
+        );
+
+        await vendor.save();
+      }
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * UPDATE CUMULATIVE RECEIVED ITEMS
+     * ---------------------------------------------------------
+     */
+    for (const receiptItem of receiptItems) {
+      const existingIndex =
+        purchase.receivedItems.findIndex(
+          item =>
+            Number(item.poItemIndex) ===
+            Number(receiptItem.poItemIndex)
+        );
+
+      const purchaseItem =
+        purchase.items[receiptItem.poItemIndex];
+
+      const cumulativeReceived =
+        Number(receiptItem.totalReceived);
+
+      const orderedQuantity =
+        Number(receiptItem.orderedQuantity);
+
+      const difference =
+        orderedQuantity - cumulativeReceived;
+
+      let matchStatus = 'MATCHED';
+
+      if (cumulativeReceived < orderedQuantity) {
+        matchStatus = 'QUANTITY_MISMATCH';
+      }
+
+      const cumulativeTotalCost = roundTo(
+        cumulativeReceived * Number(purchaseItem.unitCost || 0)
+      );
+
+      const cumulativeItem = {
+        poItemIndex: receiptItem.poItemIndex,
+        itemType: receiptItem.itemType,
+        sparePart: receiptItem.sparePart,
+        chair: receiptItem.chair,
+        chairColor: receiptItem.chairColor,
+        orderedQuantity,
+        receivedQuantity: cumulativeReceived,
+        difference,
+        unitCost: Number(purchaseItem.unitCost || 0),
+        totalCost: cumulativeTotalCost,
+        matchStatus
+      };
+
+      if (existingIndex === -1) {
+        purchase.receivedItems.push(cumulativeItem);
+      } else {
+        purchase.receivedItems[existingIndex] = cumulativeItem;
+      }
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * CREATE RECEIPT HISTORY ENTRY
+     * ---------------------------------------------------------
+     */
+    purchase.receiptHistory.push({
+      receivedAt: new Date(),
+      receivedBy: req.session.user.id,
+      items: receiptItems,
+      receivedAmount: currentDeliveryAmount,
+      notes: req.body.validationNotes || ''
+    });
+
+    /**
+     * Cumulative received amount.
+     */
+    purchase.receivedAmount = roundTo(
+      Number(purchase.receivedAmount || 0) + currentDeliveryAmount
+    );
+
+    purchase.validationNotes = req.body.validationNotes || '';
     purchase.receivedAt = new Date();
     purchase.receivedBy = req.session.user.id;
 
-    await purchase.save({ session });
+    /**
+     * ---------------------------------------------------------
+     * DETERMINE WHETHER EVERYTHING IS RECEIVED
+     * ---------------------------------------------------------
+     */
+    let fullyReceived = true;
 
-    await session.commitTransaction();
-    session.endSession();
+    for (let index = 0; index < purchase.items.length; index++) {
+      const orderedQuantity = Number(
+        purchase.items[index].quantity || 0
+      );
 
-    if (isAjax) {
-      return res.json({
-        success: true,
-        redirectUrl: `/purchasing/purchases/${purchase._id}`
+      const receivedQuantity = Number(
+        receivedMap.get(index) || 0
+      );
+
+      if (receivedQuantity < orderedQuantity) {
+        fullyReceived = false;
+        break;
+      }
+    }
+
+    if (fullyReceived) {
+      purchase.status = 'RECEIVED';
+      purchase.validationStatus = 'FULLY_VALIDATED';
+      purchase.receivedAt = new Date();
+      purchase.receivedBy = req.session.user.id;
+    } else {
+      /**
+       * Still waiting for another delivery.
+       */
+      purchase.status = 'PARTIALLY_RECEIVED';
+      purchase.validationStatus = 'PARTIALLY_VALIDATED';
+    }
+
+    purchase.updatedBy = req.session.user.id;
+
+    await purchase.save();
+
+    /**
+     * ---------------------------------------------------------
+     * REDIRECTION
+     * ---------------------------------------------------------
+     *
+     * Fully received:
+     *     → Purchase View
+     *
+     * Partial:
+     *     → Receiving page again
+     */
+    const redirectUrl = fullyReceived
+      ? `/purchasing/purchases/${purchase._id}`
+      : `/purchasing/purchases/${purchase._id}/validate`;
+
+    return res.status(200).json({
+      success: true,
+      fullyReceived,
+      message: fullyReceived
+        ? 'Purchase fully received.'
+        : 'Partial receipt recorded successfully.',
+      redirectUrl
+    });
+  } catch (error) {
+    console.error('Error validating purchase:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to receive purchase.'
+    });
+  }
+};
+
+
+/**
+ * POST
+ * /purchasing/purchases/:id/short-close
+ */
+exports.shortClose = async (req, res) => {
+  try {
+    const purchase = await Purchase.findById(req.params.id);
+
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: 'Purchase not found.'
       });
     }
 
-    res.redirect(`/purchasing/purchases/${purchase._id}`);
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-
-    console.error("purchase.validate error:", err);
-
-    if (isAjax) {
+    if (
+      purchase.status !== 'ORDERED' &&
+      purchase.status !== 'PARTIALLY_RECEIVED'
+    ) {
       return res.status(400).json({
         success: false,
-        message: err.message || "An unexpected error occurred during validation."
+        message: `Purchase cannot be short closed because its status is ${purchase.status}.`
       });
     }
 
-    res.status(400).send(err.message);
+    const reason = String(req.body.reason || '').trim();
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a reason for short closing the purchase.'
+      });
+    }
+
+    /**
+     * Make sure there really is something remaining.
+     */
+    let remainingQuantity = 0;
+
+    for (let index = 0; index < purchase.items.length; index++) {
+      const ordered = Number(
+        purchase.items[index].quantity || 0
+      );
+
+      const receivedItem = purchase.receivedItems.find(
+        item => Number(item.poItemIndex) === index
+      );
+
+      const received = Number(
+        receivedItem?.receivedQuantity || 0
+      );
+
+      remainingQuantity += Math.max(0, ordered - received);
+    }
+
+    if (remainingQuantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This purchase is already fully received.'
+      });
+    }
+
+    purchase.status = 'SHORT_CLOSED';
+    purchase.shortClosedAt = new Date();
+    purchase.shortClosedBy = req.session.user.id;
+    purchase.shortCloseReason = reason;
+    purchase.updatedBy = req.session.user.id;
+
+    await purchase.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Purchase short closed successfully.',
+      redirectUrl: `/purchasing/purchases/${purchase._id}`
+    });
+  } catch (error) {
+    console.error('Error short closing purchase:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to short close purchase.'
+    });
   }
 };

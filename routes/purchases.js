@@ -22,5 +22,6 @@ router.post('/:id/delete', purchaseController.delete);
 
 router.get('/:id/validate', purchaseController.validateForm);
 router.post('/:id/validate', purchaseController.validate);
+router.post('/:id/short-close', purchaseController.shortClose);
 
 module.exports = router;
