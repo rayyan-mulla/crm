@@ -122,14 +122,19 @@
             <tbody>
               <% purchases.forEach((p, index) => { %>
                 <%
+                  const hasPhysicalItems = (p.items || []).some(
+                    item => item.itemType !== 'service'
+                  );
+
                   const isFinalized =
-                    p.status === 'RECEIVED' ||
+                    (hasPhysicalItems && p.status === 'RECEIVED') ||
                     p.status === 'SHORT_CLOSED' ||
                     p.status === 'CLOSED';
 
                   const canReceive =
-                    p.status === 'ORDERED' ||
-                    p.status === 'PARTIALLY_RECEIVED';
+                    hasPhysicalItems &&
+                    (p.status === 'ORDERED' ||
+                    p.status === 'PARTIALLY_RECEIVED');
                   const receivedAmount = Number(p.receivedAmount || 0);
                   const totalAmount = Number(p.totalAmount || 0);
 
@@ -201,7 +206,7 @@
                     </a>
 
                     <!-- RECEIVE -->
-                    <a href="/purchasing/purchases/<%= p._id %>/validate" class="btn btn-sm btn-outline-purple <%= canReceive ? '' : 'disabled' %>" title="<%= canReceive ? 'Validate Purchase' : 'Purchase cannot be validated' %>">
+                    <a href="/purchasing/purchases/<%= p._id %>/validate" class="btn btn-sm btn-outline-purple <%= canReceive ? '' : 'disabled' %>" title="<%= canReceive ? 'Validate Purchase' : (!hasPhysicalItems ? 'Service orders do not require validation' : 'Purchase cannot be validated') %>">
                       Validate
                     </a>
 

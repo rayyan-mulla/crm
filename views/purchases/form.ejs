@@ -199,11 +199,13 @@
                 <input type="hidden" name="items[<%= index %>][sparePart]" value="<%= item.sparePart?._id || item.sparePart || '' %>">
                 <input type="hidden" name="items[<%= index %>][chair]" value="<%= item.chair?._id || item.chair || '' %>">
                 <input type="hidden" name="items[<%= index %>][chairColor]" value="<%= item.chairColor || item.color || '' %>">
+                <input type="hidden" name="items[<%= index %>][serviceName]" value="<%= item.serviceName || '' %>">
                 <input type="hidden" name="items[<%= index %>][quantity]" value="<%= item.quantity || 1 %>">
                 <input type="hidden" name="items[<%= index %>][unitCost]" value="<%= item.unitCost || 0 %>">
                 <input type="hidden" name="items[<%= index %>][totalCost]" value="<%= item.totalCost || 0 %>">
                 <% if (item.gstApplicable) { %>
                   <input type="hidden" name="items[<%= index %>][gstApplicable]" value="true">
+                  <input type="hidden" name="items[<%= index %>][gstPercentage]" value="<%= item.gstPercentage || 0 %>">
                 <% } %>
               <% } %>
 
@@ -220,11 +222,12 @@
                   >
                     <option value="sparePart" <%= currentType === 'sparePart' ? 'selected' : '' %>>Spare Part</option>
                     <option value="chair" <%= currentType === 'chair' ? 'selected' : '' %>>Chair</option>
+                    <option value="service" <%= currentType === 'service' ? 'selected' : '' %>>Service</option>
                   </select>
                 </div>
 
                 <!-- Spare Part Wrapper -->
-                <div class="col-md-4 sparePartWrapper <%= currentType === 'chair' ? 'd-none' : '' %>">
+                <div class="col-md-4 sparePartWrapper <%= currentType === 'sparePart' ? '' : 'd-none' %>">
                   <label class="form-label text-muted small">Spare Part</label>
                   <select
                     class="form-select spareSelect"
@@ -278,6 +281,18 @@
                   </select>
                 </div>
 
+                <!-- Service Select Wrapper -->
+                <div class="col-md-2 serviceWrapper <%= currentType === 'service' ? '' : 'd-none' %>">
+                  <label class="form-label text-muted small">Service</label>
+                  <select
+                    class="form-select serviceSelect"
+                    name="items[<%= index %>][serviceName]"
+                    <%= isValidated ? 'disabled' : '' %>
+                  >
+                    <option value="Seat Making" <%= (!item.serviceName || item.serviceName === 'Seat Making') ? 'selected' : '' %>>Seat Making</option>
+                  </select>
+                </div>
+
                 <!-- Qty -->
                 <div class="col-md-1">
                   <label class="form-label text-muted small">Qty</label>
@@ -318,12 +333,26 @@
                       <small class="ms-1">GST</small>
                     </div>
                   </div>
-                  <input
-                    type="hidden"
-                    name="items[<%= index %>][gstPercentage]"
-                    class="gstPercentage"
-                    value="<%= item.gstPercentage ?? (currentType === 'chair' ? 18 : 0) %>"
-                  >
+                </div>
+
+                <!-- GST % Column (visible only for Service) -->
+                <div class="col-md-2 gstPercentageCol <%= currentType === 'service' ? '' : 'd-none' %>">
+                  <label class="form-label text-muted small">GST %</label>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      name="items[<%= index %>][gstPercentage]"
+                      class="form-control gstPercentage"
+                      value="<%= item.gstPercentage ?? (currentType === 'chair' ? 18 : (currentType === 'service' ? 18 : 0)) %>"
+                      min="0"
+                      max="100"
+                      step="any"
+                      placeholder="18"
+                      <%= (currentType === 'service' && !item.gstApplicable) ? 'disabled' : '' %>
+                      <%= isValidated ? 'disabled' : '' %>
+                    >
+                    <span class="input-group-text small">%</span>
+                  </div>
                 </div>
 
                 <!-- Total Cost -->
@@ -470,10 +499,15 @@
       const spareWrap = row.querySelector('.sparePartWrapper');
       const chairWrap = row.querySelector('.chairWrapper');
       const colorWrap = row.querySelector('.colorWrapper');
+      const serviceWrap = row.querySelector('.serviceWrapper');
+      const gstCol = row.querySelector('.gstPercentageCol');
       
       const chairSelect = row.querySelector('.chairSelect');
       const colorSelect = row.querySelector('.colorSelect');
       const spareSelect = row.querySelector('.spareSelect');
+      const serviceSelect = row.querySelector('.serviceSelect');
+      const gstCheck = row.querySelector('.gstCheck');
+      const gstPercentageInput = row.querySelector('.gstPercentage');
 
       updateQuantityStep(row);
 
@@ -487,11 +521,41 @@
         spareWrap.classList.add('d-none');
         chairWrap.classList.remove('d-none');
         colorWrap.classList.remove('d-none');
+        if (serviceWrap) serviceWrap.classList.add('d-none');
+        if (gstCol) gstCol.classList.add('d-none');
+        if (gstPercentageInput) {
+          gstPercentageInput.disabled = false;
+          gstPercentageInput.value = 18;
+        }
+      } else if (e.target.value === 'service') {
+        spareWrap.classList.add('d-none');
+        chairWrap.classList.add('d-none');
+        colorWrap.classList.add('d-none');
+        if (serviceWrap) serviceWrap.classList.remove('d-none');
+        if (serviceSelect) serviceSelect.value = 'Seat Making';
+        if (gstCol) gstCol.classList.remove('d-none');
+        if (gstPercentageInput) {
+          if (gstCheck && gstCheck.checked) {
+            gstPercentageInput.disabled = false;
+            if (!gstPercentageInput.value || parseFloat(gstPercentageInput.value) === 0) {
+              gstPercentageInput.value = 18;
+            }
+          } else {
+            gstPercentageInput.disabled = true;
+          }
+        }
       } else {
         spareWrap.classList.remove('d-none');
         chairWrap.classList.add('d-none');
         colorWrap.classList.add('d-none');
+        if (serviceWrap) serviceWrap.classList.add('d-none');
+        if (gstCol) gstCol.classList.add('d-none');
+        if (gstPercentageInput) {
+          gstPercentageInput.disabled = false;
+        }
       }
+
+      calculateRow(row);
     }
 
     /* CHAIR SELECT */
@@ -542,11 +606,30 @@
 
     /* GST TOGGLE */
     if (e.target.classList.contains('gstCheck')) {
+      const type = row.querySelector('.itemType')?.value;
+      const gstPercentageInput = row.querySelector('.gstPercentage');
+
+      if (type === 'service') {
+        if (e.target.checked) {
+          if (gstPercentageInput) {
+            gstPercentageInput.disabled = false;
+            if (!gstPercentageInput.value || parseFloat(gstPercentageInput.value) === 0) {
+              gstPercentageInput.value = 18;
+            }
+            gstPercentageInput.focus();
+          }
+        } else {
+          if (gstPercentageInput) {
+            gstPercentageInput.disabled = true;
+          }
+        }
+      }
+
       calculateRow(row);
     }
   });
 
-  /* INPUT LISTENER FOR QUANTITY & UNIT COST */
+  /* INPUT LISTENER FOR QUANTITY, UNIT COST & GST PERCENTAGE */
   document.addEventListener('input', function(e) {
     const row = e.target.closest('.item-card');
     if (!row) return;
@@ -559,6 +642,10 @@
 
     if (e.target.classList.contains('unitCost')) {
       row.querySelector('.basePrice').value = e.target.value || 0;
+      calculateRow(row);
+    }
+
+    if (e.target.classList.contains('gstPercentage')) {
       calculateRow(row);
     }
   });
@@ -591,6 +678,10 @@
       newRow.querySelector('.sparePartWrapper').classList.remove('d-none');
       newRow.querySelector('.chairWrapper').classList.add('d-none');
       newRow.querySelector('.colorWrapper').classList.add('d-none');
+      const serviceWrap = newRow.querySelector('.serviceWrapper');
+      if (serviceWrap) serviceWrap.classList.add('d-none');
+      const gstCol = newRow.querySelector('.gstPercentageCol');
+      if (gstCol) gstCol.classList.add('d-none');
 
       container.appendChild(newRow);
 
@@ -629,6 +720,15 @@
         const chairId = item.chair?._id || item.chair;
         const colorId = item.chairColor || item.color;
         populateColors(row, chairId, colorId);
+      } else if (item.itemType === 'service') {
+        const serviceWrap = row.querySelector('.serviceWrapper');
+        if (serviceWrap) serviceWrap.classList.remove('d-none');
+        const gstCol = row.querySelector('.gstPercentageCol');
+        if (gstCol) gstCol.classList.remove('d-none');
+        const gstPercentageInput = row.querySelector('.gstPercentage');
+        if (gstPercentageInput) {
+          gstPercentageInput.disabled = !item.gstApplicable;
+        }
       }
 
       calculateRow(row);

@@ -147,8 +147,10 @@ exports.create = async (req, res) => {
 
     for (const item of items || []) {
       // 1. Determine item identifier and type from separate form fields
-      const itemType = item.itemType === 'chair' ? 'chair' : 'sparePart';
-      const itemId = item.itemType === 'chair' ? (item.chair || item.itemId) : (item.sparePart || item.itemId);
+      const itemType = item.itemType === 'chair' ? 'chair' : (item.itemType === 'service' ? 'service' : 'sparePart');
+      const itemId = item.itemType === 'chair'
+        ? (item.chair || item.itemId)
+        : (item.itemType === 'service' ? (item.serviceName || 'Seat Making') : (item.sparePart || item.itemId));
 
       // Skip invalid/empty entries
       if (!itemId) continue;
@@ -175,6 +177,13 @@ exports.create = async (req, res) => {
               : 18;
         } else if (itemType === 'chair') {
           gstPercentage = 18;
+        } else if (itemType === 'service') {
+          gstPercentage =
+            item.gstPercentage !== undefined &&
+            item.gstPercentage !== null &&
+            item.gstPercentage !== ''
+              ? Math.max(0, Number(item.gstPercentage))
+              : 18;
         }
       }
 
@@ -204,9 +213,32 @@ exports.create = async (req, res) => {
         if (item.chairColor || item.colorId) {
           itemData.chairColor = item.chairColor || item.colorId;
         }
+      } else if (itemType === 'service') {
+        itemData.serviceName = item.serviceName || 'Seat Making';
       }
 
       formattedItems.push(itemData);
+    }
+
+    const serviceTotal = formattedItems
+      .filter(i => i.itemType === 'service')
+      .reduce((sum, i) => roundTo(sum + i.totalCost), 0);
+
+    const hasPhysicalItems = formattedItems.some(i => i.itemType !== 'service');
+    const poStatus = !hasPhysicalItems && formattedItems.length > 0
+      ? 'RECEIVED'
+      : (status || 'ORDERED');
+
+    const poValidationStatus = !hasPhysicalItems && formattedItems.length > 0
+      ? 'FULLY_VALIDATED'
+      : 'NOT_VALIDATED';
+
+    if (serviceTotal > 0 && poStatus !== 'DRAFT' && poStatus !== 'CANCELLED') {
+      const vendorDoc = await Vendor.findById(vendor).session(session);
+      if (vendorDoc) {
+        vendorDoc.balance = roundTo(Number(vendorDoc.balance || 0) + serviceTotal);
+        await vendorDoc.save({ session });
+      }
     }
 
     const purchaseNumber = await generatePoNumber();
@@ -217,13 +249,13 @@ exports.create = async (req, res) => {
       purchaseDate,
       deliverySchedule,
       deliveryAt,
-      status: status || 'ORDERED',
+      status: poStatus,
       notes,
       items: formattedItems,
       receivedItems: [],
       totalAmount,
-      receivedAmount: 0,
-      validationStatus: 'NOT_VALIDATED',
+      receivedAmount: serviceTotal,
+      validationStatus: poValidationStatus,
       createdBy: req.session.user.id
     }], { session });
 
@@ -402,13 +434,21 @@ exports.update = async (req, res) => {
       return res.redirect('/purchasing/purchases');
     }
 
+    const oldServiceTotal = (existingPurchase.items || [])
+      .filter(i => i.itemType === 'service')
+      .reduce((sum, i) => roundTo(sum + (i.totalCost || 0)), 0);
+    const oldVendorId = (existingPurchase.vendor?._id || existingPurchase.vendor).toString();
+    const oldStatus = existingPurchase.status;
+
     let formattedItems = [];
     let totalAmount = 0;
 
     for (const item of items || []) {
       // Handle actual form field structure sent by HTML form
-      const itemType = item.itemType === 'chair' ? 'chair' : 'sparePart';
-      const itemId = item.itemType === 'chair' ? (item.chair || item.itemId) : (item.sparePart || item.itemId);
+      const itemType = item.itemType === 'chair' ? 'chair' : (item.itemType === 'service' ? 'service' : 'sparePart');
+      const itemId = item.itemType === 'chair'
+        ? (item.chair || item.itemId)
+        : (item.itemType === 'service' ? (item.serviceName || 'Seat Making') : (item.sparePart || item.itemId));
 
       if (!itemId) continue;
 
@@ -434,6 +474,13 @@ exports.update = async (req, res) => {
               : 18;
         } else if (itemType === 'chair') {
           gstPercentage = 18;
+        } else if (itemType === 'service') {
+          gstPercentage =
+            item.gstPercentage !== undefined &&
+            item.gstPercentage !== null &&
+            item.gstPercentage !== ''
+              ? Math.max(0, Number(item.gstPercentage))
+              : 18;
         }
       }
 
@@ -463,9 +510,58 @@ exports.update = async (req, res) => {
         if (item.chairColor || item.colorId || item.color) {
           itemData.chairColor = item.chairColor || item.colorId || item.color;
         }
+      } else if (itemType === 'service') {
+        itemData.serviceName = item.serviceName || 'Seat Making';
       }
 
       formattedItems.push(itemData);
+    }
+
+    const newServiceTotal = formattedItems
+      .filter(i => i.itemType === 'service')
+      .reduce((sum, i) => roundTo(sum + i.totalCost), 0);
+    const newVendorId = (vendor?._id || vendor).toString();
+    const newStatus = status || existingPurchase.status;
+
+    const oldActive = oldStatus !== 'DRAFT' && oldStatus !== 'CANCELLED';
+    const newActive = newStatus !== 'DRAFT' && newStatus !== 'CANCELLED';
+
+    if (oldVendorId === newVendorId) {
+      const delta = (newActive ? newServiceTotal : 0) - (oldActive ? oldServiceTotal : 0);
+      if (delta !== 0) {
+        await Vendor.findByIdAndUpdate(
+          newVendorId,
+          { $inc: { balance: delta } },
+          { session }
+        );
+      }
+    } else {
+      if (oldActive && oldServiceTotal > 0) {
+        await Vendor.findByIdAndUpdate(
+          oldVendorId,
+          { $inc: { balance: -oldServiceTotal } },
+          { session }
+        );
+      }
+      if (newActive && newServiceTotal > 0) {
+        await Vendor.findByIdAndUpdate(
+          newVendorId,
+          { $inc: { balance: newServiceTotal } },
+          { session }
+        );
+      }
+    }
+
+    const serviceDifference = (newActive ? newServiceTotal : 0) - (oldActive ? oldServiceTotal : 0);
+    const updatedReceivedAmount = Math.max(0, roundTo(Number(existingPurchase.receivedAmount || 0) + serviceDifference));
+
+    const hasPhysicalItems = formattedItems.some(i => i.itemType !== 'service');
+    let finalStatus = newStatus;
+    let finalValidationStatus = existingPurchase.validationStatus;
+
+    if (!hasPhysicalItems && formattedItems.length > 0) {
+      finalStatus = 'RECEIVED';
+      finalValidationStatus = 'FULLY_VALIDATED';
     }
 
     const updatedPurchase = await Purchase.findByIdAndUpdate(
@@ -475,7 +571,9 @@ exports.update = async (req, res) => {
         purchaseDate,
         deliverySchedule,
         deliveryAt,
-        status,
+        status: finalStatus,
+        validationStatus: finalValidationStatus,
+        receivedAmount: updatedReceivedAmount,
         notes,
         items: formattedItems,
         totalAmount,
@@ -505,8 +603,32 @@ exports.delete = async (req, res) => {
   try {
     const purchase = await Purchase.findById(req.params.id).session(session);
 
-    if(purchase.status === 'RECEIVED') {
+    if (!purchase) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.redirect('/purchasing/purchases');
+    }
+
+    const hasReceivedPhysical = (purchase.receivedItems || []).some(
+      item => Number(item.receivedQuantity || 0) > 0
+    );
+
+    if (purchase.status === 'RECEIVED' && hasReceivedPhysical) {
+      await session.abortTransaction();
+      session.endSession();
       return res.redirect(`/purchasing/purchases/${purchase._id}`);
+    }
+
+    const serviceTotal = (purchase.items || [])
+      .filter(i => i.itemType === 'service')
+      .reduce((sum, i) => roundTo(sum + (i.totalCost || 0)), 0);
+
+    if (serviceTotal > 0 && purchase.status !== 'DRAFT' && purchase.status !== 'CANCELLED') {
+      await Vendor.findByIdAndUpdate(
+        purchase.vendor,
+        { $inc: { balance: -serviceTotal } },
+        { session }
+      );
     }
 
     await Purchase.findByIdAndDelete(req.params.id, { session });
@@ -549,6 +671,11 @@ exports.validateForm = async (req, res) => {
       throw new Error(`Purchase cannot be validated because its status is ${purchase.status}`);
     }
 
+    const hasPhysicalItems = (purchase.items || []).some(item => item.itemType !== 'service');
+    if (!hasPhysicalItems) {
+      throw new Error('This purchase order contains only services and does not require validation.');
+    }
+
     /* =====================================================
        BUILD VALIDATION ITEMS DATA
     ===================================================== */
@@ -560,7 +687,10 @@ exports.validateForm = async (req, res) => {
       }
     }
 
-    const validationItems = (purchase.items || []).map((item, index) => {
+    const validationItems = [];
+    (purchase.items || []).forEach((item, index) => {
+      if (item.itemType === 'service') return;
+
       const orderedQuantity = Number(item.quantity || 0);
       const previouslyReceived = Number(receivedMap.get(index) || 0);
       const remainingQuantity = roundTo(
@@ -590,7 +720,7 @@ exports.validateForm = async (req, res) => {
         itemName = item.sparePart?.partName || item.sparePart?.name || '-';
       }
 
-      return {
+      validationItems.push({
         poItemIndex: index,
         itemType: item.itemType,
         itemId: String(itemId || ''),
@@ -605,7 +735,7 @@ exports.validateForm = async (req, res) => {
         sparePart: item.sparePart,
         unitCost: Number(item.unitCost || 0),
         finalRate: Number(item.finalRate || 0)
-      };
+      });
     });
 
     /* =====================================================
@@ -762,6 +892,14 @@ exports.validate = async (req, res) => {
       }
 
       const purchaseItem = purchase.items[poItemIndex];
+
+      if (purchaseItem.itemType === 'service') {
+        return res.status(400).json({
+          success: false,
+          message: 'Services cannot be received via material validation.'
+        });
+      }
+
       const orderedQuantity = Number(purchaseItem.quantity || 0);
       const previouslyReceived = Number(
         receivedMap.get(poItemIndex) || 0
@@ -1060,6 +1198,8 @@ exports.validate = async (req, res) => {
     let fullyReceived = true;
 
     for (let index = 0; index < purchase.items.length; index++) {
+      if (purchase.items[index].itemType === 'service') continue;
+
       const orderedQuantity = Number(
         purchase.items[index].quantity || 0
       );
@@ -1165,6 +1305,8 @@ exports.shortClose = async (req, res) => {
     let remainingQuantity = 0;
 
     for (let index = 0; index < purchase.items.length; index++) {
+      if (purchase.items[index].itemType === 'service') continue;
+
       const ordered = Number(
         purchase.items[index].quantity || 0
       );

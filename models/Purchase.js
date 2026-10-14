@@ -3,8 +3,13 @@ const mongoose = require('mongoose');
 const PurchaseItemSchema = new mongoose.Schema({
   itemType: {
     type: String,
-    enum: ['sparePart', 'chair'],
+    enum: ['sparePart', 'chair', 'service'],
     required: true
+  },
+
+  serviceName: {
+    type: String,
+    default: 'Seat Making'
   },
 
   sparePart: {

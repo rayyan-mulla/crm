@@ -514,6 +514,8 @@
 
               hasColor = colorName && colorName !== '-';
               itemDisplayName = hasColor ? `${chairName} - ${colorName}` : chairName;
+            } else if (item.itemType === 'service') {
+              itemDisplayName = item.serviceName || 'Seat Making';
             }
 
             unitPrice = Number(item.unitCost) || 0;
