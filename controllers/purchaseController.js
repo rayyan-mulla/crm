@@ -12,6 +12,50 @@ const roundTo = (value, decimals = 6) => {
   return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
 };
 
+/**
+ * Automatically backfill poItemIndex on legacy receivedItems records
+ * that were created before poItemIndex was introduced.
+ */
+function resolveLegacyReceivedItems(purchase) {
+  if (!purchase || !Array.isArray(purchase.receivedItems) || !Array.isArray(purchase.items)) {
+    return;
+  }
+
+  for (let rIdx = 0; rIdx < purchase.receivedItems.length; rIdx++) {
+    const item = purchase.receivedItems[rIdx];
+    if (
+      item.poItemIndex === undefined ||
+      item.poItemIndex === null ||
+      Number.isNaN(Number(item.poItemIndex))
+    ) {
+      let matchIndex = purchase.items.findIndex(poItem => {
+        if (poItem.itemType !== item.itemType) return false;
+        if (item.itemType === 'sparePart') {
+          const poSpare = (poItem.sparePart?._id || poItem.sparePart)?.toString();
+          const recSpare = (item.sparePart?._id || item.sparePart)?.toString();
+          return poSpare && recSpare && poSpare === recSpare;
+        }
+        if (item.itemType === 'chair') {
+          const poChair = (poItem.chair?._id || poItem.chair)?.toString();
+          const recChair = (item.chair?._id || item.chair)?.toString();
+          const poColor = (poItem.chairColor?._id || poItem.chairColor)?.toString();
+          const recColor = (item.chairColor?._id || item.chairColor)?.toString();
+          return poChair && recChair && poChair === recChair && (!poColor || poColor === recColor);
+        }
+        return false;
+      });
+
+      if (matchIndex === -1 && rIdx < purchase.items.length) {
+        matchIndex = rIdx;
+      }
+
+      if (matchIndex !== -1) {
+        item.poItemIndex = matchIndex;
+      }
+    }
+  }
+}
+
 async function generatePoNumber() {
   const now = new Date();
 
@@ -347,6 +391,8 @@ exports.view = async (req, res) => {
       return res.redirect('/purchasing/purchases');
     }
 
+    resolveLegacyReceivedItems(purchase);
+
     res.render('purchases/view', {
       purchase,
       user: req.session.user,
@@ -679,6 +725,8 @@ exports.validateForm = async (req, res) => {
     /* =====================================================
        BUILD VALIDATION ITEMS DATA
     ===================================================== */
+    resolveLegacyReceivedItems(purchase);
+
     const receivedMap = new Map();
     for (const receivedItem of purchase.receivedItems || []) {
       const poItemIndex = Number(receivedItem.poItemIndex);
@@ -861,6 +909,8 @@ exports.validate = async (req, res) => {
     /**
      * Build current cumulative receiving map.
      */
+    resolveLegacyReceivedItems(purchase);
+
     const receivedMap = new Map();
 
     for (const receivedItem of purchase.receivedItems || []) {
@@ -1302,6 +1352,8 @@ exports.shortClose = async (req, res) => {
     /**
      * Make sure there really is something remaining.
      */
+    resolveLegacyReceivedItems(purchase);
+
     let remainingQuantity = 0;
 
     for (let index = 0; index < purchase.items.length; index++) {

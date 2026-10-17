@@ -83,7 +83,6 @@ const PurchaseItemSchema = new mongoose.Schema({
 const ReceivedPurchaseItemSchema = new mongoose.Schema({
   poItemIndex: {
     type: Number,
-    required: true,
     min: 0
   },
 
@@ -167,7 +166,6 @@ const ReceivedPurchaseItemSchema = new mongoose.Schema({
 const ReceiptHistoryItemSchema = new mongoose.Schema({
   poItemIndex: {
     type: Number,
-    required: true,
     min: 0
   },
 
@@ -412,5 +410,89 @@ const PurchaseSchema = new mongoose.Schema({
     type: Date
   }
 }, { timestamps: true });
+
+/**
+ * Pre-validation hook to automatically backfill poItemIndex on legacy receivedItems
+ * and receiptHistory records so saving legacy purchases never fails validation.
+ */
+PurchaseSchema.pre('validate', function(next) {
+  if (Array.isArray(this.receivedItems) && Array.isArray(this.items)) {
+    for (let rIdx = 0; rIdx < this.receivedItems.length; rIdx++) {
+      const item = this.receivedItems[rIdx];
+      if (
+        item.poItemIndex === undefined ||
+        item.poItemIndex === null ||
+        Number.isNaN(Number(item.poItemIndex))
+      ) {
+        let matchIndex = this.items.findIndex(poItem => {
+          if (poItem.itemType !== item.itemType) return false;
+          if (item.itemType === 'sparePart') {
+            const poSpare = (poItem.sparePart?._id || poItem.sparePart)?.toString();
+            const recSpare = (item.sparePart?._id || item.sparePart)?.toString();
+            return poSpare && recSpare && poSpare === recSpare;
+          }
+          if (item.itemType === 'chair') {
+            const poChair = (poItem.chair?._id || poItem.chair)?.toString();
+            const recChair = (item.chair?._id || item.chair)?.toString();
+            const poColor = (poItem.chairColor?._id || poItem.chairColor)?.toString();
+            const recColor = (item.chairColor?._id || item.chairColor)?.toString();
+            return poChair && recChair && poChair === recChair && (!poColor || poColor === recColor);
+          }
+          return false;
+        });
+
+        if (matchIndex === -1 && rIdx < this.items.length) {
+          matchIndex = rIdx;
+        }
+
+        if (matchIndex !== -1) {
+          item.poItemIndex = matchIndex;
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(this.receiptHistory)) {
+    for (const receipt of this.receiptHistory) {
+      if (Array.isArray(receipt.items) && Array.isArray(this.items)) {
+        for (let rIdx = 0; rIdx < receipt.items.length; rIdx++) {
+          const item = receipt.items[rIdx];
+          if (
+            item.poItemIndex === undefined ||
+            item.poItemIndex === null ||
+            Number.isNaN(Number(item.poItemIndex))
+          ) {
+            let matchIndex = this.items.findIndex(poItem => {
+              if (poItem.itemType !== item.itemType) return false;
+              if (item.itemType === 'sparePart') {
+                const poSpare = (poItem.sparePart?._id || poItem.sparePart)?.toString();
+                const recSpare = (item.sparePart?._id || item.sparePart)?.toString();
+                return poSpare && recSpare && poSpare === recSpare;
+              }
+              if (item.itemType === 'chair') {
+                const poChair = (poItem.chair?._id || poItem.chair)?.toString();
+                const recChair = (item.chair?._id || item.chair)?.toString();
+                const poColor = (poItem.chairColor?._id || poItem.chairColor)?.toString();
+                const recColor = (item.chairColor?._id || item.chairColor)?.toString();
+                return poChair && recChair && poChair === recChair && (!poColor || poColor === recColor);
+              }
+              return false;
+            });
+
+            if (matchIndex === -1 && rIdx < this.items.length) {
+              matchIndex = rIdx;
+            }
+
+            if (matchIndex !== -1) {
+              item.poItemIndex = matchIndex;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  next();
+});
 
 module.exports = mongoose.model('Purchase', PurchaseSchema);
