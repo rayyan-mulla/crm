@@ -8,8 +8,7 @@ const PurchaseItemSchema = new mongoose.Schema({
   },
 
   serviceName: {
-    type: String,
-    default: 'Seat Making'
+    type: String
   },
 
   sparePart: {
@@ -260,6 +259,11 @@ const ReceiptHistorySchema = new mongoose.Schema({
     min: 0
   },
 
+  billNumber: {
+    type: String,
+    trim: true
+  },
+
   notes: {
     type: String,
     trim: true
@@ -376,6 +380,11 @@ const PurchaseSchema = new mongoose.Schema({
   receivedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+
+  billNumber: {
+    type: String,
+    trim: true
   },
 
   shortClosedAt: {

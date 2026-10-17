@@ -362,16 +362,22 @@
           <div class="border rounded mb-4">
             <div class="receipt-header border-bottom p-3">
               <div class="row g-3 align-items-center">
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <div class="receipt-number">Receipt <%= index + 1 %></div>
                   <div class="text-muted small">Received At</div>
                   <div><%= formatDate(receipt.receivedAt, true) %></div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                  <div class="text-muted small">Bill / Invoice No.</div>
+                  <div class="fw-semibold <%= receipt.billNumber ? 'text-primary' : 'text-muted' %>">
+                    <%= receipt.billNumber || '-' %>
+                  </div>
+                </div>
+                <div class="col-md-3">
                   <div class="text-muted small">Received By</div>
                   <div><%= receipt.receivedBy?.fullName || receipt.receivedBy?.name || '-' %></div>
                 </div>
-                <div class="col-md-4 text-md-end">
+                <div class="col-md-3 text-md-end">
                   <div class="text-muted small">Receipt Value</div>
                   <div class="fw-bold fs-5"><%= money(receipt.receivedAmount) %></div>
                 </div>

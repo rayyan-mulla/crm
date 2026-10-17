@@ -1221,13 +1221,20 @@ exports.validate = async (req, res) => {
      * CREATE RECEIPT HISTORY ENTRY
      * ---------------------------------------------------------
      */
+    const billNumber = (req.body.billNumber || '').trim();
+
     purchase.receiptHistory.push({
       receivedAt: new Date(),
       receivedBy: req.session.user.id,
       items: receiptItems,
       receivedAmount: currentDeliveryAmount,
+      billNumber,
       notes: req.body.validationNotes || ''
     });
+
+    if (billNumber) {
+      purchase.billNumber = billNumber;
+    }
 
     /**
      * Cumulative received amount.

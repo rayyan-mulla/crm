@@ -137,10 +137,20 @@
   <form method="POST" action="/purchasing/purchases/<%= purchase._id %>/validate" id="validationForm">
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
           <div>
             <h5 class="mb-1">Material Validation</h5>
             <div class="text-muted small">Enter only the quantity received in this delivery to validate.</div>
+          </div>
+          <div class="input-group input-group-sm" style="max-width: 260px;">
+            <span class="input-group-text bg-light text-muted small">Bill / Inv No.</span>
+            <input 
+              type="text" 
+              name="billNumber" 
+              id="billNumberInput"
+              class="form-control" 
+              placeholder="e.g. INV-1234"
+            >
           </div>
         </div>
 
@@ -398,7 +408,12 @@
       return;
     }
 
-    document.getElementById('receiptSummary').textContent = `You are validating ${totalReceiveNow} item(s) in this delivery.`;
+    const billNum = document.getElementById('billNumberInput')?.value?.trim();
+    let summaryText = `You are validating ${totalReceiveNow} item(s) in this delivery.`;
+    if (billNum) {
+      summaryText += ` (Bill / Invoice No: ${billNum})`;
+    }
+    document.getElementById('receiptSummary').textContent = summaryText;
     document.getElementById('modalErrorAlert').classList.add('d-none');
     validateModal.show();
   });

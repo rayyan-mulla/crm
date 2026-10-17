@@ -287,7 +287,7 @@
                   <select
                     class="form-select serviceSelect"
                     name="items[<%= index %>][serviceName]"
-                    <%= isValidated ? 'disabled' : '' %>
+                    <%= (isValidated || currentType !== 'service') ? 'disabled' : '' %>
                   >
                     <option value="Seat Making" <%= (!item.serviceName || item.serviceName === 'Seat Making') ? 'selected' : '' %>>Seat Making</option>
                   </select>
@@ -522,6 +522,7 @@
         chairWrap.classList.remove('d-none');
         colorWrap.classList.remove('d-none');
         if (serviceWrap) serviceWrap.classList.add('d-none');
+        if (serviceSelect) serviceSelect.disabled = true;
         if (gstCol) gstCol.classList.add('d-none');
         if (gstPercentageInput) {
           gstPercentageInput.disabled = false;
@@ -532,7 +533,10 @@
         chairWrap.classList.add('d-none');
         colorWrap.classList.add('d-none');
         if (serviceWrap) serviceWrap.classList.remove('d-none');
-        if (serviceSelect) serviceSelect.value = 'Seat Making';
+        if (serviceSelect) {
+          serviceSelect.disabled = false;
+          serviceSelect.value = 'Seat Making';
+        }
         if (gstCol) gstCol.classList.remove('d-none');
         if (gstPercentageInput) {
           if (gstCheck && gstCheck.checked) {
@@ -549,6 +553,7 @@
         chairWrap.classList.add('d-none');
         colorWrap.classList.add('d-none');
         if (serviceWrap) serviceWrap.classList.add('d-none');
+        if (serviceSelect) serviceSelect.disabled = true;
         if (gstCol) gstCol.classList.add('d-none');
         if (gstPercentageInput) {
           gstPercentageInput.disabled = false;
@@ -680,6 +685,8 @@
       newRow.querySelector('.colorWrapper').classList.add('d-none');
       const serviceWrap = newRow.querySelector('.serviceWrapper');
       if (serviceWrap) serviceWrap.classList.add('d-none');
+      const serviceSelect = newRow.querySelector('.serviceSelect');
+      if (serviceSelect) serviceSelect.disabled = true;
       const gstCol = newRow.querySelector('.gstPercentageCol');
       if (gstCol) gstCol.classList.add('d-none');
 
@@ -716,11 +723,14 @@
       const item = purchaseItems[index];
       if (!item) return;
 
+      const serviceSelect = row.querySelector('.serviceSelect');
       if (item.itemType === 'chair') {
+        if (serviceSelect) serviceSelect.disabled = true;
         const chairId = item.chair?._id || item.chair;
         const colorId = item.chairColor || item.color;
         populateColors(row, chairId, colorId);
       } else if (item.itemType === 'service') {
+        if (serviceSelect) serviceSelect.disabled = false;
         const serviceWrap = row.querySelector('.serviceWrapper');
         if (serviceWrap) serviceWrap.classList.remove('d-none');
         const gstCol = row.querySelector('.gstPercentageCol');
@@ -729,6 +739,8 @@
         if (gstPercentageInput) {
           gstPercentageInput.disabled = !item.gstApplicable;
         }
+      } else {
+        if (serviceSelect) serviceSelect.disabled = true;
       }
 
       calculateRow(row);
