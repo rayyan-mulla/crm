@@ -504,4 +504,4 @@ PurchaseSchema.pre('validate', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Purchase', PurchaseSchema);
+module.exports = mongoose.model('PurchaseOrder', PurchaseSchema, 'purchases');

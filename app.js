@@ -65,7 +65,7 @@ const sparePartCategoryRoutes = require('./routes/sparePartCategories');
 const taxInvoiceRoutes = require('./routes/taxInvoice');
 const reportsRouter = require('./routes/reports')
 const vendorsRouter = require('./routes/vendors');
-const purchaseRoutes = require('./routes/purchases');
+const purchaseOrderRoutes = require('./routes/purchaseOrders');
 const vendorPaymentRoutes = require('./routes/vendorPayments');
 const productCategoryRoutes = require('./routes/productCategories');
 const subAssemblyRoutes = require('./routes/subAssemblies');
@@ -83,7 +83,7 @@ app.use('/raw-materials/spare-part-categories', sparePartCategoryRoutes);
 app.use('/tax-invoice', taxInvoiceRoutes);
 app.use('/reports', reportsRouter);
 app.use('/purchasing/vendors', vendorsRouter);
-app.use('/purchasing/purchases', purchaseRoutes);
+app.use('/purchasing/purchase-orders', purchaseOrderRoutes);
 app.use('/purchasing/vendor-payments', vendorPaymentRoutes);
 app.use('/production/product-categories', productCategoryRoutes);
 app.use('/production/sub-assemblies', subAssemblyRoutes);

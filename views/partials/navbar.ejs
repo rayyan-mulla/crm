@@ -224,7 +224,7 @@
           <li class="nav-item dropdown">
             <a
               class="nav-link dropdown-toggle
-                <%= (activePage === 'vendors' || activePage === 'purchases' || activePage === 'vendorPayments') ? 'active' : '' %>"
+                <%= (activePage === 'vendors' || activePage === 'purchaseOrders' || activePage === 'vendorPayments') ? 'active' : '' %>"
               href="#"
               role="button"
               data-bs-toggle="dropdown"
@@ -244,10 +244,10 @@
 
               <li>
                 <a
-                  class="dropdown-item <%= (activePage === 'purchases') ? 'active' : '' %>"
-                  href="/purchasing/purchases"
+                  class="dropdown-item <%= (activePage === 'purchaseOrders') ? 'active' : '' %>"
+                  href="/purchasing/purchase-orders"
                 >
-                  Purchases
+                  Purchase Orders
                 </a>
               </li>
               <li>

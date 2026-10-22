@@ -2,14 +2,14 @@
 
 const VendorPayment = require('../models/VendorPayment');
 const Vendor = require('../models/Vendor');
-const Purchase = require('../models/Purchase');
+const PurchaseOrder = require('../models/PurchaseOrder');
 const mongoose = require('mongoose');
 
 
 // 🔹 INDEX (LEDGER)
 exports.index = async (req, res) => {
 
-  const purchases = await Purchase.find({ status: 'PURCHASED' })
+  const purchases = await PurchaseOrder.find({ status: 'PURCHASED' })
     .populate('vendor')
     .lean();
 
@@ -22,7 +22,7 @@ exports.index = async (req, res) => {
   purchases.forEach(p => {
     ledger.push({
       date: p.purchaseDate,
-      type: 'Purchase',
+      type: 'Purchase Order',
       ref: p.purchaseNumber,
       vendor: p.vendor?.name,
       debit: p.totalAmount,

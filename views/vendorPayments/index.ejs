@@ -28,7 +28,7 @@
   <div class="row mb-3">
     <div class="col-md-4">
       <div class="card p-2 text-center shadow-sm">
-        <small>Total Purchases</small>
+        <small>Total Purchase Orders</small>
         <div class="fw-bold text-danger">₹<%= totalDebit.toFixed(2) %></div>
       </div>
     </div>
@@ -82,7 +82,7 @@
             <td><%= new Date(l.date).toLocaleDateString('en-IN') %></td>
 
             <td>
-              <span class="badge <%= l.type==='Purchase' ? 'bg-primary' : 'bg-success' %>">
+              <span class="badge <%= (l.type==='Purchase' || l.type==='Purchase Order') ? 'bg-primary' : 'bg-success' %>">
                 <%= l.type %>
               </span>
             </td>
@@ -120,7 +120,7 @@
 
               <% } else { %>
 
-                <a href="/purchasing/purchases/<%= l.id %>" class="btn btn-sm btn-outline-dark">View</a>
+                <a href="/purchasing/purchase-orders/<%= l.id %>" class="btn btn-sm btn-outline-dark">View</a>
 
               <% } %>
 
