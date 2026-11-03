@@ -12,7 +12,22 @@ const VendorPaymentSchema = new mongoose.Schema({
 
   paymentNumber: {
     type: String,
-    unique: true
+    unique: true,
+    sparse: true
+  },
+
+  purchaseOrder: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PurchaseOrder'
+  },
+
+  receiptIndex: {
+    type: Number
+  },
+
+  billNumber: {
+    type: String,
+    trim: true
   },
 
   amount: {

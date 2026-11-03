@@ -144,9 +144,11 @@
               %>
 
               <td>
-                <span class="badge <%= balanceClass %>">
-                  ₹<%= (v.balance || 0).toFixed(2) %>
-                </span>
+                <a href="/purchasing/vendor-payments?vendor=<%= v._id %>" class="text-decoration-none" title="View Payments & Bills for <%= v.name %>">
+                  <span class="badge <%= balanceClass %>">
+                    ₹<%= (v.balance || 0).toFixed(2) %>
+                  </span>
+                </a>
               </td>
 
               <td>
@@ -164,6 +166,22 @@
               </td>
 
               <td class="text-end">
+
+                <a
+                  href="/purchasing/vendor-payments?vendor=<%= v._id %>"
+                  class="btn btn-sm btn-outline-info"
+                  title="View Payments & Bills for <%= v.name %>"
+                >
+                  Payments
+                </a>
+
+                <a
+                  href="/purchasing/vendor-payments/new?vendor=<%= v._id %>"
+                  class="btn btn-sm btn-outline-success"
+                  title="Record Payment for <%= v.name %>"
+                >
+                  Pay
+                </a>
 
                 <a
                   href="/purchasing/vendors/<%= v._id %>/edit"

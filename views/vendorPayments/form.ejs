@@ -1,10 +1,12 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title><%= mode==='edit' ? 'Edit Payment' : 'Add Payment' %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= mode === 'edit' ? 'Edit Vendor Payment' : 'New Vendor Payment' %> - Olive Chairs ERP</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 </head>
 
 <body>
@@ -13,74 +15,216 @@
 
 <div class="container py-5">
 
-  <div class="card shadow-sm">
-    <div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">
+      <%= mode === 'edit' ? 'Edit Vendor Payment' : 'New Vendor Payment' %>
+    </h3>
+  </div>
 
-      <h4 class="mb-4">
-        <%= mode==='edit' ? 'Edit Vendor Payment' : 'Add Vendor Payment' %>
-      </h4>
+  <form method="POST" action="<%= mode === 'edit' ? '/purchasing/vendor-payments/' + payment._id + '/update' : '/purchasing/vendor-payments' %>">
 
-      <form method="POST" action="<%= mode==='edit' ? '/purchasing/vendor-payments/'+payment._id+'/update' : '/purchasing/vendor-payments' %>">
+    <div class="card shadow-sm p-3 mb-4">
+      <div class="card-header bg-white border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h5 class="mb-0">Payment Details</h5>
+        <div id="billInfoBoxWrapper" class="d-none">
+          <div id="billInfoBox" class="d-inline-flex flex-wrap align-items-center small"></div>
+        </div>
+      </div>
 
+      <div class="card-body">
         <div class="row g-3">
 
+          <!-- ROW 1: Vendor, Against Bill, Payment Date -->
+          <!-- VENDOR -->
           <div class="col-md-4">
-            <label class="form-label">Vendor</label>
-            <select name="vendor" class="form-select" required>
+            <label class="form-label text-muted small fw-semibold">Vendor <span class="text-danger">*</span></label>
+            <select name="vendor" id="vendorSelect" class="form-select" required>
+              <option value="">-- Select Vendor --</option>
               <% vendors.forEach(v => { %>
-                <option value="<%= v._id %>" <%= payment?.vendor==v._id ? 'selected':'' %>>
-                  <%= v.name %>
+                <option value="<%= v._id %>" <%= (selectedVendor == v._id || payment?.vendor == v._id || payment?.vendor?._id == v._id) ? 'selected':'' %>>
+                  <%= v.name %> (Balance: ₹<%= (v.balance || 0).toFixed(2) %>)
                 </option>
               <% }) %>
             </select>
           </div>
 
+          <!-- AGAINST BILL -->
           <div class="col-md-4">
-            <label class="form-label">Amount</label>
-            <input type="number" step="0.01" name="amount" class="form-control" value="<%= payment?.amount || '' %>" required>
+            <label class="form-label text-muted small fw-semibold">Against Bill / Delivery</label>
+            <select id="billSelect" class="form-select">
+              <option value="">-- General Payment / On Account --</option>
+              <% (bills || []).forEach(b => { %>
+                <%
+                  const isSelected = (
+                    (selectedPo && String(b.purchaseOrderId) === String(selectedPo) && (selectedReceipt === null || Number(b.receiptIndex) === Number(selectedReceipt))) ||
+                    (selectedBill && b.billNumber === selectedBill) ||
+                    (payment && payment.purchaseOrder && String(b.purchaseOrderId) === String(payment.purchaseOrder._id || payment.purchaseOrder) && (payment.receiptIndex === undefined || Number(b.receiptIndex) === Number(payment.receiptIndex)))
+                  );
+                %>
+                <option 
+                  value="<%= b.billKey %>" 
+                  data-po="<%= b.purchaseOrderId %>" 
+                  data-receipt="<%= b.receiptIndex %>" 
+                  data-bill-no="<%= b.billNumber %>" 
+                  data-pending="<%= b.pendingAmount %>" 
+                  data-amount="<%= b.billAmount %>"
+                  <%= isSelected ? 'selected' : '' %>
+                >
+                  [<%= b.billNumber %>] PO: <%= b.poNumber %> | Due: ₹<%= Number(b.pendingAmount).toFixed(2) %>
+                </option>
+              <% }) %>
+            </select>
+
+            <!-- Hidden Fields for Bill Linkage -->
+            <input type="hidden" name="purchaseOrder" id="purchaseOrderInput" value="<%= payment?.purchaseOrder?._id || payment?.purchaseOrder || selectedPo || '' %>">
+            <input type="hidden" name="receiptIndex" id="receiptIndexInput" value="<%= payment?.receiptIndex !== undefined ? payment.receiptIndex : (selectedReceipt !== null ? selectedReceipt : '') %>">
+            <input type="hidden" name="billNumber" id="billNumberInput" value="<%= payment?.billNumber || selectedBill || '' %>">
           </div>
 
+          <!-- PAYMENT DATE -->
           <div class="col-md-4">
-            <label class="form-label">Date</label>
+            <label class="form-label text-muted small fw-semibold">Payment Date <span class="text-danger">*</span></label>
             <input type="date" name="paymentDate" class="form-control"
-              value="<%= payment?.paymentDate ? new Date(payment.paymentDate).toISOString().split('T')[0] : '' %>" required>
+              value="<%= payment?.paymentDate ? new Date(payment.paymentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0] %>" required>
           </div>
 
+          <!-- ROW 2: Amount, Payment Method, Reference -->
+          <!-- AMOUNT -->
           <div class="col-md-4">
-            <label class="form-label">Method</label>
+            <label class="form-label text-muted small fw-semibold">Amount (₹) <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" min="0.01" name="amount" id="amountInput" class="form-control" value="<%= payment?.amount || '' %>" required>
+          </div>
+
+          <!-- PAYMENT METHOD -->
+          <div class="col-md-4">
+            <label class="form-label text-muted small fw-semibold">Payment Method</label>
             <select name="paymentMethod" class="form-select">
-              <option value="cash">Cash</option>
-              <option value="bank">Bank</option>
-              <option value="upi">UPI</option>
-              <option value="cheque">Cheque</option>
+              <option value="bank" <%= payment?.paymentMethod==='bank' ? 'selected':'' %>>Bank Transfer / NEFT / RTGS</option>
+              <option value="upi" <%= payment?.paymentMethod==='upi' ? 'selected':'' %>>UPI</option>
+              <option value="cheque" <%= payment?.paymentMethod==='cheque' ? 'selected':'' %>>Cheque</option>
+              <option value="cash" <%= payment?.paymentMethod==='cash' ? 'selected':'' %>>Cash</option>
             </select>
           </div>
 
+          <!-- REFERENCE -->
           <div class="col-md-4">
-            <label class="form-label">Reference</label>
-            <input type="text" name="reference" class="form-control" value="<%= payment?.reference || '' %>">
+            <label class="form-label text-muted small fw-semibold">Reference / UTR / Cheque No.</label>
+            <input type="text" name="reference" id="referenceInput" class="form-control" placeholder="e.g. UTR12345678 or Chq #0012" value="<%= payment?.reference || '' %>">
           </div>
 
-          <div class="col-md-12">
-            <label class="form-label">Notes</label>
-            <textarea name="notes" class="form-control"><%= payment?.notes || '' %></textarea>
+          <!-- ROW 3: Notes (Full width) -->
+          <!-- NOTES -->
+          <div class="col-12">
+            <label class="form-label text-muted small fw-semibold">Notes</label>
+            <textarea name="notes" class="form-control" rows="2" placeholder="Optional internal notes or remarks..."><%= payment?.notes || '' %></textarea>
           </div>
 
         </div>
-
-        <div class="mt-4 d-flex justify-content-end gap-2">
-          <a href="/purchasing/vendor-payments" class="btn btn-secondary">Cancel</a>
-          <button class="btn btn-success">Save Payment</button>
-        </div>
-
-      </form>
-
+      </div>
     </div>
-  </div>
+
+    <!-- BUTTONS -->
+    <div class="text-end mt-4">
+      <a href="/purchasing/vendor-payments" class="btn btn-secondary me-2">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        <%= mode === 'edit' ? 'Save Changes' : 'Save Payment' %>
+      </button>
+    </div>
+
+  </form>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  const vendorSelect = document.getElementById('vendorSelect');
+  const billSelect = document.getElementById('billSelect');
+  const purchaseOrderInput = document.getElementById('purchaseOrderInput');
+  const receiptIndexInput = document.getElementById('receiptIndexInput');
+  const billNumberInput = document.getElementById('billNumberInput');
+  const amountInput = document.getElementById('amountInput');
+  const referenceInput = document.getElementById('referenceInput');
+  const billInfoBox = document.getElementById('billInfoBox');
+  const billInfoBoxWrapper = document.getElementById('billInfoBoxWrapper');
+  const isCreateMode = '<%= mode %>' === 'create';
+
+  function updateBillInfo() {
+    const selected = billSelect.selectedOptions[0];
+    if (selected && selected.value) {
+      const po = selected.dataset.po || '';
+      const receipt = selected.dataset.receipt || '';
+      const billNo = selected.dataset.billNo || '';
+      const pending = parseFloat(selected.dataset.pending) || 0;
+      const totalAmount = parseFloat(selected.dataset.amount) || 0;
+
+      purchaseOrderInput.value = po;
+      receiptIndexInput.value = receipt;
+      billNumberInput.value = billNo;
+
+      if (isCreateMode && (!amountInput.value || parseFloat(amountInput.value) === 0)) {
+        amountInput.value = pending > 0 ? pending : totalAmount;
+      }
+
+      if (!referenceInput.value) {
+        referenceInput.value = `Bill: ${billNo}`;
+      }
+
+      billInfoBox.innerHTML = `<span class="text-muted me-1">Selected:</span><strong class="text-primary me-2">${billNo}</strong><span class="badge bg-light text-dark border me-1">Total: ₹${totalAmount.toFixed(2)}</span><span class="badge bg-warning-subtle text-warning-emphasis border">Due: ₹${pending.toFixed(2)}</span>`;
+      if (billInfoBoxWrapper) billInfoBoxWrapper.classList.remove('d-none');
+    } else {
+      purchaseOrderInput.value = '';
+      receiptIndexInput.value = '';
+      billNumberInput.value = '';
+      if (billInfoBoxWrapper) billInfoBoxWrapper.classList.add('d-none');
+    }
+  }
+
+  billSelect.addEventListener('change', () => {
+    const selected = billSelect.selectedOptions[0];
+    if (selected && selected.value) {
+      const pending = parseFloat(selected.dataset.pending) || 0;
+      if (pending > 0) {
+        amountInput.value = pending;
+      }
+    }
+    updateBillInfo();
+  });
+
+  vendorSelect.addEventListener('change', async () => {
+    const vendorId = vendorSelect.value;
+    billSelect.innerHTML = '<option value="">-- General Payment / On Account --</option>';
+    if (billInfoBoxWrapper) billInfoBoxWrapper.classList.add('d-none');
+    purchaseOrderInput.value = '';
+    receiptIndexInput.value = '';
+    billNumberInput.value = '';
+
+    if (!vendorId) return;
+
+    try {
+      const res = await fetch(`/purchasing/vendor-payments/bills-by-vendor/${vendorId}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.bills)) {
+        data.bills.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.billKey;
+          opt.dataset.po = b.purchaseOrderId;
+          opt.dataset.receipt = b.receiptIndex;
+          opt.dataset.billNo = b.billNumber;
+          opt.dataset.pending = b.pendingAmount;
+          opt.dataset.amount = b.billAmount;
+          opt.textContent = `[${b.billNumber}] PO: ${b.poNumber} | Bill: ₹${Number(b.billAmount).toFixed(2)} | Due: ₹${Number(b.pendingAmount).toFixed(2)}`;
+          billSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching bills:', e);
+    }
+  });
+
+  // Run on page load
+  updateBillInfo();
+</script>
 
 </body>
 </html>
