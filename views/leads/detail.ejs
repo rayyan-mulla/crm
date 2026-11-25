@@ -980,13 +980,13 @@
   window.addEventListener('DOMContentLoaded', scrollChatToBottom);
 </script>
 
-<script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io();
+  const socket = window.__crmSocket || (typeof io !== 'undefined' ? io() : null);
+  window.__activeLeadId = "<%= lead._id %>";
   let countdownInterval;
 
   // join this lead’s room
-  if ("<%= lead._id %>") {
+  if ("<%= lead._id %>" && socket) {
     socket.emit('joinLeadRoom', "<%= lead._id %>");
   }
 

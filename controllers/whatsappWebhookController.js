@@ -307,14 +307,18 @@ exports.handleWebhook = async (req, res) => {
             } else if (type === 'image') {
               mediaId = msg.image.id;
               caption = msg.image.caption || null;
-              content = '[Image]';
+              content = caption || '[Image]';
             } else if (type === 'document') {
               mediaId = msg.document.id;
               caption = msg.document.caption || null;
-              content = '[Document]';
+              content = caption || msg.document.filename || '[Document]';
             } else if (type === 'audio') {
               mediaId = msg.audio.id;
               content = '[Audio]';
+            } else if (type === 'button') {
+              content = msg.button?.text || '[Button Response]';
+            } else if (type === 'interactive') {
+              content = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || '[Interactive Response]';
             } else {
               content = `[${type}]`;
             }
@@ -363,10 +367,22 @@ exports.handleWebhook = async (req, res) => {
                 });
               }
 
-              // 👇 emit to that lead’s room
+              // 👇 emit to that lead’s room and broadcast notification across all CRM devices/tabs
               try {
                 const io = getIO();
                 io.to(leadId.toString()).emit('newMessage', chat);
+
+                // Broadcast real-time notification to all active devices (computer, tablet, mobile)
+                io.emit('leadMessageNotification', {
+                  leadId: leadId.toString(),
+                  customerName: result?.customer_name || 'Customer',
+                  contactNumber: result?.contact_number || from,
+                  assignedTo: result?.assignedTo ? result.assignedTo.toString() : null,
+                  message: content || 'New message received',
+                  type: chat.type,
+                  direction: 'inbound',
+                  timestamp: istDate
+                });
               } catch (e) {
                 console.warn("⚠️ Socket emit failed:", e.message);
               }
