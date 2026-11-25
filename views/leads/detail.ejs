@@ -1056,8 +1056,12 @@
     const chatBox = document.querySelector('.chat-box');
     if (!chatBox) return;
 
-    // If message is inbound, UNLOCK the free chat UI instantly
+    // If message is inbound, UNLOCK the free chat UI instantly and play chime sound
     if (msg.direction === 'inbound') {
+      if (window.playCrmNotificationSound) {
+        window.playCrmNotificationSound();
+      }
+
       const freeArea = document.getElementById('free-chat-area');
       const tempArea = document.getElementById('template-area');
       const timerBadge = document.getElementById('chat-timer-badge'); 

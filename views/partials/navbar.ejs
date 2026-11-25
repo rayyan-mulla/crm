@@ -273,24 +273,6 @@
 
         <% } %>
 
-        <!-- Notification Bell -->
-        <% if (user) { %>
-          <li class="nav-item d-flex align-items-center me-2">
-            <button 
-              id="crmNotifBellBtn" 
-              class="btn btn-sm btn-outline-secondary rounded-circle position-relative p-1 d-flex align-items-center justify-content-center" 
-              style="width: 32px; height: 32px;"
-              title="Message Notifications (Click to test sound / enable alerts)"
-              type="button"
-            >
-              <i class="bi bi-bell-fill text-muted" id="crmNotifBellIcon" style="font-size: 0.85rem;"></i>
-              <span id="crmNotifDot" class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-light rounded-circle d-none">
-                <span class="visually-hidden">New alert</span>
-              </span>
-            </button>
-          </li>
-        <% } %>
-
         <!-- Profile Dropdown -->
           <% if (user) { %>
           <li class="nav-item dropdown">
@@ -372,7 +354,8 @@
   })();
 </script>
 
-<!-- GLOBAL NOTIFICATION TOAST CONTAINER -->
+<!-- GLOBAL NOTIFICATION AUDIO & TOAST CONTAINER -->
+<audio id="crmNotificationAudio" src="/sounds/notification.wav" preload="auto"></audio>
 <div 
   id="crmNotificationContainer" 
   class="toast-container position-fixed top-0 end-0 p-3" 
@@ -407,31 +390,70 @@
       window.__crmSocket = window.__crmSocket || io();
     }
 
-    // 2. Web Audio API Chime Synthesizer
-    // Works reliably on computers, tablets, and mobile phones
-    let audioCtx = null;
+    // 2. Audio Engine with Dual Unlocking (HTML5 Audio + Web Audio API)
+    // Ensures reliable sound playback on computers, tablets, and mobile phones
+    let audioUnlocked = false;
+
     function getAudioContext() {
       try {
-        if (!audioCtx) {
+        if (!window.__crmAudioCtx) {
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (AudioContextClass) audioCtx = new AudioContextClass();
+          if (AudioContextClass) window.__crmAudioCtx = new AudioContextClass();
         }
-        if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume();
+        if (window.__crmAudioCtx && window.__crmAudioCtx.state === 'suspended') {
+          window.__crmAudioCtx.resume();
         }
       } catch (e) {}
-      return audioCtx;
+      return window.__crmAudioCtx;
     }
 
-    // Unlock audio context on user interaction (tap or click anywhere)
+    // Unlocks browser audio autoplay restrictions on user's first touch or click
     function unlockAudio() {
-      getAudioContext();
-    }
-    document.addEventListener('click', unlockAudio, { passive: true });
-    document.addEventListener('touchstart', unlockAudio, { passive: true });
+      if (audioUnlocked) return;
 
-    // Dual-tone harmonic chime (WhatsApp/iOS notification style ping)
-    function playChimeSound() {
+      // 1. Warm up HTML5 audio element
+      const audioEl = document.getElementById('crmNotificationAudio');
+      if (audioEl) {
+        audioEl.volume = 0.001;
+        const playPromise = audioEl.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            audioEl.pause();
+            audioEl.currentTime = 0;
+            audioEl.volume = 1.0;
+            audioUnlocked = true;
+          }).catch(() => {});
+        }
+      }
+
+      // 2. Warm up Web Audio context with a silent buffer
+      try {
+        const ctx = getAudioContext();
+        if (ctx) {
+          if (ctx.state === 'suspended') ctx.resume();
+          const buffer = ctx.createBuffer(1, 1, 22050);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+          audioUnlocked = true;
+        }
+      } catch (e) {}
+
+      // 3. Request desktop/mobile notification permission on first interaction
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        try {
+          Notification.requestPermission().catch(() => {});
+        } catch (e) {}
+      }
+    }
+
+    window.addEventListener('click', unlockAudio, { capture: true, passive: true });
+    window.addEventListener('touchstart', unlockAudio, { capture: true, passive: true });
+    window.addEventListener('keydown', unlockAudio, { capture: true, passive: true });
+
+    // Iconic WhatsApp mobile "pop-ting" incoming message sound
+    function playSynthesizedChime() {
       try {
         const ctx = getAudioContext();
         if (!ctx) return;
@@ -439,40 +461,79 @@
 
         const now = ctx.currentTime;
 
-        // Tone 1: 587.33 Hz (Note D5)
+        // 1. Initial soft "pop" (A5 ~880 Hz)
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
         osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(587.33, now);
+        osc1.frequency.setValueAtTime(880.0, now);
 
         gain1.gain.setValueAtTime(0, now);
-        gain1.gain.linearRampToValueAtTime(0.3, now + 0.02);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+        gain1.gain.linearRampToValueAtTime(0.35, now + 0.003);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
 
         osc1.connect(gain1);
         gain1.connect(ctx.destination);
         osc1.start(now);
-        osc1.stop(now + 0.20);
+        osc1.stop(now + 0.09);
 
-        // Tone 2: 880.00 Hz (Note A5) - harmonic finish
+        // 2. High crystal "ting" (A6 ~1760 Hz) - the signature WhatsApp message chime
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
         osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(880.00, now + 0.08);
+        osc2.frequency.setValueAtTime(1760.0, now + 0.055);
 
-        gain2.gain.setValueAtTime(0, now + 0.08);
-        gain2.gain.linearRampToValueAtTime(0.35, now + 0.10);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.50);
+        gain2.gain.setValueAtTime(0, now + 0.055);
+        gain2.gain.linearRampToValueAtTime(0.45, now + 0.058);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
 
         osc2.connect(gain2);
         gain2.connect(ctx.destination);
-        osc2.start(now + 0.08);
-        osc2.stop(now + 0.50);
+        osc2.start(now + 0.055);
+        osc2.stop(now + 0.36);
 
+        // 3. Subtle high sparkle overtone (A7 ~3520 Hz)
+        const osc3 = ctx.createOscillator();
+        const gain3 = ctx.createGain();
+        osc3.type = 'sine';
+        osc3.frequency.setValueAtTime(3520.0, now + 0.055);
+
+        gain3.gain.setValueAtTime(0, now + 0.055);
+        gain3.gain.linearRampToValueAtTime(0.12, now + 0.058);
+        gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.start(now + 0.055);
+        osc3.stop(now + 0.28);
       } catch (err) {
-        console.warn('Audio chime warning:', err);
+        console.warn('Synthesized chime error:', err);
       }
     }
+
+    // Primary audio playback: plays notification audio with fallback to synthesizer
+    function playNotificationSound() {
+      const audioEl = document.getElementById('crmNotificationAudio');
+      if (audioEl) {
+        try {
+          audioEl.currentTime = 0;
+          audioEl.volume = 1.0;
+          const playPromise = audioEl.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.warn('HTML5 audio play blocked, falling back to Web Audio:', err);
+              playSynthesizedChime();
+            });
+          }
+        } catch (e) {
+          playSynthesizedChime();
+        }
+      } else {
+        playSynthesizedChime();
+      }
+    }
+
+    // Expose globally for detail and chat views
+    window.playCrmNotificationSound = playNotificationSound;
 
     // 3. Desktop / Mobile Browser System Notification
     function showBrowserNotification(data) {
@@ -569,44 +630,15 @@
 
     // 5. Connect and listen for notifications
     document.addEventListener('DOMContentLoaded', () => {
-      const bellBtn = document.getElementById('crmNotifBellBtn');
-      const bellIcon = document.getElementById('crmNotifBellIcon');
-      const dot = document.getElementById('crmNotifDot');
-
-      // Update bell icon color based on browser permission
-      if (typeof Notification !== 'undefined') {
-        if (Notification.permission === 'granted' && bellIcon) {
-          bellIcon.classList.add('text-success');
-          bellIcon.classList.remove('text-muted');
-        }
-      }
-
-      if (bellBtn) {
-        bellBtn.addEventListener('click', () => {
-          playChimeSound();
-          if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-            Notification.requestPermission().then(perm => {
-              if (perm === 'granted' && bellIcon) {
-                bellIcon.classList.add('text-success');
-                bellIcon.classList.remove('text-muted');
-              }
-            });
-          }
-        });
-      }
-
       if (window.__crmSocket) {
         window.__crmSocket.on('leadMessageNotification', (data) => {
           console.log('🔔 Inbound lead message notification:', data);
 
-          // Always play chime sound!
-          playChimeSound();
+          // Always play notification sound alert!
+          playNotificationSound();
 
           // Trigger browser desktop / mobile notification
           showBrowserNotification(data);
-
-          // Show indicator dot on bell
-          if (dot) dot.classList.remove('d-none');
 
           // If current tab is NOT already viewing this lead, show toast popup!
           if (!window.__activeLeadId || String(window.__activeLeadId) !== String(data.leadId)) {
